@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="300" height="200" viewBox="0 0 300 200">
+  <!-- Generator: Adobe Illustrator 28.0, SVG Export Plug-In -->
+  <!-- Author: CleanShot Test Fixture Author (Jane Doe) -->
+  <metadata>
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:creator>Jane Doe</dc:creator>
+        <dc:title>Test Vector Artwork with Heavy Metadata</dc:title>
+        <dc:date>2026-09-29</dc:date>
+      </rdf:Description>
+    </rdf:RDF>
+  </metadata>
+  <rect width="300" height="200" rx="16" fill="#4f46e5" inkscape:label="Background" />
+  <circle cx="150" cy="100" r="50" fill="#ffffff" opacity="0.9" inkscape:label="Sun" />
+</svg>
