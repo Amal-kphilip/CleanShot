@@ -65,15 +65,18 @@ export default function FormatsPage() {
   ];
 
   return (
-    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent">
+    <div className="flex flex-col min-h-dvh">
       <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-10 sm:space-y-12">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         <div className="text-center space-y-3">
-          <h1 className="text-[30px] sm:text-[46px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.15]">
-            Supported <span className="text-accent dark:text-accent-dark">Formats</span>
+          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+            Supported{' '}
+            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+              Formats
+            </span>
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-lg mx-auto font-normal leading-relaxed">
+          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
             Lossless segment-level stripping across raster, vector, next-generation, and camera RAW formats.
           </p>
         </div>
@@ -82,29 +85,29 @@ export default function FormatsPage() {
           {formats.map((fmt) => (
             <div
               key={fmt.name}
-              className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] space-y-3 flex flex-col justify-between"
+              className="p-6 rounded-card liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14] apple-spring space-y-4 flex flex-col justify-between"
             >
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[15px] font-semibold text-n-900 dark:text-white">
+                  <h3 className="text-[16px] font-semibold tracking-heading text-foreground">
                     {fmt.name}
                   </h3>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-n-100 dark:bg-white/[0.06] text-n-600 dark:text-n-400 border border-n-200/60 dark:border-white/[0.06]">
+                  <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-pill bg-black/[0.04] dark:bg-white/[0.06] text-text-sec border border-border-glass">
                     {fmt.ext}
                   </span>
                 </div>
 
-                <div className="text-[12px] text-n-500 dark:text-n-400 space-y-1.5 leading-relaxed">
+                <div className="text-[13px] text-text-sec space-y-1.5 leading-relaxed">
                   <p>
-                    <span className="font-medium text-n-700 dark:text-n-300">Method:</span> {fmt.method}
+                    <span className="font-medium text-foreground">Method:</span> {fmt.method}
                   </p>
                   <p>
-                    <span className="font-medium text-n-700 dark:text-n-300">Removed:</span> {fmt.tagsStripped}
+                    <span className="font-medium text-foreground">Removed:</span> {fmt.tagsStripped}
                   </p>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-n-100 dark:border-white/[0.06] flex items-center gap-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <div className="pt-3.5 border-t border-border-subtle flex items-center gap-2 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>{fmt.guarantee}</span>
               </div>
@@ -112,6 +115,12 @@ export default function FormatsPage() {
           ))}
         </div>
       </main>
+
+      {/* Minimal Footer */}
+      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
+        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
+        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+      </footer>
     </div>
   );
 }

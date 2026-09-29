@@ -61,21 +61,21 @@ export function FileList({
   };
 
   return (
-    <div className="space-y-3 w-full">
+    <div className="space-y-3.5 w-full">
       {/* List Header */}
-      <div className="flex items-center justify-between px-0.5">
+      <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2.5">
-          <h3 className="text-[13px] font-semibold text-n-900 dark:text-white">Queue</h3>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-n-100 dark:bg-white/[0.08] text-n-600 dark:text-n-300">
+          <h3 className="text-[14px] font-semibold text-foreground">Queue</h3>
+          <span className="px-2 py-0.5 rounded-pill text-[11px] font-semibold bg-black/[0.04] dark:bg-white/[0.08] text-text-sec">
             {files.length}
           </span>
           {queuedCount > 0 && (
-            <span className="text-[11px] font-medium text-n-400 dark:text-n-500">
+            <span className="text-[12px] font-medium text-text-ter">
               {queuedCount} ready
             </span>
           )}
           {completedCount > 0 && (
-            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            <span className="text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
               {completedCount} cleaned
             </span>
           )}
@@ -86,7 +86,7 @@ export function FileList({
             type="button"
             onClick={onProcessAll}
             disabled={isProcessing}
-            className="px-3.5 py-1.5 rounded-xl bg-accent dark:bg-accent-dark hover:opacity-90 active:scale-95 text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="px-4 py-2 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-accent-button apple-spring disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing ? (
               <>
@@ -104,7 +104,7 @@ export function FileList({
       </div>
 
       {/* File Cards */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {files.map((item) => {
           const isCompleted = item.status === 'completed';
           const isProcessingItem = item.status === 'processing' || item.status === 'inspecting';
@@ -113,28 +113,28 @@ export function FileList({
           return (
             <div
               key={item.id}
-              className={`group relative flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3.5 rounded-2xl border transition-all duration-200 ${
+              className={`group relative flex flex-col sm:flex-row items-start sm:items-center gap-3.5 p-3.5 sm:p-4 rounded-card border transition-all duration-apple ease-apple ${
                 isProcessingItem
-                  ? 'border-accent/30 dark:border-accent/25 bg-accent/[0.03] dark:bg-accent/[0.04]'
+                  ? 'border-accent/40 bg-accent-light shadow-sm'
                   : isError
-                  ? 'border-red-200 dark:border-red-800/50 bg-red-50/30 dark:bg-red-950/10'
+                  ? 'border-red-500/30 bg-red-500/[0.04]'
                   : isCompleted
-                  ? 'border-n-200 dark:border-white/[0.07] bg-white dark:bg-white/[0.025]'
-                  : 'border-n-200 dark:border-white/[0.07] bg-white dark:bg-white/[0.025] hover:border-n-300 dark:hover:border-white/[0.12]'
+                  ? 'liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14]'
+                  : 'liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14]'
               }`}
             >
               {/* Left: Checkbox + Thumbnail + Details */}
-              <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
+              <div className="flex items-center gap-3.5 min-w-0 flex-1 w-full sm:w-auto">
                 {/* Selection checkbox */}
                 <input
                   type="checkbox"
                   checked={item.selected !== false}
                   onChange={() => onToggleSelect(item.id)}
-                  className="w-4 h-4 rounded text-accent focus:ring-accent border-n-300 dark:border-n-700 dark:bg-n-800 shrink-0"
+                  className="w-4 h-4 rounded text-accent focus:ring-accent border-border-subtle bg-transparent shrink-0"
                 />
 
                 {/* Thumbnail */}
-                <div className="relative w-12 h-12 sm:w-11 sm:h-11 rounded-xl overflow-hidden bg-n-100 dark:bg-white/[0.05] border border-n-200 dark:border-white/[0.07] shrink-0 flex items-center justify-center">
+                <div className="relative w-12 h-12 rounded-small overflow-hidden bg-black/[0.04] dark:bg-white/[0.05] border border-border-subtle shrink-0 flex items-center justify-center">
                   {item.thumbnailUrl ? (
                     <img
                       src={item.thumbnailUrl}
@@ -142,10 +142,10 @@ export function FileList({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <FileImage className="w-5 h-5 text-n-400" />
+                    <FileImage className="w-5 h-5 text-text-ter" />
                   )}
                   {isProcessingItem && (
-                    <div className="absolute inset-0 bg-n-900/50 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
                       <Loader2 className="w-4 h-4 text-white animate-spin" />
                     </div>
                   )}
@@ -158,23 +158,23 @@ export function FileList({
 
                 {/* File info */}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                    <span className="text-[13px] font-semibold text-n-900 dark:text-white truncate max-w-[160px] sm:max-w-[240px] md:max-w-sm">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="text-[13px] sm:text-[14px] font-semibold text-foreground truncate max-w-[180px] sm:max-w-[260px] md:max-w-md">
                       {item.result ? item.result.cleanedFilename : item.file.name}
                     </span>
                     {item.result && item.result.cleanedFilename !== item.file.name && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-accent/10 dark:bg-accent/[0.12] text-accent dark:text-accent-dark border border-accent/20 dark:border-accent/20">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-pill bg-accent-light text-accent border border-accent/20">
                         Renamed
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px] text-n-500 dark:text-n-400 flex-wrap">
+                  <div className="flex items-center gap-2.5 text-[12px] text-text-sec flex-wrap">
                     <span>{formatBytes(item.file.size)}</span>
 
                     {item.result && item.result.bytesSaved > 0 && (
                       <>
-                        <span className="text-n-300 dark:text-n-600">→</span>
+                        <span className="text-text-ter">→</span>
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
                           -{formatBytes(item.result.bytesSaved)}
                         </span>
@@ -183,19 +183,19 @@ export function FileList({
 
                     {/* Status indicator dot */}
                     {item.status === 'queued' && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                        <span className="text-n-400 dark:text-n-500">queued</span>
+                        <span className="text-text-ter">queued</span>
                       </span>
                     )}
                     {isProcessingItem && (
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent dark:bg-accent-dark animate-pulse inline-block" />
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse inline-block" />
                         <span>processing</span>
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                         <span className="text-emerald-600 dark:text-emerald-400">cleaned</span>
                       </span>
@@ -203,45 +203,45 @@ export function FileList({
 
                     {/* Sensitive data badges */}
                     {item.metadata?.gps && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-pill bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
                         <MapPin className="w-2.5 h-2.5" /> GPS
                       </span>
                     )}
                     {item.metadata?.categories.camera && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-n-100 dark:bg-white/[0.05] text-n-500 dark:text-n-400 border border-n-200 dark:border-white/[0.07]">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-pill bg-black/[0.03] dark:bg-white/[0.05] text-text-ter border border-border-subtle">
                         <Camera className="w-2.5 h-2.5" /> EXIF
                       </span>
                     )}
                   </div>
 
-                  {/* Progress bar */}
+                  {/* Per-file Progress bar */}
                   {isProcessingItem && (
-                    <div className="w-full max-w-[200px] h-0.5 bg-n-100 dark:bg-white/[0.07] rounded-full overflow-hidden mt-1.5">
+                    <div className="w-full max-w-[200px] h-1 bg-black/[0.06] dark:bg-white/[0.08] rounded-pill overflow-hidden mt-1.5">
                       <div
-                        className="h-full bg-accent dark:bg-accent-dark transition-all duration-300 rounded-full"
+                        className="h-full bg-accent transition-all duration-apple ease-apple rounded-pill"
                         style={{ width: `${item.progress}%` }}
                       />
                     </div>
                   )}
 
                   {isError && (
-                    <p className="text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1 mt-0.5">
+                    <p className="text-[12px] text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      {item.error || 'Failed to process'}
+                      <span>{item.error || 'Failed to process'}</span>
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Right: Action buttons — visible on hover on desktop, always on mobile */}
-              <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-n-100 dark:border-white/[0.06]">
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-border-subtle">
                 <button
                   type="button"
                   onClick={() => onInspectFile(item)}
-                  className="px-2.5 py-1.5 rounded-lg bg-n-100 hover:bg-n-200 dark:bg-white/[0.05] dark:hover:bg-white/[0.09] text-n-600 dark:text-n-300 text-[12px] font-medium border border-n-200 dark:border-white/[0.08] flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 rounded-pill liquid-glass hover:bg-glass-hover text-foreground text-[12px] font-medium apple-spring apple-press flex items-center gap-1.5"
                   title="Inspect Metadata"
                 >
-                  <Eye className="w-3.5 h-3.5" />
+                  <Eye className="w-3.5 h-3.5 text-text-sec" />
                   <span>Inspect</span>
                 </button>
 
@@ -249,7 +249,7 @@ export function FileList({
                   <button
                     type="button"
                     onClick={() => onDownloadFile(item)}
-                    className="px-2.5 py-1.5 rounded-lg bg-accent dark:bg-accent-dark hover:opacity-90 text-white text-[12px] font-medium flex items-center gap-1 transition-all shadow-sm"
+                    className="px-3 py-1.5 rounded-pill bg-accent hover:bg-accent-hover text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm apple-spring apple-press"
                     title="Download Cleaned"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -260,7 +260,7 @@ export function FileList({
                 <button
                   type="button"
                   onClick={() => onRemoveFile(item.id)}
-                  className="p-1.5 rounded-lg text-n-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-n-100 dark:hover:bg-white/[0.05] transition-colors"
+                  className="p-2 rounded-pill text-text-ter hover:text-red-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] apple-spring apple-press"
                   title="Remove from batch"
                 >
                   <Trash2 className="w-4 h-4" />

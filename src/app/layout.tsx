@@ -34,8 +34,23 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
-      <body className="antialiased min-h-dvh bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 transition-colors duration-200">
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className="antialiased min-h-dvh bg-background text-foreground transition-colors duration-200 relative selection:bg-accent/20 selection:text-accent">
+        <ThemeProvider>
+          {/* Subtle Aurora mesh background */}
+          <div className="aurora-mesh" aria-hidden="true">
+            <div className="aurora-blob-1" />
+            <div className="aurora-blob-2" />
+            <div className="aurora-blob-3" />
+          </div>
+
+          {/* Very faint noise overlay */}
+          <div className="noise-overlay" aria-hidden="true" />
+
+          {/* Main Content */}
+          <div className="relative z-10 flex flex-col min-h-dvh">
+            {children}
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -47,16 +47,19 @@ export default function InspectorPage() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent">
+    <div className="flex flex-col min-h-dvh">
       <Header />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         {/* Title */}
         <div className="text-center space-y-3">
-          <h1 className="text-[30px] sm:text-[46px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.15]">
-            Metadata <span className="text-accent dark:text-accent-dark">Inspector</span>
+          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+            Metadata{' '}
+            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+              Inspector
+            </span>
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-lg mx-auto font-normal leading-relaxed">
+          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
             Drop any image to reveal hidden GPS coordinates, camera serials, creator identity, and capture parameters.
           </p>
         </div>
@@ -71,22 +74,22 @@ export default function InspectorPage() {
 
         {/* Inspection Result Preview */}
         {file && metadata && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] shadow-sm space-y-6 animate-fade-up">
+          <div className="p-6 sm:p-7 rounded-card liquid-glass shadow-glass space-y-6 animate-fade-up">
             {/* Top Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-n-100 dark:border-white/[0.06]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
               <div className="flex items-center gap-3.5">
                 {thumbnailUrl && (
                   <img
                     src={thumbnailUrl}
                     alt={file.name}
-                    className="w-12 h-12 rounded-xl object-cover border border-n-200 dark:border-white/[0.08] shrink-0"
+                    className="w-12 h-12 rounded-small object-cover border border-border-subtle shrink-0"
                   />
                 )}
                 <div className="min-w-0">
-                  <h3 className="text-[14px] font-semibold text-n-900 dark:text-white truncate max-w-xs sm:max-w-md">
+                  <h3 className="text-[15px] font-semibold tracking-heading text-foreground truncate max-w-xs sm:max-w-md">
                     {file.name}
                   </h3>
-                  <p className="text-[11px] text-n-400 dark:text-n-500">
+                  <p className="text-[12px] text-text-ter">
                     {(file.size / 1024 / 1024).toFixed(2)} MB · {metadata.format.toUpperCase()} · {metadata.fields.length} fields detected
                   </p>
                 </div>
@@ -96,7 +99,7 @@ export default function InspectorPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-accent dark:bg-accent-dark hover:opacity-90 active:scale-95 text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                  className="px-4 py-2 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-accent-button apple-spring"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>View Details</span>
@@ -106,7 +109,7 @@ export default function InspectorPage() {
                   <button
                     type="button"
                     onClick={handleDownloadCleaned}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    className="px-4 py-2 rounded-pill bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm apple-spring"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download Cleaned</span>
@@ -120,7 +123,7 @@ export default function InspectorPage() {
                     setMetadata(null);
                     setCleanedBuffer(null);
                   }}
-                  className="px-3 py-2 rounded-xl text-[12px] font-medium text-n-500 dark:text-n-400 hover:text-n-900 dark:hover:text-white hover:bg-n-100 dark:hover:bg-white/[0.06] transition-colors"
+                  className="px-3 py-2 rounded-pill text-[12px] font-medium text-text-sec hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06] apple-spring apple-press"
                 >
                   New Photo
                 </button>
@@ -129,7 +132,7 @@ export default function InspectorPage() {
 
             {/* GPS Warning Strip */}
             {metadata.gps && (
-              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 flex items-start gap-2.5">
+              <div className="p-3.5 rounded-small bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <div className="text-[12px]">
                   <span className="font-semibold text-amber-900 dark:text-amber-300 block mb-0.5">
@@ -144,39 +147,39 @@ export default function InspectorPage() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="p-3.5 rounded-xl bg-n-50 dark:bg-white/[0.02] border border-n-100 dark:border-white/[0.05]">
-                <span className="text-[10px] font-semibold text-n-400 dark:text-n-500 uppercase tracking-wider block mb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-small liquid-glass border border-border-subtle">
+                <span className="text-[11px] font-semibold text-text-ter uppercase tracking-caps block mb-1">
                   Location Tags
                 </span>
-                <span className="text-[19px] font-semibold text-n-900 dark:text-white">
+                <span className="text-[20px] font-semibold text-foreground tabular-nums">
                   {metadata.categories.location}
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-n-50 dark:bg-white/[0.02] border border-n-100 dark:border-white/[0.05]">
-                <span className="text-[10px] font-semibold text-n-400 dark:text-n-500 uppercase tracking-wider block mb-1">
+              <div className="p-3.5 rounded-small liquid-glass border border-border-subtle">
+                <span className="text-[11px] font-semibold text-text-ter uppercase tracking-caps block mb-1">
                   Camera Info
                 </span>
-                <span className="text-[19px] font-semibold text-n-900 dark:text-white">
+                <span className="text-[20px] font-semibold text-foreground tabular-nums">
                   {metadata.categories.camera}
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-n-50 dark:bg-white/[0.02] border border-n-100 dark:border-white/[0.05]">
-                <span className="text-[10px] font-semibold text-n-400 dark:text-n-500 uppercase tracking-wider block mb-1">
+              <div className="p-3.5 rounded-small liquid-glass border border-border-subtle">
+                <span className="text-[11px] font-semibold text-text-ter uppercase tracking-caps block mb-1">
                   Timestamps
                 </span>
-                <span className="text-[19px] font-semibold text-n-900 dark:text-white">
+                <span className="text-[20px] font-semibold text-foreground tabular-nums">
                   {metadata.categories.datetime}
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-n-50 dark:bg-white/[0.02] border border-n-100 dark:border-white/[0.05]">
-                <span className="text-[10px] font-semibold text-n-400 dark:text-n-500 uppercase tracking-wider block mb-1">
+              <div className="p-3.5 rounded-small liquid-glass border border-border-subtle">
+                <span className="text-[11px] font-semibold text-text-ter uppercase tracking-caps block mb-1">
                   Author / Copyright
                 </span>
-                <span className="text-[19px] font-semibold text-n-900 dark:text-white">
+                <span className="text-[20px] font-semibold text-foreground tabular-nums">
                   {metadata.categories.author}
                 </span>
               </div>
@@ -193,6 +196,12 @@ export default function InspectorPage() {
           thumbnailUrl={thumbnailUrl}
         />
       </main>
+
+      {/* Minimal Footer */}
+      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
+        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
+        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+      </footer>
     </div>
   );
 }

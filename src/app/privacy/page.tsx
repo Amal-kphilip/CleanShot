@@ -24,15 +24,18 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent">
+    <div className="flex flex-col min-h-dvh">
       <Header />
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-10 sm:space-y-12">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         <div className="text-center space-y-3">
-          <h1 className="text-[30px] sm:text-[46px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.15]">
-            Privacy by <span className="text-accent dark:text-accent-dark">Design</span>
+          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+            Privacy by{' '}
+            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+              Design
+            </span>
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-lg mx-auto font-normal leading-relaxed">
+          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
             Your photos never leave your device. CleanShot is engineered from the ground up as a zero-knowledge architecture.
           </p>
         </div>
@@ -43,17 +46,17 @@ export default function PrivacyPage() {
             return (
               <div
                 key={item.title}
-                className="p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] space-y-2.5"
+                className="p-6 sm:p-7 rounded-card liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14] apple-spring space-y-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-n-100 dark:bg-white/[0.06] text-n-700 dark:text-n-300 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-small liquid-glass text-foreground flex items-center justify-center shrink-0 shadow-xs">
                     <Icon className="w-4 h-4" />
                   </div>
-                  <h3 className="text-[15px] font-semibold text-n-900 dark:text-white">
+                  <h3 className="text-[16px] font-semibold tracking-heading text-foreground">
                     {item.title}
                   </h3>
                 </div>
-                <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed font-normal pl-11">
+                <p className="text-[13px] text-text-sec leading-relaxed font-normal pl-11">
                   {item.desc}
                 </p>
               </div>
@@ -61,6 +64,12 @@ export default function PrivacyPage() {
           })}
         </div>
       </main>
+
+      {/* Minimal Footer */}
+      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
+        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
+        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+      </footer>
     </div>
   );
 }

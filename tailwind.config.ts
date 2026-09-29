@@ -10,15 +10,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        // Single accent — indigo
-        accent: {
-          DEFAULT: "#6366f1",
-          muted: "rgba(99,102,241,0.12)",
-          dark: "#818cf8",
+        background: "var(--bg-app)",
+        foreground: "var(--text-primary)",
+        "text-sec": "var(--text-secondary)",
+        "text-ter": "var(--text-tertiary)",
+        
+        glass: {
+          surface: "var(--surface-glass)",
+          hover: "var(--surface-glass-hover)",
+          card: "var(--surface-card)",
+          elevated: "var(--surface-elevated)",
         },
-        // Neutral surface scale — warm near-black to near-white
+        
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          light: "var(--accent-light)",
+          glow: "var(--accent-glow)",
+        },
+        
+        // Neutral palette mapped to CSS vars
         n: {
           0:   "#FFFFFF",
           50:  "#F9F9FB",
@@ -32,9 +43,8 @@ const config: Config = {
           800: "#222228",
           850: "#18181D",
           900: "#111114",
-          950: "#0C0C10",
+          950: "#0A0A0C",
         },
-        // Keep brand alias for accent (backward compat with test utils)
         brand: {
           50:  "#eef2ff",
           100: "#e0e7ff",
@@ -59,41 +69,33 @@ const config: Config = {
           700: "#334155",
           800: "#1e293b",
           900: "#0f172a",
-          950: "#020617",
+          950: "#0A0A0C",
         },
       },
-      borderColor: {
-        hairline: "var(--surface-border)",
+      borderRadius: {
+        'small': '12px',
+        'card': '20px',
+        'dropzone': '28px',
+        'pill': '9999px',
       },
-      animation: {
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "fade-up": "fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "slide-up": "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+      letterSpacing: {
+        'headline': '-0.03em',
+        'heading': '-0.01em',
+        'caps': '0.06em',
       },
-      keyframes: {
-        fadeUp: {
-          from: { opacity: "0", transform: "translateY(10px)" },
-          to:   { opacity: "1", transform: "translateY(0)" },
-        },
-        slideUp: {
-          from: { opacity: "0", transform: "translateY(16px)" },
-          to:   { opacity: "1", transform: "translateY(0)" },
-        },
+      lineHeight: {
+        'tight-title': '1.05',
       },
-      fontFamily: {
-        sans: [
-          "Inter",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "Helvetica Neue",
-          "Arial",
-          "sans-serif",
-        ],
+      transitionTimingFunction: {
+        'apple': 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       },
-      backdropBlur: {
-        xs: "4px",
+      transitionDuration: {
+        'apple': '250ms',
+      },
+      boxShadow: {
+        'glass': 'var(--shadow-glass)',
+        'floating': 'var(--shadow-floating)',
+        'accent-button': 'var(--shadow-button)',
       },
     },
   },

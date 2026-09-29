@@ -42,36 +42,36 @@ export function SummaryCard({ files }: SummaryCardProps) {
   ];
 
   return (
-    <div className="w-full rounded-2xl border border-n-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.025] overflow-hidden animate-fade-up">
+    <div className="w-full rounded-card liquid-glass overflow-hidden shadow-glass animate-fade-up">
       {/* Header row */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-n-100 dark:border-white/[0.06]">
+      <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border-subtle">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-small bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[13px] font-semibold text-n-900 dark:text-white">
+            <div className="text-[14px] font-semibold text-foreground">
               {completedFiles.length} {completedFiles.length === 1 ? 'photo' : 'photos'} cleaned
             </div>
-            <div className="text-[11px] text-n-400 dark:text-n-500">
+            <div className="text-[12px] text-text-ter">
               Zero pixels re-compressed · Lossless
             </div>
           </div>
         </div>
-        <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">
+        <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-pill bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
           Pixel-identical
         </span>
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-n-100 dark:divide-white/[0.06]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border-subtle">
         {metrics.map((m) => (
-          <div key={m.label} className="px-5 py-4">
-            <div className="text-[11px] font-medium text-n-400 dark:text-n-500 uppercase tracking-wide mb-1">
+          <div key={m.label} className="px-5 sm:px-6 py-4">
+            <div className="text-[11px] font-semibold text-text-ter uppercase tracking-caps mb-1.5">
               {m.label}
             </div>
-            <div className="text-[22px] font-semibold text-n-900 dark:text-white leading-none">
+            <div className="text-[22px] font-semibold text-foreground tabular-nums leading-none">
               {m.value}
             </div>
           </div>

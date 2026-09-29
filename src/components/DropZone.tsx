@@ -34,21 +34,27 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
   }, [onFilesSelected, disabled, isProcessing]);
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     if (!disabled && !isProcessing) setIsDragOver(true);
   };
+
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
   };
+
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
     if (disabled || isProcessing) return;
     if (e.dataTransfer.files?.length > 0) {
       onFilesSelected(Array.from(e.dataTransfer.files));
     }
   };
+
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
       onFilesSelected(Array.from(e.target.files));
@@ -65,12 +71,20 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isProcessing && fileInputRef.current?.click()}
-        className={`relative group cursor-pointer rounded-2xl transition-all duration-200 overflow-hidden ${
+        className={`relative group cursor-pointer rounded-dropzone transition-all duration-apple ease-apple overflow-hidden p-8 sm:p-14 text-center flex flex-col items-center justify-center ${
           isDragOver
-            ? 'border-2 border-dashed border-accent dark:border-accent-dark ring-4 ring-accent/10 dark:ring-accent/10 bg-accent/[0.04] dark:bg-accent/[0.06] scale-[1.005]'
-            : 'border border-n-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.025] shadow-sm shadow-black/[0.04] hover:border-n-300 dark:hover:border-white/[0.14] hover:shadow-md hover:shadow-black/[0.06]'
-        } p-8 sm:p-12 text-center flex flex-col items-center justify-center`}
+            ? 'scale-[1.01] border-2 border-accent bg-accent-light ring-4 ring-accent-glow shadow-floating'
+            : 'liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.16]'
+        }`}
+        style={{
+          boxShadow: isDragOver
+            ? 'var(--shadow-floating), 0 0 30px var(--accent-glow)'
+            : 'var(--shadow-glass)',
+        }}
       >
+        {/* Subtle top inner light highlight */}
+        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 dark:via-white/20 to-transparent pointer-events-none" />
+
         {/* Hidden File Inputs */}
         <input
           ref={fileInputRef}
@@ -91,62 +105,78 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           className="hidden"
         />
 
-        {/* Upload Icon */}
-        <div
-          className={`mb-5 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${
-            isDragOver
-              ? 'bg-accent dark:bg-accent-dark text-white scale-110'
-              : 'bg-n-100 dark:bg-white/[0.06] text-n-400 dark:text-n-500 group-hover:bg-n-200 dark:group-hover:bg-white/[0.1] group-hover:text-n-600 dark:group-hover:text-n-300'
-          }`}
-        >
-          <UploadCloud className="w-6 h-6" strokeWidth={1.75} />
+        {/* Upload Icon inside Glass Rounded Square with Glow */}
+        <div className="relative mb-5">
+          <div
+            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-apple ease-apple ${
+              isDragOver
+                ? 'bg-accent text-white scale-110 shadow-lg shadow-accent/30'
+                : 'liquid-glass text-text-sec group-hover:text-foreground group-hover:scale-105'
+            }`}
+            style={{
+              boxShadow: isDragOver
+                ? '0 10px 25px -5px var(--accent-glow)'
+                : '0 8px 20px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            }}
+          >
+            <UploadCloud className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={1.8} />
+          </div>
         </div>
 
         {/* Headline */}
-        <h3 className="text-[17px] sm:text-xl font-semibold text-n-900 dark:text-white mb-1.5 leading-snug">
-          {isDragOver
-            ? 'Drop to add photos'
-            : <>Drop photos here, or{' '}
-                <span className="text-accent dark:text-accent-dark">browse files</span>
-              </>
-          }
+        <h3 className="text-[19px] sm:text-[22px] font-semibold tracking-tight text-foreground mb-2 leading-snug">
+          {isDragOver ? (
+            <span className="text-accent font-semibold">Drop to add photos</span>
+          ) : (
+            <>
+              Drop photos here, or{' '}
+              <span className="text-accent hover:underline decoration-1 underline-offset-4">
+                browse files
+              </span>
+            </>
+          )}
         </h3>
-        <p className="text-[13px] text-n-500 dark:text-n-400 max-w-sm mb-6 leading-relaxed">
-          Batch process 100+ images. Paste{' '}
-          <kbd className="px-1.5 py-0.5 text-[11px] bg-n-100 dark:bg-white/[0.07] border border-n-200 dark:border-white/[0.08] rounded font-mono">Ctrl+V</kbd>
-          {' '}or upload a folder.
+
+        {/* Subtitle with physical keycap */}
+        <p className="text-[14px] text-text-sec max-w-sm mb-7 leading-relaxed">
+          Batch process 100+ images. Paste <kbd className="keycap mx-1">Ctrl+V</kbd> or upload a folder.
         </p>
 
         {/* Action Buttons */}
         <div
-          className="flex flex-row items-center gap-2.5 mb-6 w-full max-w-[280px] sm:max-w-none sm:w-auto"
+          className="flex flex-row items-center gap-3 mb-7 w-full max-w-[280px] sm:max-w-none sm:w-auto"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Primary Select Photos Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-accent dark:bg-accent-dark hover:opacity-90 active:scale-95 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center justify-center gap-2 shadow-accent-button apple-spring relative overflow-hidden"
+            style={{
+              boxShadow: '0 4px 16px 0 rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+            }}
           >
             <ImagePlus className="w-4 h-4 shrink-0" />
             <span>Select Photos</span>
           </button>
 
+          {/* Secondary Folder Button */}
           <button
             type="button"
             onClick={() => folderInputRef.current?.click()}
-            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-n-100 hover:bg-n-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] active:scale-95 text-n-700 dark:text-n-300 text-[13px] font-semibold border border-n-200 dark:border-white/[0.08] flex items-center justify-center gap-1.5 transition-all"
+            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill liquid-glass hover:bg-glass-hover active:scale-[0.97] text-foreground text-[13px] font-medium flex items-center justify-center gap-2 apple-spring"
           >
-            <FolderPlus className="w-4 h-4 shrink-0" />
+            <FolderPlus className="w-4 h-4 shrink-0 text-text-sec" />
             <span>Folder</span>
           </button>
         </div>
 
-        {/* Format Chips — minimal */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
+        {/* Format Tags (Quiet Metadata) */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-lg">
           {supportedFormats.map((fmt) => (
             <span
               key={fmt}
-              className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-n-50 dark:bg-white/[0.04] text-n-400 dark:text-n-500 border border-n-200 dark:border-white/[0.06]"
+              className="text-[12px] font-medium px-2.5 py-0.5 rounded-pill bg-black/[0.03] dark:bg-white/[0.04] text-text-ter border border-border-subtle tracking-wide"
             >
               {fmt}
             </span>
