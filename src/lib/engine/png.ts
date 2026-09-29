@@ -2,8 +2,9 @@ import { StripOptions } from './types';
 
 /**
  * Lossless PNG chunk filter.
- * Drops ancillary metadata chunks (tEXt, zTXt, iTXt, eXIf, tIME, dSIG)
- * while strictly preserving critical image raster data (IHDR, PLTE, IDAT, IEND, tRNS).
+ * Drops all textual metadata (tEXt, zTXt, iTXt containing AI prompts/C2PA/XMP),
+ * eXIf, tIME, dSIG, c2pa, and any non-critical vendor/AI chunks while strictly preserving
+ * critical image raster data (IHDR, PLTE, IDAT, IEND, tRNS). Truncates any trailing payload after IEND.
  */
 export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
@@ -37,7 +38,6 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
 
   while (offset < len) {
     if (offset + 8 > len) {
-      // Malformed end; break safely
       break;
     }
 
@@ -57,67 +57,13 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
 
     const totalChunkLength = 12 + dataLength; // 4 len + 4 type + data + 4 crc
     if (offset + totalChunkLength > len) {
-      // Chunk exceeds stream bounds
       break;
     }
 
-    let shouldKeep = true;
+    let shouldKeep = false;
     let segName = `PNG ${chunkType} chunk`;
 
     switch (chunkType) {
-      // Metadata Chunks (ALWAYS STRIP)
-      case 'tEXt':
-        shouldKeep = false;
-        segName = 'tEXt (Uncompressed text metadata)';
-        removedSegments.push(segName);
-        break;
-      case 'zTXt':
-        shouldKeep = false;
-        segName = 'zTXt (Compressed text metadata)';
-        removedSegments.push(segName);
-        break;
-      case 'iTXt':
-        shouldKeep = false;
-        segName = 'iTXt (International UTF-8 / XMP / XML metadata)';
-        removedSegments.push(segName);
-        break;
-      case 'eXIf':
-        shouldKeep = false;
-        segName = 'eXIf (Embedded EXIF data)';
-        removedSegments.push(segName);
-        break;
-      case 'tIME':
-        shouldKeep = false;
-        segName = 'tIME (Last modification timestamp)';
-        removedSegments.push(segName);
-        break;
-      case 'dSIG':
-        shouldKeep = false;
-        segName = 'dSIG (Digital Signature / C2PA credentials)';
-        removedSegments.push(segName);
-        break;
-      case 'prPt':
-        shouldKeep = false;
-        segName = 'prPt (Private property chunks)';
-        removedSegments.push(segName);
-        break;
-
-      // Color Profile Chunks (Configurable)
-      case 'iCCP':
-        if (!keepIcc) {
-          shouldKeep = false;
-          removedSegments.push('iCCP (Embedded ICC Color Profile)');
-        }
-        break;
-      case 'sRGB':
-      case 'cHRM':
-      case 'gAMA':
-        if (!keepIcc) {
-          shouldKeep = false;
-          removedSegments.push(`${chunkType} (Color space calibration)`);
-        }
-        break;
-
       // Critical and Render Chunks (ALWAYS KEEP)
       case 'IHDR':
       case 'PLTE':
@@ -128,10 +74,58 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
       case 'acTL': // APNG Animation Control
       case 'fcTL': // APNG Frame Control
       case 'fdAT': // APNG Frame Data
-      default:
-        // By PNG specification:
-        // Chunks with 5th bit set in 1st byte (lowercase first char) are ancillary
         shouldKeep = true;
+        break;
+
+      // Color Profile Chunks (Configurable)
+      case 'iCCP':
+      case 'sRGB':
+      case 'cHRM':
+      case 'gAMA':
+        if (keepIcc) {
+          shouldKeep = true;
+        } else {
+          shouldKeep = false;
+          removedSegments.push(`${chunkType} (Color calibration chunk)`);
+        }
+        break;
+
+      // Metadata & AI Chunks (ALWAYS STRIP)
+      case 'tEXt':
+        shouldKeep = false;
+        segName = 'tEXt (Text metadata / AI generation parameters)';
+        removedSegments.push(segName);
+        break;
+      case 'zTXt':
+        shouldKeep = false;
+        segName = 'zTXt (Compressed text metadata / AI parameters)';
+        removedSegments.push(segName);
+        break;
+      case 'iTXt':
+        shouldKeep = false;
+        segName = 'iTXt (UTF-8 metadata / XMP / C2PA manifest)';
+        removedSegments.push(segName);
+        break;
+      case 'eXIf':
+        shouldKeep = false;
+        segName = 'eXIf (Embedded EXIF data)';
+        removedSegments.push(segName);
+        break;
+      case 'tIME':
+        shouldKeep = false;
+        segName = 'tIME (Timestamp metadata)';
+        removedSegments.push(segName);
+        break;
+      case 'dSIG':
+      case 'c2pa':
+        shouldKeep = false;
+        segName = 'C2PA / Digital Signature Credential';
+        removedSegments.push(segName);
+        break;
+      default:
+        // Any unrecognized or ancillary chunk is dropped for strict privacy
+        shouldKeep = false;
+        removedSegments.push(`Ancillary chunk (${chunkType})`);
         break;
     }
 
@@ -142,6 +136,7 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
     offset += totalChunkLength;
 
     if (chunkType === 'IEND') {
+      // Stop strictly at IEND, dropping any trailing payload/watermarks
       break;
     }
   }

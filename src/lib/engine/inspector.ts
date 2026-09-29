@@ -121,6 +121,30 @@ function classifyTag(
 } {
   const k = key.toLowerCase();
 
+  // 0. AI / Content Credentials / C2PA / Prompt Parameters (HIGH RISK)
+  const v = value.toLowerCase();
+  if (
+    k.includes('c2pa') ||
+    k.includes('manifest') ||
+    k.includes('digitalsourcetype') ||
+    k.includes('prompt') ||
+    k.includes('parameters') ||
+    v.includes('trainedalgorithmicmedia') ||
+    v.includes('midjourney') ||
+    v.includes('dall-e') ||
+    v.includes('stable diffusion') ||
+    v.includes('comfyui') ||
+    v.includes('firefly') ||
+    v.includes('synthetic') ||
+    v.includes('c2pa')
+  ) {
+    return {
+      category: 'software',
+      riskLevel: 'high',
+      description: 'AI generation signature / C2PA Content Credentials detected',
+    };
+  }
+
   // 1. Location (HIGH RISK)
   if (
     k.includes('gps') ||

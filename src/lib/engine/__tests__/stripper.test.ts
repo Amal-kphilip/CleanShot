@@ -78,6 +78,36 @@ describe('Lossless JPEG Stripping Engine', () => {
     expect(hasApp1).toBe(false);
     expect(hasCom).toBe(false);
   });
+
+  it('strips C2PA manifests (APP11) and drops trailing payloads after EOI', async () => {
+    const originalJpeg = createSampleJpegWithMetadata();
+    // Append APP11 (0xFFEB) C2PA manifest and trailing metadata after EOI
+    const app11 = [0xFF, 0xEB, 0x00, 0x06, 0x4A, 0x50, 0x00, 0x00]; // "JP"
+    const trailingBytes = [0x54, 0x52, 0x41, 0x49, 0x4C, 0x49, 0x4E, 0x47]; // "TRAILING"
+
+    const jpegWithC2pa = new Uint8Array([
+      originalJpeg[0], originalJpeg[1],
+      ...app11,
+      ...originalJpeg.slice(2),
+      ...trailingBytes
+    ]);
+
+    const result = await stripImageMetadata(jpegWithC2pa, 'ai_art.jpg');
+    expect(result.pixelIdentical).toBe(true);
+
+    // Verify APP11 is removed
+    const cleaned = result.cleanedBuffer;
+    let hasApp11 = false;
+    for (let i = 0; i < cleaned.length - 1; i++) {
+      if (cleaned[i] === 0xFF && cleaned[i + 1] === 0xEB) hasApp11 = true;
+    }
+    expect(hasApp11).toBe(false);
+
+    // Verify trailing bytes after EOI are dropped
+    expect(cleaned[cleaned.length - 2]).toBe(0xFF);
+    expect(cleaned[cleaned.length - 1]).toBe(0xD9);
+    expect(cleaned.length).toBeLessThan(jpegWithC2pa.length);
+  });
 });
 
 describe('Lossless PNG Stripping Engine', () => {
