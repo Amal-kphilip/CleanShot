@@ -22,7 +22,7 @@ export default function HomePage() {
     keepIccProfile: true,
     keepOrientation: true,
     stripAll: true,
-    filenameSuffix: '',
+    filenameSuffix: '_clean',
     preserveFolderStructure: false,
   });
 

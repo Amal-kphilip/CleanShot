@@ -155,8 +155,13 @@ export function FileList({
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <span className="text-xs sm:text-sm font-semibold text-surface-900 dark:text-white truncate max-w-[180px] sm:max-w-xs md:max-w-md">
-                      {item.file.name}
+                      {item.result ? item.result.cleanedFilename : item.file.name}
                     </span>
+                    {item.result && item.result.cleanedFilename !== item.file.name && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                        Renamed
+                      </span>
+                    )}
                     <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700">
                       {item.result?.format || item.file.name.split('.').pop() || 'IMG'}
                     </span>
