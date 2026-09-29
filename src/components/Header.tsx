@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,16 +28,21 @@ export function Header({ onOpenSettings }: HeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll when mobile menu is open
+  // Close mobile menu on route change
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [mobileMenuOpen]);
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Close on escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const navLinks = [
     { href: '/',             label: 'Strip',        icon: Layers },
@@ -52,8 +57,8 @@ export function Header({ onOpenSettings }: HeaderProps) {
     <>
       {/* Floating Centered Pill Navbar */}
       <header className="sticky top-4 z-50 w-full px-4 sm:px-6 pointer-events-none">
-        <div className="max-w-[900px] mx-auto pointer-events-auto">
-          <nav className="liquid-glass-nav rounded-pill px-3.5 sm:px-4 py-2 flex items-center justify-between transition-all duration-300">
+        <div className="max-w-[900px] mx-auto pointer-events-auto relative">
+          <nav className="liquid-glass-nav rounded-pill px-3.5 sm:px-4 py-2 flex items-center justify-between transition-all duration-200">
             {/* Logo on Left */}
             <Link
               href="/"
@@ -86,7 +91,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
                     key={link.href}
                     href={link.href}
                     onMouseEnter={() => setHoveredTab(link.href)}
-                    className={`relative px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200 rounded-pill select-none ${
+                    className={`relative px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-150 rounded-pill select-none ${
                       isActive
                         ? 'text-foreground font-semibold'
                         : 'text-text-sec hover:text-foreground'
@@ -96,7 +101,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
                     {isActive && (
                       <motion.span
                         layoutId="active-nav-pill"
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                         className="absolute inset-0 rounded-pill bg-black/[0.06] dark:bg-white/[0.09] shadow-xs -z-10"
                       />
                     )}
@@ -116,7 +121,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
               })}
             </div>
 
-            {/* Right Controls: Settings & Theme Toggle */}
+            {/* Right Controls: Settings, Theme Toggle & Animated Hamburger */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pr-0.5">
               {onOpenSettings && (
                 <button
@@ -137,10 +142,10 @@ export function Header({ onOpenSettings }: HeaderProps) {
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={theme}
-                    initial={{ y: -12, opacity: 0, rotate: -40 }}
+                    initial={{ y: -10, opacity: 0, rotate: -30 }}
                     animate={{ y: 0, opacity: 1, rotate: 0 }}
-                    exit={{ y: 12, opacity: 0, rotate: 40 }}
-                    transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                    exit={{ y: 10, opacity: 0, rotate: 30 }}
+                    transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
                   >
                     {theme === 'dark' ? (
                       <Sun className="w-4 h-4 text-amber-400" />
@@ -151,107 +156,115 @@ export function Header({ onOpenSettings }: HeaderProps) {
                 </AnimatePresence>
               </button>
 
-              {/* Mobile Hamburger Button */}
+              {/* Upgraded Mobile Hamburger Button with Smooth Icon Morph */}
               <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="lg:hidden p-2 rounded-full text-text-sec hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06] apple-spring apple-press"
-                aria-label="Open navigation menu"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`lg:hidden p-2 rounded-full apple-spring apple-press relative transition-colors ${
+                  mobileMenuOpen
+                    ? 'bg-black/[0.08] dark:bg-white/[0.12] text-foreground'
+                    : 'text-text-sec hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
+                }`}
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
               >
-                <Menu className="w-4.5 h-4.5" />
+                <AnimatePresence mode="wait" initial={false}>
+                  {mobileMenuOpen ? (
+                    <motion.div
+                      key="close"
+                      initial={{ rotate: -90, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: 90, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <X className="w-4.5 h-4.5" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="menu"
+                      initial={{ rotate: 90, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: -90, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <Menu className="w-4.5 h-4.5" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </button>
             </div>
           </nav>
+
+          {/* Upgraded Mobile Dropdown Glass Menu (Unfolds Directly Under Floating Pill) */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                className="lg:hidden mt-2 liquid-glass-nav rounded-card shadow-floating overflow-hidden p-2.5 space-y-1.5"
+              >
+                <div className="grid grid-cols-2 gap-1">
+                  {navLinks.map((link) => {
+                    const Icon = link.icon;
+                    const isActive = pathname === link.href;
+
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-small text-[13px] font-medium transition-all apple-press ${
+                          isActive
+                            ? 'bg-black/[0.08] dark:bg-white/[0.12] text-foreground font-semibold shadow-xs'
+                            : 'text-text-sec hover:bg-black/[0.03] dark:hover:bg-white/[0.05] hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 shrink-0 text-text-ter" />
+                        <span className="truncate">{link.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                {/* Footer strip inside mobile menu */}
+                <div className="pt-2 border-t border-border-subtle flex items-center justify-between px-2 text-[11px] text-text-ter">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                    <span>In-Browser · Lossless</span>
+                  </span>
+
+                  {onOpenSettings && (
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onOpenSettings();
+                      }}
+                      className="text-accent hover:underline font-medium"
+                    >
+                      Settings
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
-      {/* Mobile Slide-in Glass Sheet */}
+      {/* Lightweight click-away backdrop */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm lg:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed inset-y-0 right-0 z-[70] w-72 max-w-[85vw] liquid-glass bg-white/95 dark:bg-[#0A0A0C]/95 border-l border-white/[0.1] shadow-2xl lg:hidden flex flex-col"
-            >
-              {/* Sheet header */}
-              <div className="flex items-center justify-between px-5 h-16 border-b border-black/[0.06] dark:border-white/[0.07]">
-                <Link
-                  href="/"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center py-1"
-                >
-                  <img
-                    src="/logo-light.png"
-                    alt="CleanShot"
-                    className="h-5 w-auto block dark:hidden object-contain"
-                  />
-                  <img
-                    src="/logo-dark.png"
-                    alt="CleanShot"
-                    className="h-5 w-auto hidden dark:block object-contain"
-                  />
-                </Link>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-full text-text-ter hover:text-foreground hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors"
-                  aria-label="Close menu"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Nav links */}
-              <nav className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
-                {navLinks.map((link) => {
-                  const Icon = link.icon;
-                  const isActive = pathname === link.href;
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-card text-[14px] font-medium transition-all ${
-                        isActive
-                          ? 'bg-black/[0.06] dark:bg-white/[0.09] text-foreground font-semibold'
-                          : 'text-text-sec hover:bg-black/[0.03] dark:hover:bg-white/[0.04] hover:text-foreground'
-                      }`}
-                    >
-                      <Icon className="w-4.5 h-4.5 shrink-0 text-text-ter" />
-                      <span>{link.label}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-
-              {/* Sheet footer */}
-              <div className="px-5 py-5 border-t border-black/[0.06] dark:border-white/[0.07] space-y-3">
-                {onOpenSettings && (
-                  <button
-                    onClick={() => { setMobileMenuOpen(false); onOpenSettings(); }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-pill bg-black/[0.04] dark:bg-white/[0.06] text-foreground text-[13px] font-medium transition-colors hover:bg-black/[0.08] dark:hover:bg-white/[0.1] apple-press"
-                  >
-                    <SlidersHorizontal className="w-4 h-4 text-text-ter" />
-                    <span>Settings</span>
-                  </button>
-                )}
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-ter">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  <span>100% In-Browser · Private</span>
-                </div>
-              </div>
-            </motion.div>
-          </>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
         )}
       </AnimatePresence>
     </>

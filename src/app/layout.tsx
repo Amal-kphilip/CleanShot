@@ -36,15 +36,8 @@ export default function RootLayout({
       </head>
       <body className="antialiased min-h-dvh bg-background text-foreground transition-colors duration-200 relative selection:bg-accent/20 selection:text-accent">
         <ThemeProvider>
-          {/* Subtle Aurora mesh background */}
-          <div className="aurora-mesh" aria-hidden="true">
-            <div className="aurora-blob-1" />
-            <div className="aurora-blob-2" />
-            <div className="aurora-blob-3" />
-          </div>
-
-          {/* Very faint noise overlay */}
-          <div className="noise-overlay" aria-hidden="true" />
+          {/* Hardware-accelerated static Aurora background (zero CPU/GPU overhead) */}
+          <div className="aurora-mesh" aria-hidden="true" />
 
           {/* Main Content */}
           <div className="relative z-10 flex flex-col min-h-dvh">
