@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { UploadCloud, FolderPlus, ImagePlus, ShieldCheck, Sparkles } from 'lucide-react';
+import { UploadCloud, FolderPlus, ImagePlus, Sparkles } from 'lucide-react';
 
 interface DropZoneProps {
   onFilesSelected: (files: File[]) => void;
@@ -85,7 +85,7 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
     'GIF',
     'TIFF / DNG',
     'SVG',
-    'RAW (CR2, NEF, ARW)',
+    'RAW',
   ];
 
   return (
@@ -95,10 +95,10 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isProcessing && fileInputRef.current?.click()}
-        className={`relative group cursor-pointer rounded-3xl border-2 border-dashed transition-all duration-200 p-8 sm:p-12 text-center flex flex-col items-center justify-center overflow-hidden ${
+        className={`relative group cursor-pointer rounded-2xl sm:rounded-3xl border-2 border-dashed transition-all duration-200 p-5 sm:p-10 text-center flex flex-col items-center justify-center overflow-hidden ${
           isDragOver
-            ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/30 scale-[1.01] ring-4 ring-brand-500/20'
-            : 'border-surface-300 dark:border-surface-700 bg-white/50 dark:bg-surface-900/50 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-surface-50/80 dark:hover:bg-surface-800/40'
+            ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40 scale-[1.01] ring-4 ring-brand-500/20'
+            : 'border-surface-300 dark:border-surface-700 bg-white/60 dark:bg-surface-900/60 hover:border-brand-400 dark:hover:border-brand-600 hover:bg-surface-50 dark:hover:bg-surface-800/40'
         }`}
       >
         {/* Hidden File Inputs */}
@@ -122,59 +122,59 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
         />
 
         {/* Animated Icon Container */}
-        <div className="relative mb-5">
+        <div className="relative mb-4">
           <div
-            className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-300 ${
+            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300 ${
               isDragOver
                 ? 'bg-brand-600 text-white scale-110 shadow-brand-500/30'
                 : 'bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-brand-500/20 group-hover:scale-105'
             }`}
           >
-            <UploadCloud className="w-10 h-10 animate-pulse-slow" />
+            <UploadCloud className="w-7 h-7 sm:w-8 sm:h-8 animate-pulse-slow" />
           </div>
-          <div className="absolute -bottom-1 -right-1 p-1.5 rounded-lg bg-emerald-500 text-white shadow-md">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="absolute -bottom-1 -right-1 p-1 rounded-lg bg-emerald-500 text-white shadow-sm">
+            <Sparkles className="w-3 h-3" />
           </div>
         </div>
 
-        {/* Title and Subtitle */}
-        <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-surface-900 dark:text-white mb-2">
-          Drop your photos here, or <span className="text-brand-600 dark:text-brand-400 underline decoration-2 underline-offset-4">browse files</span>
+        {/* Title and Subtitle - Mobile responsive no awkward break */}
+        <h3 className="text-lg sm:text-2xl font-bold tracking-tight text-surface-900 dark:text-white mb-1.5 px-2">
+          Drop photos here, or <span className="text-brand-600 dark:text-brand-400 underline decoration-2 underline-offset-4">browse files</span>
         </h3>
-        <p className="text-sm text-surface-500 dark:text-surface-400 max-w-lg mb-6">
-          Batch process 100+ images losslessly. Paste from clipboard (<kbd className="px-1.5 py-0.5 text-xs bg-surface-200 dark:bg-surface-800 rounded">Ctrl+V</kbd>) or upload whole folders.
+        <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 max-w-md mb-5 px-2 leading-relaxed">
+          Batch process 100+ images losslessly. Paste (<kbd className="px-1.5 py-0.5 text-[10px] bg-surface-200 dark:bg-surface-800 rounded font-mono">Ctrl+V</kbd>) or upload folders.
         </p>
 
         {/* Action Buttons */}
         <div
-          className="flex flex-wrap items-center justify-center gap-3 mb-6"
+          className="flex flex-row items-center justify-center gap-2.5 sm:gap-3 mb-5 w-full max-w-xs sm:max-w-none"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all hover:scale-[1.02]"
+            className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-xs font-semibold shadow-md shadow-brand-500/20 flex items-center justify-center gap-1.5 transition-all"
           >
-            <ImagePlus className="w-4 h-4" />
-            Select Photos
+            <ImagePlus className="w-4 h-4 shrink-0" />
+            <span>Select Photos</span>
           </button>
 
           <button
             type="button"
             onClick={() => folderInputRef.current?.click()}
-            className="px-4 py-2 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-800 dark:text-surface-200 text-xs font-semibold border border-surface-200 dark:border-surface-700 flex items-center gap-2 transition-all hover:scale-[1.02]"
+            className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 active:scale-95 text-surface-800 dark:text-surface-200 text-xs font-semibold border border-surface-200 dark:border-surface-700 flex items-center justify-center gap-1.5 transition-all"
           >
-            <FolderPlus className="w-4 h-4" />
-            Upload Folder
+            <FolderPlus className="w-4 h-4 shrink-0" />
+            <span>Folder</span>
           </button>
         </div>
 
         {/* Format Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-2xl">
+        <div className="flex flex-wrap items-center justify-center gap-1 max-w-xl">
           {supportedFormats.map((fmt) => (
             <span
               key={fmt}
-              className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800/80 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700/60"
+              className="text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800/80 text-surface-600 dark:text-surface-400 border border-surface-200/80 dark:border-surface-700/60"
             >
               {fmt}
             </span>

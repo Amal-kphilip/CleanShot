@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Sparkles, MapPin, Camera, Calendar, HardDrive, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { FileItemState } from './FileList';
 
 interface SummaryCardProps {
@@ -35,60 +35,58 @@ export function SummaryCard({ files }: SummaryCardProps) {
   };
 
   return (
-    <div className="w-full p-6 rounded-3xl bg-gradient-to-br from-brand-600 via-indigo-600 to-brand-700 text-white shadow-xl shadow-brand-500/20 space-y-4 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="w-full p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-brand-600 via-indigo-600 to-brand-700 text-white shadow-xl shadow-brand-500/20 space-y-3.5 sm:space-y-4 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
-            <ShieldCheck className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shrink-0">
+            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <h4 className="text-lg font-bold">
-              Privacy Secured &bull; {completedFiles.length} Cleaned {completedFiles.length === 1 ? 'Photo' : 'Photos'}
+          <div className="min-w-0">
+            <h4 className="text-base sm:text-lg font-bold truncate">
+              Privacy Secured &bull; {completedFiles.length} Cleaned
             </h4>
-            <p className="text-xs text-brand-100 flex items-center gap-1.5">
-              <span>0 bytes of image pixel data re-compressed</span>
-              <span>&bull;</span>
-              <span>100% Lossless Guarantee</span>
+            <p className="text-[11px] sm:text-xs text-brand-100 truncate">
+              0 bytes of image pixel data re-compressed &bull; Lossless
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="px-3.5 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+        <div className="self-start sm:self-auto shrink-0">
+          <div className="px-2.5 py-1 rounded-lg sm:rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
             <span>Pixel-Identical</span>
           </div>
         </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-        <div className="p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
-          <span className="text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-1">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
+          <span className="text-[10px] sm:text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
             Fields Removed
           </span>
-          <span className="text-xl font-extrabold">{totalFieldsRemoved || 'All EXIF'}</span>
+          <span className="text-base sm:text-xl font-extrabold">{totalFieldsRemoved || 'All EXIF'}</span>
         </div>
 
-        <div className="p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
-          <span className="text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
-            Header Space Saved
+        <div className="p-2.5 sm:p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
+          <span className="text-[10px] sm:text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
+            Space Saved
           </span>
-          <span className="text-xl font-extrabold">{formatBytes(totalBytesSaved)}</span>
+          <span className="text-base sm:text-xl font-extrabold">{formatBytes(totalBytesSaved)}</span>
         </div>
 
-        <div className="p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
-          <span className="text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
-            GPS Leaks Wiped
+        <div className="p-2.5 sm:p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
+          <span className="text-[10px] sm:text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
+            GPS Wiped
           </span>
-          <span className="text-xl font-extrabold">{gpsCount} Files</span>
+          <span className="text-base sm:text-xl font-extrabold">{gpsCount} Files</span>
         </div>
 
-        <div className="p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
-          <span className="text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
-            Camera Serials
+        <div className="p-2.5 sm:p-3 rounded-xl bg-black/15 backdrop-blur-sm border border-white/10">
+          <span className="text-[10px] sm:text-[11px] font-medium text-brand-200 uppercase tracking-wider block">
+            Serials Removed
           </span>
-          <span className="text-xl font-extrabold">{serialCount} Stripped</span>
+          <span className="text-base sm:text-xl font-extrabold">{serialCount} Stripped</span>
         </div>
       </div>
     </div>

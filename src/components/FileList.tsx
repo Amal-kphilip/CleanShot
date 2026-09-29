@@ -9,10 +9,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ShieldAlert,
   Sparkles,
   MapPin,
   Camera,
+  Layers,
 } from 'lucide-react';
 import { StripResult, ParsedMetadata } from '@/lib/engine/types';
 
@@ -31,20 +31,27 @@ export interface FileItemState {
 
 interface FileListProps {
   files: FileItemState[];
+  isProcessing?: boolean;
   onRemoveFile: (id: string) => void;
   onInspectFile: (file: FileItemState) => void;
   onDownloadFile: (file: FileItemState) => void;
   onToggleSelect: (id: string) => void;
+  onProcessAll?: () => void;
 }
 
 export function FileList({
   files,
+  isProcessing,
   onRemoveFile,
   onInspectFile,
   onDownloadFile,
   onToggleSelect,
+  onProcessAll,
 }: FileListProps) {
   if (files.length === 0) return null;
+
+  const queuedCount = files.filter((f) => f.status === 'queued').length;
+  const completedCount = files.filter((f) => f.status === 'completed').length;
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -56,36 +63,66 @@ export function FileList({
 
   return (
     <div className="space-y-3 w-full">
-      <div className="flex items-center justify-between px-2">
-        <h3 className="text-sm font-bold text-surface-900 dark:text-white flex items-center gap-2">
-          <span>Batch Queue</span>
+      {/* List Header with prominent action */}
+      <div className="flex flex-row items-center justify-between px-1 gap-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-bold text-surface-900 dark:text-white">
+            Queue
+          </h3>
           <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300">
-            {files.length} {files.length === 1 ? 'photo' : 'photos'}
+            {files.length}
           </span>
-        </h3>
+          {queuedCount > 0 && (
+            <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              ({queuedCount} ready to clean)
+            </span>
+          )}
+        </div>
+
+        {queuedCount > 0 && onProcessAll && (
+          <button
+            type="button"
+            onClick={onProcessAll}
+            disabled={isProcessing}
+            className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-xs font-bold shadow-sm shadow-brand-500/20 flex items-center gap-1.5 transition-all"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Remove Metadata</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
+      {/* Grid of Files */}
+      <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
         {files.map((item) => {
           const isCompleted = item.status === 'completed';
-          const isProcessing = item.status === 'processing' || item.status === 'inspecting';
+          const isProcessingItem = item.status === 'processing' || item.status === 'inspecting';
           const isError = item.status === 'error';
 
           return (
             <div
               key={item.id}
-              className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+              className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                 isCompleted
                   ? 'bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-800 shadow-sm'
-                  : isProcessing
-                  ? 'bg-brand-50/30 dark:bg-brand-950/20 border-brand-200 dark:border-brand-800/60 shadow-sm'
+                  : isProcessingItem
+                  ? 'bg-brand-50/40 dark:bg-brand-950/30 border-brand-300 dark:border-brand-800 shadow-sm ring-1 ring-brand-500/20'
                   : isError
                   ? 'bg-red-50/30 dark:bg-red-950/20 border-red-200 dark:border-red-900/60'
                   : 'bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-800'
               }`}
             >
               {/* Left: Thumbnail & Details */}
-              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+              <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
                 {/* Selection checkbox */}
                 <input
                   type="checkbox"
@@ -95,7 +132,7 @@ export function FileList({
                 />
 
                 {/* Thumbnail */}
-                <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shrink-0 flex items-center justify-center">
+                <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shrink-0 flex items-center justify-center">
                   {item.thumbnailUrl ? (
                     <img
                       src={item.thumbnailUrl}
@@ -103,29 +140,29 @@ export function FileList({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <FileImage className="w-6 h-6 text-surface-400" />
+                    <FileImage className="w-5 h-5 text-surface-400" />
                   )}
 
                   {/* Status Overlay Icon */}
-                  {isProcessing && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  {isProcessingItem && (
+                    <div className="absolute inset-0 bg-brand-950/60 backdrop-blur-[1px] flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-brand-400 animate-spin" />
                     </div>
                   )}
                 </div>
 
                 {/* File Metadata & Badges */}
                 <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-surface-900 dark:text-white truncate max-w-xs sm:max-w-md">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-semibold text-surface-900 dark:text-white truncate max-w-[180px] sm:max-w-xs md:max-w-md">
                       {item.file.name}
                     </span>
-                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700">
                       {item.result?.format || item.file.name.split('.').pop() || 'IMG'}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-surface-500 dark:text-surface-400 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-surface-500 dark:text-surface-400 flex-wrap">
                     <span>{formatBytes(item.file.size)}</span>
 
                     {item.result && item.result.bytesSaved > 0 && (
@@ -139,21 +176,28 @@ export function FileList({
 
                     {/* Sensitive Data Detected Badges */}
                     {item.metadata?.gps && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                         <MapPin className="w-2.5 h-2.5" /> GPS
                       </span>
                     )}
 
                     {item.metadata?.categories.camera ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700">
+                      <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 border border-surface-200 dark:border-surface-700">
                         <Camera className="w-2.5 h-2.5" /> EXIF
                       </span>
                     ) : null}
 
+                    {/* Status badges */}
+                    {item.status === 'queued' && (
+                      <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        Ready to clean
+                      </span>
+                    )}
+
                     {/* Pixel-identical badge */}
                     {isCompleted && item.result?.pixelIdentical && (
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                        className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                         title="Zero quality loss: Original DCT coefficients and pixel values 100% untouched"
                       >
                         <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Pixel-identical &check;
@@ -162,8 +206,8 @@ export function FileList({
                   </div>
 
                   {/* Per-file Progress Bar */}
-                  {isProcessing && (
-                    <div className="w-full max-w-xs h-1.5 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden mt-1.5">
+                  {isProcessingItem && (
+                    <div className="w-full max-w-xs h-1.5 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden mt-1">
                       <div
                         className="h-full bg-brand-500 transition-all duration-300"
                         style={{ width: `${item.progress}%` }}
@@ -172,7 +216,7 @@ export function FileList({
                   )}
 
                   {isError && (
-                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <p className="text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       {item.error || 'Failed to process file'}
                     </p>
@@ -181,12 +225,12 @@ export function FileList({
               </div>
 
               {/* Right: Actions */}
-              <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end shrink-0">
+              <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-surface-100 dark:border-surface-800">
                 {/* Inspect Metadata Button */}
                 <button
                   type="button"
                   onClick={() => onInspectFile(item)}
-                  className="px-3 py-1.5 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-semibold border border-surface-200 dark:border-surface-700 flex items-center gap-1.5 transition-colors"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300 text-xs font-semibold border border-surface-200 dark:border-surface-700 flex items-center gap-1 transition-colors"
                   title="Inspect Metadata Details"
                 >
                   <Eye className="w-3.5 h-3.5" />
@@ -198,7 +242,7 @@ export function FileList({
                   <button
                     type="button"
                     onClick={() => onDownloadFile(item)}
-                    className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm flex items-center gap-1 transition-colors"
                     title="Download Cleaned Image"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -210,7 +254,7 @@ export function FileList({
                 <button
                   type="button"
                   onClick={() => onRemoveFile(item.id)}
-                  className="p-2 rounded-xl text-surface-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-surface-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                   title="Remove from batch"
                 >
                   <Trash2 className="w-4 h-4" />
