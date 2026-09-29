@@ -31,10 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
-      <body className="antialiased min-h-screen bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100 transition-colors duration-200">
+      <body className="antialiased min-h-dvh bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 transition-colors duration-200">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

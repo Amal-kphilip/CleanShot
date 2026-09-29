@@ -2,118 +2,113 @@
 
 import React from 'react';
 import { Header } from '@/components/Header';
-import { ShieldCheck, Cpu, CheckCircle2, AlertTriangle, ArrowRight, Zap, RefreshCw, FileCode } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HowItWorksPage() {
+  const formats = [
+    {
+      title: '1. JPEG / JFIF',
+      desc: 'JPEG files are structured as markers. CleanShot parses marker pairs between 0xFFD8 (SOI) and 0xFFDA (SOS). It surgically drops 0xFFE1 (EXIF/XMP), 0xFFFE (COM), and C2PA markers, preserves 0xFFE2 ICC profiles, and keeps the Huffman tables (DHT), Quantization tables (DQT), and entropy-coded DCT scan payload 100% byte-exact.',
+    },
+    {
+      title: '2. PNG',
+      desc: 'PNG files are sequences of 4-byte typed chunks. CleanShot removes ancillary chunks (tEXt, zTXt, iTXt, eXIf, tIME, dSIG) while passing through critical rendering chunks (IHDR, PLTE, IDAT, IEND) with bit-exact raster data.',
+    },
+    {
+      title: '3. WebP',
+      desc: 'WebP files use a RIFF container. CleanShot drops EXIF and XMP FourCC chunks, updates the VP8X header feature flags bitmask, and recalculates the RIFF container length without decoding the VP8/VP8L compressed bitstream.',
+    },
+    {
+      title: '4. SVG Vector Graphics',
+      desc: 'Vector graphics are sanitized to remove XML comments, <metadata>, RDF tags, and proprietary editor metadata (Inkscape, Adobe Illustrator, Figma) while preserving visual paths, styles, and dimensions.',
+    },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100">
+    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent">
       <Header />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 space-y-12">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-12 sm:space-y-16">
         {/* Title */}
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 text-xs font-semibold border border-brand-200 dark:border-brand-800">
-            <Cpu className="w-3.5 h-3.5" />
-            <span>Under The Hood</span>
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
-            How Lossless Stripping Works
+        <div className="text-center space-y-3">
+          <h1 className="text-[30px] sm:text-[46px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.15]">
+            How Lossless Stripping <span className="text-accent dark:text-accent-dark">Works</span>
           </h1>
-          <p className="text-base sm:text-lg text-surface-600 dark:text-surface-400 max-w-2xl mx-auto">
-            Traditional tools re-encode images and degrade visual quality. CleanShot operates directly on the binary byte stream to remove metadata without touching image pixels.
+          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-2xl mx-auto font-normal leading-relaxed">
+            Traditional tools decode and re-compress images, causing quality loss. CleanShot operates directly on the binary byte stream without touching pixel data.
           </p>
         </div>
 
         {/* Comparison: Lossy vs CleanShot Lossless */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* Traditional Way */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-surface-900 border border-red-200 dark:border-red-900/50 space-y-4">
-            <div className="flex items-center gap-2.5 text-red-600 dark:text-red-400 font-bold text-base">
-              <AlertTriangle className="w-5 h-5" />
+          <div className="p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] space-y-4">
+            <div className="flex items-center gap-2 text-n-700 dark:text-n-300 font-semibold text-[15px]">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
               <span>Standard Tools (Lossy Re-encoding)</span>
             </div>
-            <ol className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 space-y-2.5 list-decimal pl-4">
+            <ol className="text-[13px] text-n-500 dark:text-n-400 space-y-2.5 list-decimal pl-4 leading-relaxed">
               <li>Decodes compressed JPEG/PNG into raw uncompressed pixels in memory.</li>
               <li>Re-compresses pixels with an encoder (e.g. libjpeg quality 85).</li>
-              <li>Introduces DCT generational degradation, color shifts, and blocking artifacts.</li>
-              <li>Alters the original binary image data completely.</li>
+              <li>Introduces generational artifacts, blurriness, and color shifting.</li>
+              <li>Alters the original binary image data irreversibly.</li>
             </ol>
           </div>
 
           {/* CleanShot Lossless Way */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-surface-900 border border-emerald-200 dark:border-emerald-800 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-base">
-              <CheckCircle2 className="w-5 h-5" />
+          <div className="p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-emerald-500/30 dark:border-emerald-500/20 space-y-4 shadow-sm">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-[15px]">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>CleanShot (Byte-Stream Segment Stripping)</span>
             </div>
-            <ol className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 space-y-2.5 list-decimal pl-4">
-              <li>Reads raw container markers (<code className="text-brand-500 font-mono">0xFFE1</code> EXIF, <code className="text-brand-500 font-mono">0xFFFE</code> COM, <code className="text-brand-500 font-mono">tEXt</code>).</li>
-              <li>Slices out auxiliary metadata segments from the byte array.</li>
-              <li>Copies entropy-coded DCT scan stream (<code className="text-brand-500 font-mono">0xFFDA</code> &rarr; <code className="text-brand-500 font-mono">0xFFD9</code>) byte-for-byte.</li>
-              <li>100% pixel-identical output with 0 visual quality loss.</li>
+            <ol className="text-[13px] text-n-500 dark:text-n-400 space-y-2.5 list-decimal pl-4 leading-relaxed">
+              <li>Scans binary container headers for marker segments (0xFFE1, 0xFFFE, tEXt).</li>
+              <li>Slices out auxiliary metadata segments directly from the byte array.</li>
+              <li>Copies entropy-coded DCT scan stream byte-for-byte.</li>
+              <li>100% pixel-identical output with zero compression loss.</li>
             </ol>
           </div>
         </div>
 
         {/* Format Specific Deep Dive */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-surface-900 dark:text-white">
+        <div className="space-y-4">
+          <h2 className="text-[20px] font-semibold text-n-900 dark:text-white">
             Format-by-Format Guarantees
           </h2>
 
-          <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <h3 className="text-base font-bold text-brand-600 dark:text-brand-400">
-                1. JPEG / JFIF
-              </h3>
-              <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                JPEG files are structured as markers. CleanShot parses marker pairs between <code className="font-mono">0xFFD8</code> (SOI) and <code className="font-mono">0xFFDA</code> (SOS). It drops <code className="font-mono">0xFFE1</code> (EXIF/XMP) and <code className="font-mono">0xFFFE</code> (COM), retains <code className="font-mono">0xFFE2</code> ICC profile if enabled, and preserves the exact Huffman tables (DHT), Quantization tables (DQT), and DCT scan payload untouched.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <h3 className="text-base font-bold text-brand-600 dark:text-brand-400">
-                2. PNG
-              </h3>
-              <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                PNG files are sequences of 4-byte typed chunks. CleanShot drops ancillary chunks (<code className="font-mono">tEXt</code>, <code className="font-mono">zTXt</code>, <code className="font-mono">iTXt</code>, <code className="font-mono">eXIf</code>, <code className="font-mono">tIME</code>, <code className="font-mono">dSIG</code>) while passing through critical rendering chunks (<code className="font-mono">IHDR</code>, <code className="font-mono">PLTE</code>, <code className="font-mono">IDAT</code>, <code className="font-mono">IEND</code>).
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <h3 className="text-base font-bold text-brand-600 dark:text-brand-400">
-                3. WebP
-              </h3>
-              <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                WebP files use a RIFF container. CleanShot drops the <code className="font-mono">EXIF</code> and <code className="font-mono">XMP </code> FourCC chunks, updates the <code className="font-mono">VP8X</code> header feature flags bitmask, and updates the RIFF container length without decoding the VP8/VP8L compressed bitstream.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <h3 className="text-base font-bold text-brand-600 dark:text-brand-400">
-                4. SVG Vector Graphics
-              </h3>
-              <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
-                Vector graphics are sanitized to remove XML comments, <code className="font-mono">&lt;metadata&gt;</code>, RDF tags, and proprietary editor metadata (Inkscape, Adobe Illustrator, Figma) while preserving coordinate paths and styling.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {formats.map((fmt) => (
+              <div
+                key={fmt.title}
+                className="p-5 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] space-y-1.5"
+              >
+                <h3 className="text-[14px] font-semibold text-n-900 dark:text-white">
+                  {fmt.title}
+                </h3>
+                <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed font-normal">
+                  {fmt.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* CTA */}
-        <div className="p-8 rounded-3xl bg-brand-600 text-white text-center space-y-4">
-          <h3 className="text-2xl font-bold">Ready to strip metadata losslessly?</h3>
-          <p className="text-xs sm:text-sm text-brand-100 max-w-md mx-auto">
-            Try CleanShot now. 100% private, instant in-browser batch processing.
+        <div className="p-8 sm:p-10 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] text-center space-y-4">
+          <h3 className="text-[20px] font-semibold text-n-900 dark:text-white">Ready to strip metadata losslessly?</h3>
+          <p className="text-[13px] text-n-500 dark:text-n-400 max-w-md mx-auto leading-relaxed">
+            100% in-browser, zero server uploads, instant batch processing.
           </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white text-brand-600 font-bold text-sm shadow-md hover:bg-brand-50 transition-colors"
-          >
-            <span>Start Stripping Photos</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent dark:bg-accent-dark hover:opacity-90 active:scale-95 text-white font-semibold text-[13px] shadow-sm transition-all"
+            >
+              <span>Start Stripping Photos</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </main>
     </div>

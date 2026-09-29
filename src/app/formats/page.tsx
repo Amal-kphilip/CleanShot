@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { Header } from '@/components/Header';
-import { FileCheck, Shield, CheckCircle2, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function FormatsPage() {
   const formats = [
@@ -66,49 +65,47 @@ export default function FormatsPage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100">
+    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent">
       <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-12 space-y-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-10 sm:space-y-12">
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 text-xs font-semibold border border-brand-200 dark:border-brand-800">
-            <FileCheck className="w-3.5 h-3.5" />
-            <span>Format Support Matrix</span>
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white">
-            Supported Image Formats
+          <h1 className="text-[30px] sm:text-[46px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.15]">
+            Supported <span className="text-accent dark:text-accent-dark">Formats</span>
           </h1>
-          <p className="text-base text-surface-600 dark:text-surface-400 max-w-xl mx-auto">
-            CleanShot supports all major raster, vector, modern, and camera RAW formats with dedicated lossless segment strippers.
+          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-lg mx-auto font-normal leading-relaxed">
+            Lossless segment-level stripping across raster, vector, next-generation, and camera RAW formats.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {formats.map((fmt) => (
             <div
               key={fmt.name}
-              className="p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-3"
+              className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-white/[0.025] border border-n-200 dark:border-white/[0.08] space-y-3 flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-surface-900 dark:text-white">
-                  {fmt.name}
-                </h3>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400">
-                  {fmt.ext}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[15px] font-semibold text-n-900 dark:text-white">
+                    {fmt.name}
+                  </h3>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-n-100 dark:bg-white/[0.06] text-n-600 dark:text-n-400 border border-n-200/60 dark:border-white/[0.06]">
+                    {fmt.ext}
+                  </span>
+                </div>
+
+                <div className="text-[12px] text-n-500 dark:text-n-400 space-y-1.5 leading-relaxed">
+                  <p>
+                    <span className="font-medium text-n-700 dark:text-n-300">Method:</span> {fmt.method}
+                  </p>
+                  <p>
+                    <span className="font-medium text-n-700 dark:text-n-300">Removed:</span> {fmt.tagsStripped}
+                  </p>
+                </div>
               </div>
 
-              <div className="text-xs text-surface-600 dark:text-surface-400 space-y-1.5">
-                <p>
-                  <strong className="text-surface-900 dark:text-surface-200">Engine Method:</strong> {fmt.method}
-                </p>
-                <p>
-                  <strong className="text-surface-900 dark:text-surface-200">Metadata Stripped:</strong> {fmt.tagsStripped}
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-surface-100 dark:border-surface-800/80 flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <div className="pt-3 border-t border-n-100 dark:border-white/[0.06] flex items-center gap-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>{fmt.guarantee}</span>
               </div>
             </div>
