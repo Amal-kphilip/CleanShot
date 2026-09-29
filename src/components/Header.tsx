@@ -62,18 +62,32 @@ export function Header({ onOpenSettings }: HeaderProps) {
             {/* Logo on Left */}
             <Link
               href="/"
-              className="flex items-center select-none shrink-0 pl-1 pr-2 py-1 apple-press group"
+              className="flex items-center gap-2 select-none shrink-0 pl-1 pr-2 py-1 apple-press group"
               aria-label="CleanShot Home"
             >
+              {/* App icon: black in light mode, white in dark mode */}
+              <img
+                src="/app-icon-black.png"
+                alt=""
+                aria-hidden="true"
+                className="h-[26px] sm:h-[28px] w-auto block dark:hidden object-contain transition-opacity duration-200 group-hover:opacity-80"
+              />
+              <img
+                src="/app-icon-white.png"
+                alt=""
+                aria-hidden="true"
+                className="h-[26px] sm:h-[28px] w-auto hidden dark:block object-contain transition-opacity duration-200 group-hover:opacity-80"
+              />
+              {/* Wordmark */}
               <img
                 src="/logo-light.png"
                 alt="CleanShot"
-                className="h-[21px] sm:h-[23px] w-auto block dark:hidden object-contain transition-opacity duration-200 group-hover:opacity-80"
+                className="h-[18px] sm:h-[20px] w-auto block dark:hidden object-contain transition-opacity duration-200 group-hover:opacity-80"
               />
               <img
                 src="/logo-dark.png"
                 alt="CleanShot"
-                className="h-[21px] sm:h-[23px] w-auto hidden dark:block object-contain transition-opacity duration-200 group-hover:opacity-80"
+                className="h-[18px] sm:h-[20px] w-auto hidden dark:block object-contain transition-opacity duration-200 group-hover:opacity-80"
               />
             </Link>
 
