@@ -26,6 +26,12 @@ interface InspectorModalProps {
   thumbnailUrl?: string;
 }
 
+const riskColors: Record<string, string> = {
+  high:   'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-100 dark:border-red-900/50',
+  medium: 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/50',
+  low:    'bg-n-50 dark:bg-white/[0.03] text-n-500 dark:text-n-400 border-n-100 dark:border-white/[0.05]',
+};
+
 export function InspectorModal({
   isOpen,
   onClose,
@@ -50,103 +56,101 @@ export function InspectorModal({
   });
 
   const categories = [
-    { id: 'all', label: 'All Fields', count: metadata.fields.length, icon: Layers },
-    { id: 'location', label: 'Location / GPS', count: metadata.categories.location, icon: MapPin },
-    { id: 'camera', label: 'Camera & Lens', count: metadata.categories.camera, icon: Camera },
-    { id: 'datetime', label: 'Date & Time', count: metadata.categories.datetime, icon: Calendar },
-    { id: 'author', label: 'Author & Owner', count: metadata.categories.author, icon: User },
-    { id: 'software', label: 'Software & Tech', count: metadata.categories.software, icon: Code },
-    { id: 'technical', label: 'Image Specs', count: metadata.categories.technical, icon: Sliders },
+    { id: 'all',       label: 'All',       count: metadata.fields.length,         icon: Layers },
+    { id: 'location',  label: 'Location',  count: metadata.categories.location,   icon: MapPin },
+    { id: 'camera',    label: 'Camera',    count: metadata.categories.camera,     icon: Camera },
+    { id: 'datetime',  label: 'Date',      count: metadata.categories.datetime,   icon: Calendar },
+    { id: 'author',    label: 'Author',    count: metadata.categories.author,     icon: User },
+    { id: 'software',  label: 'Software',  count: metadata.categories.software,   icon: Code },
+    { id: 'technical', label: 'Technical', count: metadata.categories.technical,  icon: Sliders },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-surface-900 rounded-2xl shadow-2xl border border-surface-200 dark:border-surface-800 flex flex-col max-h-[92vh] overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full sm:max-w-4xl bg-white dark:bg-n-900 sm:rounded-2xl rounded-t-2xl shadow-2xl border-t sm:border border-n-200 dark:border-white/[0.08] flex flex-col max-h-[94dvh] overflow-hidden animate-slide-up">
+
         {/* Header */}
-        <div className="px-6 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {thumbnailUrl && (
-              <img
-                src={thumbnailUrl}
-                alt={filename}
-                className="w-10 h-10 rounded-lg object-cover border border-surface-200 dark:border-surface-800 shadow-sm"
-              />
-            )}
-            <div>
-              <h3 className="text-base font-semibold text-surface-900 dark:text-white truncate max-w-md">
-                {filename}
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 flex items-center gap-2">
-                <span>Format: {metadata.format.toUpperCase()}</span>
-                <span>&bull;</span>
-                <span>{metadata.fields.length} Metadata Fields Detected</span>
-              </p>
-            </div>
+        <div className="flex items-center gap-3 px-5 sm:px-6 py-4 border-b border-n-100 dark:border-white/[0.07]">
+          {thumbnailUrl && (
+            <img
+              src={thumbnailUrl}
+              alt={filename}
+              className="w-9 h-9 rounded-xl object-cover border border-n-200 dark:border-white/[0.08] shrink-0"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[14px] font-semibold text-n-900 dark:text-white truncate">
+              {filename}
+            </h3>
+            <p className="text-[11px] text-n-400 dark:text-n-500">
+              {metadata.format.toUpperCase()} · {metadata.fields.length} fields detected
+            </p>
           </div>
+          {metadata.hasHighRiskFields && (
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/50 shrink-0">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              High-Risk Fields
+            </div>
+          )}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
+            className="p-1.5 rounded-lg text-n-400 hover:text-n-900 dark:hover:text-white hover:bg-n-100 dark:hover:bg-white/[0.07] transition-colors shrink-0"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
-        {/* View Mode Switcher (Before vs After) */}
-        <div className="px-6 py-2.5 bg-surface-50 dark:bg-surface-950 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-surface-200 dark:bg-surface-800/80 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('before')}
-              className={`px-3.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'before'
-                  ? 'bg-white dark:bg-surface-900 text-surface-900 dark:text-white shadow-sm'
-                  : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
-              }`}
-            >
-              Original File (With Metadata)
-            </button>
-            <button
-              onClick={() => setActiveTab('after')}
-              className={`px-3.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'after'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
-              }`}
-            >
-              Cleaned File (Lossless Stripped)
-            </button>
-          </div>
-
-          {metadata.hasHighRiskFields && (
-            <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900">
-              <ShieldAlert className="w-3.5 h-3.5" />
-              High-Risk Privacy Leaks Found
-            </div>
-          )}
+        {/* Tab switcher */}
+        <div className="px-5 sm:px-6 py-2.5 border-b border-n-100 dark:border-white/[0.07] flex items-center gap-1.5 bg-n-50 dark:bg-white/[0.015]">
+          <button
+            onClick={() => setActiveTab('before')}
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-all ${
+              activeTab === 'before'
+                ? 'bg-white dark:bg-n-800 text-n-900 dark:text-white shadow-sm border border-n-200 dark:border-white/[0.09]'
+                : 'text-n-500 dark:text-n-400 hover:text-n-900 dark:hover:text-white'
+            }`}
+          >
+            Original (With Metadata)
+          </button>
+          <button
+            onClick={() => setActiveTab('after')}
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-all ${
+              activeTab === 'after'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-n-500 dark:text-n-400 hover:text-n-900 dark:hover:text-white'
+            }`}
+          >
+            After Cleaning
+          </button>
         </div>
 
-        {/* Main Content */}
+        {/* Content */}
         {activeTab === 'after' ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-4 my-auto">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="p-10 flex flex-col items-center justify-center text-center space-y-4 flex-1">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7" strokeWidth={1.75} />
             </div>
-            <div className="space-y-1 max-w-md">
-              <h4 className="text-lg font-bold text-surface-900 dark:text-white">
-                All {metadata.fields.length} Metadata Tags Stripped
+            <div className="space-y-1.5 max-w-sm">
+              <h4 className="text-[17px] font-semibold text-n-900 dark:text-white">
+                All {metadata.fields.length} fields stripped
               </h4>
-              <p className="text-sm text-surface-500 dark:text-surface-400">
-                GPS coordinates, device serials, capture timestamps, and software signatures are completely wiped from the byte stream.
+              <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed">
+                GPS coordinates, device serials, timestamps, and software signatures are wiped from the byte stream. Zero pixels re-compressed.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs font-medium text-surface-700 dark:text-surface-300 border border-surface-200 dark:border-surface-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Pixel-identical guarantee: 0 bitstream DCT/pixel data recompressed
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              Pixel-identical · DCT data intact
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col md:flex-row min-h-0">
-            {/* Category Sidebar */}
-            <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-surface-200 dark:border-surface-800 p-3 space-y-1 shrink-0 overflow-x-auto md:overflow-y-auto">
+          <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
+            {/* Category sidebar */}
+            <div className="w-full sm:w-44 border-b sm:border-b-0 sm:border-r border-n-100 dark:border-white/[0.07] p-2 flex sm:flex-col flex-row gap-1 overflow-x-auto sm:overflow-y-auto shrink-0">
               {categories.map((cat) => {
                 const Icon = cat.icon;
                 const isSelected = selectedCategory === cat.id;
@@ -154,23 +158,19 @@ export function InspectorModal({
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                    className={`flex-shrink-0 sm:flex-shrink flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors w-auto sm:w-full text-left justify-between ${
                       isSelected
-                        ? 'bg-brand-50 dark:bg-brand-950/80 text-brand-700 dark:text-brand-300 font-semibold'
-                        : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800/60'
+                        ? 'bg-n-100 dark:bg-white/[0.08] text-n-900 dark:text-white'
+                        : 'text-n-500 dark:text-n-400 hover:bg-n-50 dark:hover:bg-white/[0.04] hover:text-n-900 dark:hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{cat.label}</span>
-                    </div>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] ${
-                        isSelected
-                          ? 'bg-brand-200/60 dark:bg-brand-900 text-brand-800 dark:text-brand-200'
-                          : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
-                      }`}
-                    >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{cat.label}</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md ml-auto shrink-0 ${
+                      isSelected ? 'bg-n-200 dark:bg-white/[0.12] text-n-700 dark:text-n-300' : 'bg-n-100 dark:bg-white/[0.05] text-n-400 dark:text-n-500'
+                    }`}>
                       {cat.count}
                     </span>
                   </button>
@@ -178,82 +178,80 @@ export function InspectorModal({
               })}
             </div>
 
-            {/* Fields List & GPS Preview */}
-            <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 overflow-y-auto">
-              {/* GPS Privacy Preview Warning */}
+            {/* Fields panel */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {/* GPS warning */}
               {metadata.gps && (
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 space-y-2.5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                <div className="m-4 mb-0 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 flex items-start justify-between gap-3 shrink-0">
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-amber-900 dark:text-amber-300 mb-0.5">
                         Exact GPS Location Exposed
-                      </span>
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        <code className="font-mono">{metadata.gps.latitude.toFixed(6)}, {metadata.gps.longitude.toFixed(6)}</code>
+                        {metadata.gps.altitude ? ` · ${metadata.gps.altitude.toFixed(1)}m` : ''}
+                      </p>
                     </div>
-                    {metadata.gps.mapUrl && (
-                      <a
-                        href={metadata.gps.mapUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-medium text-amber-800 dark:text-amber-300 hover:underline flex items-center gap-1"
-                      >
-                        View Map <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
                   </div>
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
-                    This photo contains geo-coordinates: <code className="font-mono">{metadata.gps.latitude.toFixed(6)}, {metadata.gps.longitude.toFixed(6)}</code>
-                    {metadata.gps.altitude ? ` (Altitude: ${metadata.gps.altitude.toFixed(1)}m)` : ''}.
-                    Anyone with this file can pinpoint where it was photographed.
-                  </p>
+                  {metadata.gps.mapUrl && (
+                    <a
+                      href={metadata.gps.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 shrink-0"
+                    >
+                      Map <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               )}
 
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-surface-400" />
+              {/* Search */}
+              <div className="m-4 mb-2 relative shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-n-400 dark:text-n-500 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search metadata fields or values..."
+                  placeholder="Search fields or values…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full pl-9 pr-4 py-2 text-[12px] rounded-xl bg-n-50 dark:bg-white/[0.04] border border-n-200 dark:border-white/[0.08] text-n-900 dark:text-white placeholder:text-n-300 dark:placeholder:text-n-600 focus:outline-none focus:ring-2 focus:ring-accent/30 transition"
                 />
               </div>
 
-              {/* Table of Fields */}
-              <div className="border border-surface-200 dark:border-surface-800 rounded-xl overflow-hidden divide-y divide-surface-200 dark:divide-surface-800">
+              {/* Fields table */}
+              <div className="flex-1 overflow-y-auto mx-4 mb-4 rounded-xl border border-n-100 dark:border-white/[0.07] divide-y divide-n-50 dark:divide-white/[0.04]">
                 {filteredFields.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-surface-400">
-                    No metadata fields found matching query.
+                  <div className="p-8 text-center text-[13px] text-n-400 dark:text-n-500">
+                    No fields match your search.
                   </div>
                 ) : (
                   filteredFields.map((field) => (
                     <div
                       key={field.id}
-                      className="p-3 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors flex items-start justify-between gap-4"
+                      className="flex items-start justify-between gap-4 px-4 py-3 hover:bg-n-50 dark:hover:bg-white/[0.025] transition-colors"
                     >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-surface-900 dark:text-surface-100">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                          <span className="text-[12px] font-semibold text-n-900 dark:text-white">
                             {field.name}
                           </span>
                           {field.riskLevel === 'high' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 flex items-center gap-1">
-                              <AlertTriangle className="w-2.5 h-2.5" /> High Risk
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/50">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              High risk
                             </span>
                           )}
                         </div>
                         {field.description && (
-                          <p className="text-[11px] text-surface-500 dark:text-surface-400">
+                          <p className="text-[11px] text-n-400 dark:text-n-500 leading-relaxed">
                             {field.description}
                           </p>
                         )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs font-mono font-medium text-surface-800 dark:text-surface-200 break-all select-all">
+                      <div className="text-right shrink-0 max-w-[160px] sm:max-w-[220px]">
+                        <span className="text-[12px] font-mono text-n-700 dark:text-n-300 break-all select-all">
                           {field.formattedValue || String(field.value)}
                         </span>
                       </div>
@@ -266,13 +264,16 @@ export function InspectorModal({
         )}
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-surface-50 dark:bg-surface-950 border-t border-surface-200 dark:border-surface-800 flex items-center justify-between">
-          <span className="text-xs text-surface-500 dark:text-surface-400">
-            {metadata.fields.length} total fields inspected
+        <div
+          className="px-5 sm:px-6 py-3.5 border-t border-n-100 dark:border-white/[0.07] flex items-center justify-between"
+          style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
+        >
+          <span className="text-[11px] text-n-400 dark:text-n-500">
+            {metadata.fields.length} fields total
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface-200 dark:bg-surface-800 hover:bg-surface-300 dark:hover:bg-surface-700 text-surface-800 dark:text-surface-200 transition-colors"
+            className="px-4 py-2 text-[12px] font-semibold rounded-xl bg-n-100 dark:bg-white/[0.07] hover:bg-n-200 dark:hover:bg-white/[0.12] text-n-700 dark:text-n-300 border border-n-200 dark:border-white/[0.08] transition-colors"
           >
             Close
           </button>

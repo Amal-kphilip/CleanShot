@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Check, Shield, Image, Palette, RotateCw, FolderTree, Cpu, Info } from 'lucide-react';
+import { X, Shield, Palette, RotateCw, FolderTree, Cpu, Check } from 'lucide-react';
 import { StripOptions } from '@/lib/engine/types';
 
 interface SettingsModalProps {
@@ -11,6 +11,26 @@ interface SettingsModalProps {
   onChangeOptions: (opts: StripOptions) => void;
   isServerMode: boolean;
   onToggleServerMode: (val: boolean) => void;
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex w-9 h-5 rounded-full transition-colors duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+        checked ? 'bg-accent dark:bg-accent-dark' : 'bg-n-200 dark:bg-n-700'
+      }`}
+    >
+      <span
+        className={`inline-block w-4 h-4 rounded-full bg-white shadow-sm mt-0.5 transition-transform duration-200 ${
+          checked ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
 }
 
 export function SettingsModal({
@@ -24,191 +44,175 @@ export function SettingsModal({
   if (!isOpen) return null;
 
   const updateOpt = <K extends keyof StripOptions>(key: K, val: StripOptions[K]) => {
-    onChangeOptions({
-      ...options,
-      [key]: val,
-    });
+    onChangeOptions({ ...options, [key]: val });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-xl bg-white dark:bg-surface-900 rounded-2xl shadow-2xl border border-surface-200 dark:border-surface-800 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Bottom sheet on mobile, centered modal on sm+ */}
+      <div className="relative w-full sm:max-w-lg bg-white dark:bg-n-900 sm:rounded-2xl rounded-t-2xl shadow-2xl border-t sm:border border-n-200 dark:border-white/[0.08] overflow-hidden flex flex-col max-h-[90dvh] animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400">
-              <Shield className="w-5 h-5" />
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-n-100 dark:border-white/[0.07]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-n-100 dark:bg-white/[0.06] text-n-600 dark:text-n-300 flex items-center justify-center">
+              <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-surface-900 dark:text-white">
-                Stripping & Export Settings
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400">
-                Configure lossless rules, selective filters, and output naming
-              </p>
+              <h3 className="text-[14px] font-semibold text-n-900 dark:text-white">Settings</h3>
+              <p className="text-[11px] text-n-400 dark:text-n-500">Stripping &amp; export options</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
+            className="p-1.5 rounded-lg text-n-400 hover:text-n-900 dark:hover:text-white hover:bg-n-100 dark:hover:bg-white/[0.07] transition-colors"
+            aria-label="Close settings"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
-          {/* Color & Visual Quality Preservation */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
-              Color & Orientation Fidelity
+        <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-6">
+
+          {/* Color & Orientation */}
+          <section className="space-y-3">
+            <h4 className="text-[11px] font-semibold uppercase tracking-widest text-n-400 dark:text-n-500">
+              Quality Preservation
             </h4>
 
-            {/* Keep ICC Profile */}
-            <label className="flex items-start justify-between gap-4 p-3.5 rounded-xl border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer transition-colors">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-brand-500" />
-                  <span className="text-sm font-medium text-surface-900 dark:text-surface-100">
-                    Keep ICC Color Profile (Recommended)
+            <label className="flex items-center justify-between gap-4 py-3.5 border-b border-n-50 dark:border-white/[0.05] cursor-pointer">
+              <div className="flex items-start gap-2.5">
+                <Palette className="w-4 h-4 text-n-400 dark:text-n-500 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-[13px] font-medium text-n-900 dark:text-white block">
+                    Keep ICC Color Profile
+                  </span>
+                  <span className="text-[11px] text-n-400 dark:text-n-500 block mt-0.5">
+                    Preserve sRGB, P3, and Adobe RGB profiles. Recommended.
                   </span>
                 </div>
-                <p className="text-xs text-surface-500 dark:text-surface-400">
-                  Preserves embedded color profiles (sRGB, Display P3, Adobe RGB) to avoid washed-out or shifted colors.
-                </p>
               </div>
-              <input
-                type="checkbox"
+              <Toggle
                 checked={options.keepIccProfile !== false}
-                onChange={(e) => updateOpt('keepIccProfile', e.target.checked)}
-                className="mt-1 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-surface-300 dark:border-surface-700 dark:bg-surface-800"
+                onChange={(v) => updateOpt('keepIccProfile', v)}
               />
             </label>
 
-            {/* Keep Orientation */}
-            <label className="flex items-start justify-between gap-4 p-3.5 rounded-xl border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer transition-colors">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <RotateCw className="w-4 h-4 text-brand-500" />
-                  <span className="text-sm font-medium text-surface-900 dark:text-surface-100">
+            <label className="flex items-center justify-between gap-4 py-3.5 cursor-pointer">
+              <div className="flex items-start gap-2.5">
+                <RotateCw className="w-4 h-4 text-n-400 dark:text-n-500 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-[13px] font-medium text-n-900 dark:text-white block">
                     Preserve Image Orientation
                   </span>
+                  <span className="text-[11px] text-n-400 dark:text-n-500 block mt-0.5">
+                    Ensures portrait photos display correctly after stripping.
+                  </span>
                 </div>
-                <p className="text-xs text-surface-500 dark:text-surface-400">
-                  Ensures portrait and rotated photos display in correct orientation after removing EXIF tags.
-                </p>
               </div>
-              <input
-                type="checkbox"
+              <Toggle
                 checked={options.keepOrientation !== false}
-                onChange={(e) => updateOpt('keepOrientation', e.target.checked)}
-                className="mt-1 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-surface-300 dark:border-surface-700 dark:bg-surface-800"
+                onChange={(v) => updateOpt('keepOrientation', v)}
               />
             </label>
-          </div>
+          </section>
 
-          {/* Filename & Output Suffix */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
+          {/* Filename Suffix */}
+          <section className="space-y-3">
+            <h4 className="text-[11px] font-semibold uppercase tracking-widest text-n-400 dark:text-n-500">
               Filename Suffix
             </h4>
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={options.filenameSuffix ?? ''}
-                onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
-                placeholder='e.g. "_clean" or leave blank for original name'
-                className="flex-1 px-3.5 py-2 text-sm rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-300 dark:border-surface-700 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-            <p className="text-[11px] text-surface-500 dark:text-surface-400">
-              Example: <code className="text-brand-500">photo.jpg</code> &rarr;{' '}
-              <code className="text-brand-500">
+            <input
+              type="text"
+              value={options.filenameSuffix ?? ''}
+              onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
+              placeholder='e.g. "_clean" or leave blank'
+              className="w-full px-3.5 py-2.5 text-[13px] rounded-xl bg-n-50 dark:bg-white/[0.04] border border-n-200 dark:border-white/[0.08] text-n-900 dark:text-white placeholder:text-n-300 dark:placeholder:text-n-600 focus:outline-none focus:ring-2 focus:ring-accent/40 dark:focus:ring-accent/30 transition"
+            />
+            <p className="text-[11px] text-n-400 dark:text-n-500">
+              <code className="font-mono text-accent dark:text-accent-dark">photo.jpg</code>
+              {' '}→{' '}
+              <code className="font-mono text-accent dark:text-accent-dark">
                 photo{options.filenameSuffix || ''}.jpg
               </code>
             </p>
-          </div>
+          </section>
 
           {/* ZIP Structure */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
-              ZIP Archive Hierarchy
+          <section className="space-y-3">
+            <h4 className="text-[11px] font-semibold uppercase tracking-widest text-n-400 dark:text-n-500">
+              ZIP Archive
             </h4>
-            <label className="flex items-start justify-between gap-4 p-3.5 rounded-xl border border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer transition-colors">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <FolderTree className="w-4 h-4 text-brand-500" />
-                  <span className="text-sm font-medium text-surface-900 dark:text-surface-100">
+            <label className="flex items-center justify-between gap-4 cursor-pointer">
+              <div className="flex items-start gap-2.5">
+                <FolderTree className="w-4 h-4 text-n-400 dark:text-n-500 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-[13px] font-medium text-n-900 dark:text-white block">
                     Preserve Folder Structure
                   </span>
+                  <span className="text-[11px] text-n-400 dark:text-n-500 block mt-0.5">
+                    Keep subfolder tree when uploading nested folders.
+                  </span>
                 </div>
-                <p className="text-xs text-surface-500 dark:text-surface-400">
-                  Retains directory subfolder tree when uploading nested folders.
-                </p>
               </div>
-              <input
-                type="checkbox"
+              <Toggle
                 checked={options.preserveFolderStructure === true}
-                onChange={(e) => updateOpt('preserveFolderStructure', e.target.checked)}
-                className="mt-1 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-surface-300 dark:border-surface-700 dark:bg-surface-800"
+                onChange={(v) => updateOpt('preserveFolderStructure', v)}
               />
             </label>
-          </div>
+          </section>
 
-          {/* Engine Processing Mode */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
+          {/* Processing Mode */}
+          <section className="space-y-3">
+            <h4 className="text-[11px] font-semibold uppercase tracking-widest text-n-400 dark:text-n-500">
               Processing Mode
             </h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => onToggleServerMode(false)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                className={`p-3.5 rounded-xl border text-left transition-all ${
                   !isServerMode
-                    ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/40 ring-2 ring-brand-500/20'
-                    : 'border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/40'
+                    ? 'border-accent/40 dark:border-accent/30 bg-accent/[0.06] dark:bg-accent/[0.08]'
+                    : 'border-n-200 dark:border-white/[0.08] hover:bg-n-50 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-surface-900 dark:text-white">
-                    Client-Side (WASM/Workers)
-                  </span>
-                  {!isServerMode && <Check className="w-3.5 h-3.5 text-brand-600" />}
+                <div className="flex items-center justify-between mb-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-n-400 dark:text-n-500" />
+                  {!isServerMode && <Check className="w-3.5 h-3.5 text-accent dark:text-accent-dark" />}
                 </div>
-                <p className="text-[11px] text-surface-500 dark:text-surface-400">
-                  100% offline, files never leave device.
-                </p>
+                <div className="text-[12px] font-semibold text-n-900 dark:text-white">Client-Side</div>
+                <p className="text-[11px] text-n-400 dark:text-n-500 mt-0.5">100% offline, never leaves device.</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => onToggleServerMode(true)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                className={`p-3.5 rounded-xl border text-left transition-all ${
                   isServerMode
-                    ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/40 ring-2 ring-brand-500/20'
-                    : 'border-surface-200 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/40'
+                    ? 'border-accent/40 dark:border-accent/30 bg-accent/[0.06] dark:bg-accent/[0.08]'
+                    : 'border-n-200 dark:border-white/[0.08] hover:bg-n-50 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-surface-900 dark:text-white">
-                    Server-Side Fallback
-                  </span>
-                  {isServerMode && <Check className="w-3.5 h-3.5 text-brand-600" />}
+                <div className="flex items-center justify-between mb-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-n-400 dark:text-n-500" />
+                  {isServerMode && <Check className="w-3.5 h-3.5 text-accent dark:text-accent-dark" />}
                 </div>
-                <p className="text-[11px] text-surface-500 dark:text-surface-400">
-                  In-memory sandbox with 15-min auto purge.
-                </p>
+                <div className="text-[12px] font-semibold text-n-900 dark:text-white">Server-Side</div>
+                <p className="text-[11px] text-n-400 dark:text-n-500 mt-0.5">In-memory, 15-min auto purge.</p>
               </button>
             </div>
-          </div>
+          </section>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-surface-50 dark:bg-surface-950 border-t border-surface-200 dark:border-surface-800 flex justify-end">
+        <div className="px-5 sm:px-6 py-4 border-t border-n-100 dark:border-white/[0.07] flex justify-end" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={onClose}
-            className="px-5 py-2 text-sm font-medium rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-colors"
+            className="px-5 py-2.5 text-[13px] font-semibold rounded-xl bg-accent dark:bg-accent-dark hover:opacity-90 text-white shadow-sm transition-all"
           >
             Done
           </button>

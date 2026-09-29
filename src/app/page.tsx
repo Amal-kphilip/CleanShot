@@ -12,7 +12,8 @@ import { StripOptions } from '@/lib/engine/types';
 import { processBatchWithConcurrency, createThumbnail } from '@/lib/worker/workerRunner';
 import { inspectMetadata } from '@/lib/engine/inspector';
 import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
-import { Lock, Zap, Sparkles, CheckCircle2, Cpu, Layers } from 'lucide-react';
+import { Lock, Cpu, Layers } from 'lucide-react';
+
 
 export default function HomePage() {
   const [files, setFiles] = useState<FileItemState[]>([]);
@@ -206,43 +207,32 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950 text-surface-900 dark:text-surface-100 selection:bg-brand-500 selection:text-white pb-36 sm:pb-32">
+    <div className="min-h-dvh flex flex-col bg-[#FAFAFA] dark:bg-[#0C0C10] text-n-900 dark:text-n-100 selection:bg-accent/20 selection:text-accent pb-36 sm:pb-32">
       <Header onOpenSettings={() => setIsSettingsOpen(true)} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-6 sm:pt-10 space-y-6 sm:space-y-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-14 space-y-6 sm:space-y-8">
         {/* Hero Section */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto px-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-950/70 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Lossless Zero-Recompression</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-surface-900 dark:text-white leading-[1.15]">
+        <div className="text-center space-y-4 max-w-2xl mx-auto px-2">
+          <h1 className="text-[32px] sm:text-[52px] font-semibold tracking-tight text-n-900 dark:text-white leading-[1.12]">
             Remove photo metadata.{' '}
-            <span className="bg-gradient-to-r from-brand-600 via-indigo-500 to-indigo-600 bg-clip-text text-transparent">
-              Instantly. Losslessly.
-            </span>
+            <span className="text-accent dark:text-accent-dark">Losslessly.</span>
           </h1>
 
-          <p className="text-xs sm:text-base text-surface-600 dark:text-surface-400 max-w-xl mx-auto leading-relaxed">
-            Strip GPS coordinates, serial numbers, timestamps, and device fingerprints in bulk with zero quality loss.
+          <p className="text-[15px] sm:text-[17px] text-n-500 dark:text-n-400 max-w-lg mx-auto leading-relaxed font-normal">
+            Strip GPS coordinates, serial numbers, timestamps, and AI signatures with zero quality loss.
           </p>
 
-          {/* Feature Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 pt-1 text-[11px] sm:text-xs font-medium text-surface-600 dark:text-surface-400">
-            <div className="flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Pixel-Identical</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5 text-brand-500" />
-              <span>Zero Uploads</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>100+ Photos</span>
-            </div>
-          </div>
+          {/* Single trust line */}
+          <p className="text-[13px] text-n-400 dark:text-n-500 flex items-center justify-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              Pixel-identical
+            </span>
+            <span className="text-n-200 dark:text-n-700">·</span>
+            <span>Never uploaded</span>
+            <span className="text-n-200 dark:text-n-700">·</span>
+            <span>100+ photos</span>
+          </p>
         </div>
 
         {/* Upload Drop Zone */}
@@ -265,43 +255,48 @@ export default function HomePage() {
           onProcessAll={handleProcessAll}
         />
 
-        {/* Info Grid / Value Proposition */}
+        {/* Value Proposition — shown only when queue is empty */}
         {files.length === 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-surface-200 dark:border-surface-800">
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 flex items-center justify-center">
-                <Cpu className="w-4 h-4" />
+          <div className="pt-10 sm:pt-14 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-n-100 dark:divide-white/[0.06]">
+              <div className="px-0 sm:px-8 py-6 sm:py-0 first:pt-0 last:pb-0 sm:first:pl-0 sm:last:pr-0 space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <Cpu className="w-4 h-4 text-n-400 dark:text-n-500" strokeWidth={1.5} />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-n-400 dark:text-n-500">Lossless Engine</span>
+                </div>
+                <h3 className="text-[15px] font-semibold text-n-900 dark:text-white leading-snug">
+                  Zero re-compression
+                </h3>
+                <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed">
+                  Strips APPn, COM, and tEXt chunks directly from the byte stream. DCT coefficients untouched.
+                </p>
               </div>
-              <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                Zero Recompression
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                CleanShot removes APPn, COM, and tEXt chunks directly from the byte stream without touching DCT coefficients.
-              </p>
-            </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <Lock className="w-4 h-4" />
+              <div className="px-0 sm:px-8 py-6 sm:py-0 space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock className="w-4 h-4 text-n-400 dark:text-n-500" strokeWidth={1.5} />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-n-400 dark:text-n-500">100% Private</span>
+                </div>
+                <h3 className="text-[15px] font-semibold text-n-900 dark:text-white leading-snug">
+                  In-browser only
+                </h3>
+                <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed">
+                  Everything runs locally. Your photos never touch a server. No account, no tracking.
+                </p>
               </div>
-              <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                100% In-Browser
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                All stripping runs locally in your browser with Web Workers. Your personal photos never leave your device.
-              </p>
-            </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 space-y-2">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                <Layers className="w-4 h-4" />
+              <div className="px-0 sm:px-8 py-6 sm:py-0 space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-n-400 dark:text-n-500" strokeWidth={1.5} />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-n-400 dark:text-n-500">Inspector</span>
+                </div>
+                <h3 className="text-[15px] font-semibold text-n-900 dark:text-white leading-snug">
+                  See what&apos;s hidden
+                </h3>
+                <p className="text-[13px] text-n-500 dark:text-n-400 leading-relaxed">
+                  Inspect GPS, camera serials, author details, and AI signatures before you strip.
+                </p>
               </div>
-              <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                EXIF Inspector
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 leading-relaxed">
-                Inspect GPS coordinates, camera serials, and author details before stripping with our interactive inspector.
-              </p>
             </div>
           </div>
         )}
