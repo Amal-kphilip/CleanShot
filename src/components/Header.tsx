@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  ShieldCheck,
   Sun,
   Moon,
   SlidersHorizontal,
@@ -65,13 +64,17 @@ export function Header({ onOpenSettings }: HeaderProps) {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-2.5 group select-none shrink-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-[10px] bg-accent dark:bg-accent-dark flex items-center justify-center text-white shadow-sm group-hover:opacity-90 transition-opacity">
-              <ShieldCheck className="w-4 h-4" strokeWidth={2.5} />
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight text-n-900 dark:text-white">
-              CleanShot
-            </span>
+          <Link href="/" className="flex items-center group select-none shrink-0 py-1">
+            <img
+              src="/logo-light.png"
+              alt="CleanShot"
+              className="h-5 sm:h-[22px] w-auto block dark:hidden object-contain transition-opacity group-hover:opacity-80"
+            />
+            <img
+              src="/logo-dark.png"
+              alt="CleanShot"
+              className="h-5 sm:h-[22px] w-auto hidden dark:block object-contain transition-opacity group-hover:opacity-80"
+            />
           </Link>
 
           {/* Desktop Nav — flat links, no pill wrapper */}
@@ -146,12 +149,18 @@ export function Header({ onOpenSettings }: HeaderProps) {
               <Link
                 href="/"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2"
+                className="flex items-center group select-none py-1"
               >
-                <div className="w-7 h-7 rounded-[10px] bg-accent dark:bg-accent-dark flex items-center justify-center text-white">
-                  <ShieldCheck className="w-4 h-4" strokeWidth={2.5} />
-                </div>
-                <span className="text-[15px] font-semibold text-n-900 dark:text-white">CleanShot</span>
+                <img
+                  src="/logo-light.png"
+                  alt="CleanShot"
+                  className="h-5 w-auto block dark:hidden object-contain"
+                />
+                <img
+                  src="/logo-dark.png"
+                  alt="CleanShot"
+                  className="h-5 w-auto hidden dark:block object-contain"
+                />
               </Link>
               <button
                 onClick={() => setMobileMenuOpen(false)}
