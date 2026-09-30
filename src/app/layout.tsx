@@ -21,6 +21,18 @@ export const metadata: Metadata = {
       'Remove EXIF, GPS, serials, and timestamps from photos in bulk losslessly with zero quality loss.',
     type: 'website',
   },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+      { url: '/app-icon-black.png', media: '(prefers-color-scheme: light)' },
+      { url: '/app-icon-white.png', media: '(prefers-color-scheme: dark)' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -33,6 +45,8 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
       <body className="antialiased min-h-dvh bg-background text-foreground transition-colors duration-200 relative selection:bg-accent/20 selection:text-accent">
         <ThemeProvider>
