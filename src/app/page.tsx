@@ -187,12 +187,19 @@ export default function HomePage() {
     triggerDownload(blob, item.result.cleanedFilename);
   };
 
-  const handleDownloadZip = () => {
+  const handleDownload = () => {
     const readyFiles = files.filter(
       (f) => f.selected !== false && f.status === 'completed' && f.result
     );
     if (readyFiles.length === 0) return;
 
+    // Single file download: download direct image file without zip wrapping
+    if (readyFiles.length === 1) {
+      handleDownloadSingle(readyFiles[0]);
+      return;
+    }
+
+    // Multiple files: create and download ZIP archive
     const zipInputs = readyFiles.map((f) => ({
       name: f.result!.cleanedFilename,
       data: f.result!.cleanedBuffer,
@@ -347,7 +354,7 @@ export default function HomePage() {
       <ActionBar
         files={files}
         isProcessing={isProcessing}
-        onDownloadZip={handleDownloadZip}
+        onDownload={handleDownload}
         onClearAll={handleClearAll}
         onProcessAll={handleProcessAll}
       />

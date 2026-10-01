@@ -7,7 +7,7 @@ import { FileItemState } from './FileList';
 interface ActionBarProps {
   files: FileItemState[];
   isProcessing: boolean;
-  onDownloadZip: () => void;
+  onDownload: () => void;
   onClearAll: () => void;
   onProcessAll: () => void;
 }
@@ -15,7 +15,7 @@ interface ActionBarProps {
 export function ActionBar({
   files,
   isProcessing,
-  onDownloadZip,
+  onDownload,
   onClearAll,
   onProcessAll,
 }: ActionBarProps) {
@@ -99,13 +99,22 @@ export function ActionBar({
           {allCompleted && (
             <button
               type="button"
-              onClick={onDownloadZip}
+              onClick={onDownload}
               disabled={isProcessing}
-              className="px-4 py-2 rounded-pill bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center gap-1.5 shadow-sm apple-spring"
+              className="px-4 py-2 rounded-pill bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center gap-1.5 shadow-sm apple-spring apple-press"
             >
-              <Archive className="w-3.5 h-3.5" />
-              <span>Download ZIP</span>
-              <span className="ml-0.5 text-white/80 text-[11px] font-normal">({completedFiles.length})</span>
+              {completedFiles.length === 1 ? (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Photo</span>
+                </>
+              ) : (
+                <>
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>Download ZIP</span>
+                  <span className="ml-0.5 text-white/80 text-[11px] font-normal">({completedFiles.length})</span>
+                </>
+              )}
             </button>
           )}
         </div>
