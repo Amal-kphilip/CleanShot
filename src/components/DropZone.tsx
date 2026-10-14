@@ -82,7 +82,7 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
         tabIndex={isProcessing || disabled ? -1 : 0}
         aria-label="Add images by choosing files, dropping them here, or pasting from the clipboard"
         aria-disabled={isProcessing || disabled}
-        className={`relative group cursor-pointer rounded-dropzone transition-all duration-apple ease-apple overflow-hidden p-8 sm:p-14 text-center flex flex-col items-center justify-center ${
+        className={`dropzone-panel relative group cursor-pointer rounded-dropzone transition-all duration-apple ease-apple overflow-hidden p-8 sm:p-14 text-center flex flex-col items-center justify-center ${
           isDragOver
             ? 'scale-[1.01] border-2 border-accent bg-accent-light ring-4 ring-accent-glow shadow-floating'
             : 'liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.16]'
@@ -157,7 +157,7 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
 
         {/* Action Buttons */}
         <div
-          className="flex flex-row items-center gap-3 mb-7 w-full max-w-[280px] sm:max-w-none sm:w-auto"
+          className="dropzone-actions flex flex-row items-center gap-3 mb-7 w-full max-w-[280px] sm:max-w-none sm:w-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Primary Select Photos Button */}

@@ -174,7 +174,7 @@ export function SettingsModal({
             <h4 className="text-[11px] font-semibold uppercase tracking-caps text-text-ter">
               Processing Mode
             </h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="settings-processing-modes grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => onToggleServerMode(false)}
