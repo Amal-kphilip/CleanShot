@@ -3,10 +3,8 @@ import { getJob, deleteJob } from '@/lib/server/jobStore';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const job = getJob(params.id);
   if (!job) {
     return NextResponse.json({ error: 'Job not found or expired' }, { status: 404 });
@@ -34,10 +32,8 @@ export async function GET(
   });
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const deleted = deleteJob(params.id);
   return NextResponse.json({ success: deleted, message: deleted ? 'Job purged' : 'Job not found' });
 }

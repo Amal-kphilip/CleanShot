@@ -4,7 +4,7 @@ import { RefObject, useEffect, useRef } from 'react';
 export function useDialogAccessibility(
   isOpen: boolean,
   onClose: () => void,
-  dialogRef: RefObject<HTMLElement>,
+  dialogRef: RefObject<HTMLElement | null>,
 ): void {
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
