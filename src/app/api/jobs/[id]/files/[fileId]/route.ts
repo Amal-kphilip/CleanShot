@@ -5,8 +5,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string; fileId: string } }
+  props: { params: Promise<{ id: string; fileId: string }> }
 ) {
+  const params = await props.params;
   const job = getJob(params.id);
   if (!job) {
     return NextResponse.json({ error: 'Job not found or expired' }, { status: 404 });
@@ -15,6 +16,10 @@ export async function GET(
   const file = job.files.get(params.fileId);
   if (!file) {
     return NextResponse.json({ error: 'File not found' }, { status: 404 });
+  }
+
+  if (file.stripResult.error) {
+    return NextResponse.json({ error: file.stripResult.error }, { status: 422 });
   }
 
   const bodyBuffer = Buffer.from(file.cleanedBuffer);
@@ -28,4 +33,15 @@ export async function GET(
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  props: { params: Promise<{ id: string; fileId: string }> }
+) {
+  const params = await props.params;
+  const job = getJob(params.id);
+  if (!job) return NextResponse.json({ error: 'Job not found or expired' }, { status: 404 });
+  const deleted = job.files.delete(params.fileId);
+  return NextResponse.json({ success: deleted }, { status: deleted ? 200 : 404 });
 }

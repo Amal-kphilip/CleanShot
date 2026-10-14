@@ -13,7 +13,7 @@ export default function FaqPage() {
     },
     {
       q: 'Does stripping metadata reduce or degrade photo quality?',
-      a: 'Never with CleanShot. Generic photo editors decode the image into uncompressed pixels and re-compress it with a lossy JPEG encoder (causing generational compression artifacts and color shifts). CleanShot uses byte-level segment stripping: it removes auxiliary metadata segments (APPn, COM, tEXt) directly from the binary stream without touching the DCT entropy payload.',
+      a: 'For supported formats, CleanShot removes selected metadata/container structures without re-encoding the image data. Unsupported or malformed files are reported as errors rather than advertised as cleaned. Results should be checked for the formats and metadata you rely on.',
     },
     {
       q: 'Why is "Keep ICC Profile" enabled by default?',
@@ -21,11 +21,11 @@ export default function FaqPage() {
     },
     {
       q: 'Can CleanShot process 100+ photos at once?',
-      a: 'Yes. CleanShot uses a concurrent Web Worker pool that distributes work across your CPU cores in parallel. It processes hundreds of photos in seconds and packages them into an uncompressed STORE-mode ZIP for instant download.',
+      a: 'The local processor uses a bounded Web Worker pool on supported browsers. Throughput depends on your device, file sizes, and format. Large batches can use substantial memory, so process in manageable groups.',
     },
     {
       q: 'Do my photos get uploaded to a remote server?',
-      a: 'No. CleanShot runs 100% client-side in your web browser. All byte manipulation and ZIP packaging happens on your local device. Even if you disconnect from the internet, CleanShot works completely offline.',
+      a: 'In Client-Side mode, image processing stays in your browser. If you explicitly switch to Server-Side in Settings, selected files are uploaded for processing and held in memory on that server instance until deleted or expired. Do not use server mode for files you do not want to upload.',
     },
   ];
 
@@ -43,9 +43,9 @@ export default function FaqPage() {
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         <div className="text-center space-y-3">
-          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
             Frequently Asked{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
               Questions
             </span>
           </h1>
@@ -103,8 +103,8 @@ export default function FaqPage() {
 
       {/* Minimal Footer */}
       <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
-        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
+        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
       </footer>
     </div>
   );

@@ -8,18 +8,18 @@ export default function PrivacyPage() {
   const principles = [
     {
       icon: Lock,
-      title: '1. 100% In-Browser Execution',
-      desc: 'When you drop photos into CleanShot, they are processed locally in parallel on your device using Web Workers and binary segment parsers. No image bytes are ever transmitted over the network. You can disconnect your device from the internet and CleanShot will continue to work without disruption.',
+      title: '1. Local Processing by Default',
+      desc: 'Client-Side mode processes supported images in your browser using Web Workers where available. The local queue is limited to 50 MB per file and 100 MB total to reduce memory pressure. In this mode, the image file is not uploaded for processing. The site itself still requires a network connection to load unless it has been cached; fully offline behavior depends on the browser cache.',
     },
     {
       icon: EyeOff,
-      title: '2. Zero Analytics on File Contents',
-      desc: 'We do not inspect, log, fingerprint, or track any filenames, image dimensions, GPS coordinates, camera serials, or visual content. All metadata is ephemeral and destroyed as soon as the browser tab is closed.',
+      title: '2. File Contents Are Not Sent in Client-Side Mode',
+      desc: 'The client-side workflow reads files locally to inspect and clean them. The app does not need to transmit their bytes to perform this processing. Browser extensions, developer tools, or your network environment may affect what you observe, so you can verify the behavior in the browser Network panel.',
     },
     {
       icon: Server,
-      title: '3. Isolated Server Fallback Sandbox',
-      desc: 'If server-side fallback mode is explicitly enabled for low-memory or legacy environments, batches are processed in an ephemeral in-memory sandbox and purged instantly upon download or automatically within a strict 15-minute TTL.',
+      title: '3. Optional Server-Side Mode',
+      desc: 'If you explicitly select Server-Side mode in Settings, original files are uploaded and buffered in application memory while processing. Only successful cleaned outputs are retained in the in-memory job store for download, with a nominal 15-minute expiry or earlier deletion when cleared. This is not a secure-erasure guarantee; restarts and multi-instance/serverless hosting can affect job availability. Do not use this mode for confidential images you do not want to upload.',
     },
   ];
 
@@ -29,14 +29,14 @@ export default function PrivacyPage() {
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         <div className="text-center space-y-3">
-          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
             Privacy by{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
               Design
             </span>
           </h1>
           <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
-            Your photos never leave your device. CleanShot is engineered from the ground up as a zero-knowledge architecture.
+            Local processing is the default. Server-Side mode is optional and uploads files; choose the mode that matches your privacy needs.
           </p>
         </div>
 
@@ -67,8 +67,8 @@ export default function PrivacyPage() {
 
       {/* Minimal Footer */}
       <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
-        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
+        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
       </footer>
     </div>
   );

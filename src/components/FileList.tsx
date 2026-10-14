@@ -24,8 +24,11 @@ export interface FileItemState {
   progress: number;
   result?: StripResult;
   metadata?: ParsedMetadata;
+  cleanedMetadata?: ParsedMetadata;
   error?: string;
   selected?: boolean;
+  serverJobId?: string;
+  serverFileId?: string;
 }
 
 interface FileListProps {
@@ -130,6 +133,7 @@ export function FileList({
                   type="checkbox"
                   checked={item.selected !== false}
                   onChange={() => onToggleSelect(item.id)}
+                  disabled={Boolean(isProcessing)}
                   className="w-4 h-4 rounded text-accent focus:ring-accent border-border-subtle bg-transparent shrink-0"
                 />
 
@@ -172,11 +176,11 @@ export function FileList({
                   <div className="flex items-center gap-2.5 text-[12px] text-text-sec flex-wrap">
                     <span>{formatBytes(item.file.size)}</span>
 
-                    {item.result && item.result.bytesSaved > 0 && (
+                    {item.result && item.result.bytesSaved !== 0 && (
                       <>
                         <span className="text-text-ter">→</span>
-                        <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          -{formatBytes(item.result.bytesSaved)}
+                        <span className={`font-medium ${item.result.bytesSaved > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {item.result.bytesSaved > 0 ? '−' : '+'}{formatBytes(Math.abs(item.result.bytesSaved))}
                         </span>
                       </>
                     )}
@@ -218,8 +222,10 @@ export function FileList({
                   {isProcessingItem && (
                     <div className="w-full max-w-[200px] h-1 bg-black/[0.06] dark:bg-white/[0.08] rounded-pill overflow-hidden mt-1.5">
                       <div
-                        className="h-full bg-accent transition-all duration-apple ease-apple rounded-pill"
-                        style={{ width: `${item.progress}%` }}
+                        className="h-full bg-accent rounded-pill progress-indeterminate"
+                        role="progressbar"
+                        aria-label={`Processing ${item.file.name}`}
+                        aria-valuetext="Processing"
                       />
                     </div>
                   )}
@@ -260,7 +266,9 @@ export function FileList({
                 <button
                   type="button"
                   onClick={() => onRemoveFile(item.id)}
-                  className="p-2 rounded-pill text-text-ter hover:text-red-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] apple-spring apple-press"
+                  disabled={Boolean(isProcessing)}
+                  aria-label={`Remove ${item.file.name} from batch`}
+                  className="p-2 rounded-pill text-text-ter hover:text-red-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] apple-spring apple-press disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Remove from batch"
                 >
                   <Trash2 className="w-4 h-4" />

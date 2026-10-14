@@ -9,19 +9,19 @@ export default function HowItWorksPage() {
   const formats = [
     {
       title: '1. JPEG / JFIF',
-      desc: 'JPEG files are structured as markers. CleanShot parses marker pairs between 0xFFD8 (SOI) and 0xFFDA (SOS). It surgically drops 0xFFE1 (EXIF/XMP), 0xFFFE (COM), and C2PA markers, preserves 0xFFE2 ICC profiles, and keeps the Huffman tables (DHT), Quantization tables (DQT), and entropy-coded DCT scan payload 100% byte-exact.',
+      desc: 'JPEG files are structured as markers. CleanShot parses marker segments, removes comments and selected auxiliary APP segments, preserves recognized JFIF/Adobe and enabled ICC data, and copies the compressed scan data without re-encoding. When enabled, it can preserve a minimal orientation-only EXIF block.',
     },
     {
       title: '2. PNG',
-      desc: 'PNG files are sequences of 4-byte typed chunks. CleanShot removes ancillary chunks (tEXt, zTXt, iTXt, eXIf, tIME, dSIG) while passing through critical rendering chunks (IHDR, PLTE, IDAT, IEND) with bit-exact raster data.',
+      desc: 'PNG files are sequences of typed chunks. CleanShot removes known text, timestamp, EXIF, and signature metadata, preserves allowlisted rendering chunks and compressed image data, and recalculates the CRC if orientation-only EXIF is retained. Unknown chunks or invalid checksums cause a clear error.',
     },
     {
       title: '3. WebP',
-      desc: 'WebP files use a RIFF container. CleanShot drops EXIF and XMP FourCC chunks, updates the VP8X header feature flags bitmask, and recalculates the RIFF container length without decoding the VP8/VP8L compressed bitstream.',
+      desc: 'WebP files use a RIFF container. CleanShot drops EXIF/XMP chunks, synchronizes the VP8X metadata flags with chunks that remain, and recalculates the RIFF length without decoding the VP8/VP8L bitstream. Unknown chunks are rejected.',
     },
     {
       title: '4. SVG Vector Graphics',
-      desc: 'Vector graphics are sanitized to remove XML comments, <metadata>, RDF tags, and proprietary editor metadata (Inkscape, Adobe Illustrator, Figma) while preserving visual paths, styles, and dimensions.',
+      desc: 'Vector markup is sanitized to remove selected XML comments, metadata/RDF blocks, editor-specific attributes, and simple script or inline-handler patterns. Since the SVG text changes, exact pixel equivalence is not asserted; review untrusted SVGs with care.',
     },
   ];
 
@@ -32,14 +32,14 @@ export default function HowItWorksPage() {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         {/* Title */}
         <div className="text-center space-y-3">
-          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
-            How Lossless Stripping{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
+            How Metadata Stripping{' '}
+            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
               Works
             </span>
           </h1>
           <p className="text-[15px] sm:text-[17px] text-text-sec max-w-2xl mx-auto font-normal leading-relaxed">
-            Traditional tools decode and re-compress images, causing quality loss. CleanShot operates directly on the binary byte stream without touching pixel data.
+            Many editors re-encode an image when saving. For supported formats, CleanShot removes metadata from the file structure without re-encoding the image data.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export default function HowItWorksPage() {
               <li>Scans binary container headers for marker segments (0xFFE1, 0xFFFE, tEXt).</li>
               <li>Slices out auxiliary metadata segments directly from the byte array.</li>
               <li>Copies entropy-coded DCT scan stream byte-for-byte.</li>
-              <li>100% pixel-identical output with zero compression loss.</li>
+              <li>The supported parser avoids image re-encoding; output structure is checked before a file is marked successful.</li>
             </ol>
           </div>
         </div>
@@ -77,7 +77,7 @@ export default function HowItWorksPage() {
         {/* Format Specific Deep Dive */}
         <div className="space-y-4">
           <h2 className="text-[20px] font-semibold tracking-heading text-foreground">
-            Format-by-Format Guarantees
+            Format-by-Format Behavior
           </h2>
 
           <div className="space-y-3">
@@ -101,7 +101,7 @@ export default function HowItWorksPage() {
         <div className="p-8 sm:p-10 rounded-card liquid-glass text-center space-y-4 shadow-glass">
           <h3 className="text-[22px] font-semibold text-foreground">Ready to strip metadata losslessly?</h3>
           <p className="text-[14px] text-text-sec max-w-md mx-auto leading-relaxed">
-            100% in-browser, zero server uploads, instant batch processing.
+            Browser processing by default, bounded worker concurrency, and explicit errors for unsupported formats.
           </p>
           <div>
             <Link
@@ -117,8 +117,8 @@ export default function HowItWorksPage() {
 
       {/* Minimal Footer */}
       <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
-        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
+        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
       </footer>
     </div>
   );

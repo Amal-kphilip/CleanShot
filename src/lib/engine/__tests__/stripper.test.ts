@@ -6,6 +6,7 @@ import {
   createSamplePngWithMetadata,
   createSampleWebpWithMetadata,
   createSampleSvgWithMetadata,
+  repairPngCrcs,
 } from './fixtures';
 
 describe('Magic Byte Detector & Sanitizer', () => {
@@ -150,7 +151,7 @@ describe('Lossless WebP Stripping Engine', () => {
     expect(str.startsWith('RIFF')).toBe(true);
     expect(str.includes('WEBP')).toBe(true);
     expect(str.includes('EXIF')).toBe(false);
-    expect(str.includes('VP8 ')).toBe(true);
+    expect(str.includes('VP8 ') || str.includes('VP8L')).toBe(true);
   });
 });
 
@@ -167,5 +168,77 @@ describe('Lossless SVG Stripping Engine', () => {
     expect(cleanedStr.includes('<metadata>')).toBe(false);
     expect(cleanedStr.includes('xmlns:inkscape')).toBe(false);
     expect(cleanedStr.includes('<rect')).toBe(true);
+  });
+});
+
+
+
+
+describe('Privacy-safe handling of uncommon container data', () => {
+  it('strips metadata markers inserted between JPEG scans instead of retaining them in scan data', async () => {
+    const base = createSampleJpegWithMetadata();
+    const marker = new Uint8Array([0xff, 0xe1, 0x00, 0x06, 0x41, 0x42, 0x43, 0x44]);
+    const eoiStart = base.length - 2;
+    const withInterScanMetadata = new Uint8Array(base.length + marker.length);
+    withInterScanMetadata.set(base.slice(0, eoiStart));
+    withInterScanMetadata.set(marker, eoiStart);
+    withInterScanMetadata.set(base.slice(eoiStart), eoiStart + marker.length);
+    const result = await stripImageMetadata(withInterScanMetadata, 'inter-scan.jpg');
+    expect(result.error).toBeUndefined();
+    expect(new TextDecoder('latin1').decode(result.cleanedBuffer)).not.toContain('ABCD');
+  });
+
+  it('rejects unknown PNG chunks rather than returning them as cleaned output', async () => {
+    const base = createSamplePngWithMetadata();
+    const unknownChunk = new Uint8Array([0, 0, 0, 0, 0x76, 0x70, 0x41, 0x67, 0, 0, 0, 0]); // vpAg
+    const withUnknownChunk = new Uint8Array(base.length + unknownChunk.length);
+    withUnknownChunk.set(base.slice(0, 33));
+    withUnknownChunk.set(unknownChunk, 33);
+    withUnknownChunk.set(base.slice(33), 33 + unknownChunk.length);
+    const result = await stripImageMetadata(repairPngCrcs(withUnknownChunk), 'unknown-chunk.png');
+    expect(result.error).toContain('unrecognized ancillary chunk');
+    expect(result.cleanedBuffer).toEqual(repairPngCrcs(withUnknownChunk));
+  });
+});
+
+describe('Unsupported formats and JPEG orientation', () => {
+  it('refuses to mark TIFF/RAW and pass-through formats as cleaned', async () => {
+    const unsupportedBuffers = [
+      new Uint8Array([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00]),
+      new Uint8Array([0x42, 0x4D, 0x00, 0x00]),
+      new Uint8Array([0xFF, 0x0A, 0x00, 0x00]),
+      new Uint8Array([0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A]),
+    ];
+    for (const [index, input] of unsupportedBuffers.entries()) {
+      const result = await stripImageMetadata(input, `unsupported-${index}.bin`);
+      expect(result.error).toBeTruthy();
+      expect(result.pixelIdentical).toBe(false);
+      expect(result.cleanedBuffer).toBe(input);
+    }
+  });
+
+  it('preserves only the EXIF orientation tag when configured to keep orientation', async () => {
+    const base = createSampleJpegWithMetadata();
+    const payload = [
+      0x45,0x78,0x69,0x66,0,0, 0x49,0x49,0x2A,0,0x08,0,0,0,
+      0x01,0, 0x12,0x01,0x03,0,0x01,0,0,0,0x06,0,0,0, 0,0,0,0,
+    ];
+    const segmentLength = payload.length + 2;
+    const orientationSegment = new Uint8Array([0xFF,0xE1,(segmentLength >>> 8) & 0xFF,segmentLength & 0xFF,...payload]);
+    const withOrientation = new Uint8Array([...base.slice(0, 2), ...orientationSegment, ...base.slice(2)]);
+    const result = await stripImageMetadata(withOrientation, 'portrait.jpg', { keepOrientation: true });
+    expect(result.error).toBeUndefined();
+    const text = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(text.includes('Sony')).toBe(false);
+    expect(text.includes('A7IV')).toBe(false);
+    expect(text.includes('Exif\u0000\u0000')).toBe(true);
+    expect(result.removedSegments.some((part) => part.includes('orientation tag preserved'))).toBe(true);
+  });
+
+  it('rejects truncated PNG data instead of returning a partial success', async () => {
+    const truncated = createSamplePngWithMetadata().slice(0, 24);
+    const result = await stripImageMetadata(truncated, 'truncated.png');
+    expect(result.error).toBeTruthy();
+    expect(result.pixelIdentical).toBe(false);
   });
 });

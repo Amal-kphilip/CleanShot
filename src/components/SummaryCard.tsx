@@ -12,14 +12,14 @@ export function SummaryCard({ files }: SummaryCardProps) {
   const completedFiles = files.filter((f) => f.status === 'completed');
   if (completedFiles.length === 0) return null;
 
-  let totalFieldsRemoved = 0;
+  let totalMetadataBlocksRemoved = 0;
   let totalBytesSaved = 0;
   let gpsCount = 0;
   let serialCount = 0;
 
   for (const f of completedFiles) {
     if (f.result) {
-      totalFieldsRemoved += f.result.removedFieldsCount || (f.metadata?.fields.length ?? 0);
+      totalMetadataBlocksRemoved += f.result.removedFieldsCount;
       totalBytesSaved += f.result.bytesSaved;
     }
     if (f.metadata?.gps) gpsCount++;
@@ -27,18 +27,19 @@ export function SummaryCard({ files }: SummaryCardProps) {
   }
 
   const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
+    const absolute = Math.abs(bytes);
+    if (absolute === 0) return '0 B';
     const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    const i = Math.min(sizes.length - 1, Math.floor(Math.log(absolute) / Math.log(1024)));
+    const value = `${(absolute / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+    return bytes < 0 ? `+${value}` : bytes > 0 ? `-${value}` : '0 B';
   };
 
   const metrics = [
-    { label: 'Fields Removed', value: totalFieldsRemoved || '—' },
-    { label: 'Space Saved',    value: formatBytes(totalBytesSaved) },
-    { label: 'GPS Wiped',      value: `${gpsCount}` },
-    { label: 'Serials Stripped', value: `${serialCount}` },
+    { label: 'Metadata Blocks Removed', value: totalMetadataBlocksRemoved },
+    { label: 'Net Size Change', value: formatBytes(totalBytesSaved) },
+    { label: 'Files With GPS Before Cleaning', value: `${gpsCount}` },
+    { label: 'Files With Camera Data', value: `${serialCount}` },
   ];
 
   return (
@@ -54,13 +55,13 @@ export function SummaryCard({ files }: SummaryCardProps) {
               {completedFiles.length} {completedFiles.length === 1 ? 'photo' : 'photos'} cleaned
             </div>
             <div className="text-[12px] text-text-ter">
-              Zero pixels re-compressed · Lossless
+              Supported format · No image re-encoding
             </div>
           </div>
         </div>
         <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-pill bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-          Pixel-identical
+          No re-encoding
         </span>
       </div>
 

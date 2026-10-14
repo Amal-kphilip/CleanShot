@@ -1,10 +1,30 @@
 import { StripOptions } from './types';
+import { createOrientationOnlyExifPayload } from './orientation';
+
+function calculatePngCrc(buffer: Uint8Array, start: number, end: number): number {
+  let crc = 0xffffffff;
+  for (let i = start; i < end; i++) {
+    crc ^= buffer[i];
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createPngChunk(type: string, data: Uint8Array): Uint8Array {
+  const chunk = new Uint8Array(12 + data.length);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.length, false);
+  chunk.set([...type].map((char) => char.charCodeAt(0)), 4);
+  chunk.set(data, 8);
+  view.setUint32(8 + data.length, calculatePngCrc(chunk, 4, 8 + data.length), false);
+  return chunk;
+}
 
 /**
  * Lossless PNG chunk filter.
  * Drops all textual metadata (tEXt, zTXt, iTXt containing AI prompts/C2PA/XMP),
  * eXIf, tIME, dSIG, c2pa, and any non-critical vendor/AI chunks while strictly preserving
- * critical image raster data (IHDR, PLTE, IDAT, IEND, tRNS). Truncates any trailing payload after IEND.
+ * critical image raster data and allowlisted rendering chunks. Rejects unknown chunks rather than risk silently retaining private data.
  */
 export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
@@ -35,17 +55,19 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
 
   let offset = 8;
   const len = buffer.length;
+  let seenIHDR = false;
+  let seenIDAT = false;
+  let seenIEND = false;
 
   while (offset < len) {
-    if (offset + 8 > len) {
-      break;
-    }
+    if (offset + 8 > len) throw new Error('Malformed PNG: truncated chunk header');
 
-    const dataLength =
+    const dataLength = (
       (buffer[offset] << 24) |
       (buffer[offset + 1] << 16) |
       (buffer[offset + 2] << 8) |
-      buffer[offset + 3];
+      buffer[offset + 3]
+    ) >>> 0;
 
     const typeBytes = buffer.slice(offset + 4, offset + 8);
     const chunkType = String.fromCharCode(
@@ -57,10 +79,26 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
 
     const totalChunkLength = 12 + dataLength; // 4 len + 4 type + data + 4 crc
     if (offset + totalChunkLength > len) {
-      break;
+      throw new Error(`Malformed PNG: truncated ${chunkType} chunk`);
+    }
+    if (!/^[A-Za-z]{4}$/.test(chunkType)) throw new Error('Malformed PNG: invalid chunk type');
+    const crcOffset = offset + 8 + dataLength;
+    const storedCrc = new DataView(buffer.buffer, buffer.byteOffset + crcOffset, 4).getUint32(0, false);
+    const computedCrc = calculatePngCrc(buffer, offset + 4, crcOffset);
+    if (storedCrc !== computedCrc) throw new Error(`Malformed PNG: checksum mismatch in ${chunkType} chunk`);
+    if (offset === 8 && chunkType !== 'IHDR') throw new Error('Malformed PNG: IHDR must be the first chunk');
+    if (chunkType === 'IHDR') {
+      if (seenIHDR || dataLength !== 13) throw new Error('Malformed PNG: invalid IHDR chunk');
+      seenIHDR = true;
+    }
+    if (chunkType === 'IDAT') seenIDAT = true;
+    if (chunkType === 'IEND') {
+      if (dataLength !== 0) throw new Error('Malformed PNG: IEND must be empty');
+      seenIEND = true;
     }
 
     let shouldKeep = false;
+    let replacementChunk: Uint8Array | undefined;
     let segName = `PNG ${chunkType} chunk`;
 
     switch (chunkType) {
@@ -74,6 +112,15 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
       case 'acTL': // APNG Animation Control
       case 'fcTL': // APNG Frame Control
       case 'fdAT': // APNG Frame Data
+      case 'bKGD': // Background color used by viewers
+      case 'sBIT': // Significant bits affecting interpretation
+      case 'hIST': // Palette histogram
+      case 'sPLT': // Suggested palette
+      case 'oFFs': // Pixel offset metadata used by image software
+      case 'sCAL': // Physical scale
+      case 'cICP': // Color space / transfer characteristics
+      case 'mDCv': // Mastering display color volume
+      case 'cLLi': // Content light level
         shouldKeep = true;
         break;
 
@@ -106,11 +153,21 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
         segName = 'iTXt (UTF-8 metadata / XMP / C2PA manifest)';
         removedSegments.push(segName);
         break;
-      case 'eXIf':
-        shouldKeep = false;
-        segName = 'eXIf (Embedded EXIF data)';
+      case 'eXIf': {
+        const orientationPayload = options.keepOrientation !== false
+          ? createOrientationOnlyExifPayload(buffer.slice(offset + 8, offset + 8 + dataLength))
+          : undefined;
+        if (orientationPayload) {
+          shouldKeep = true;
+          replacementChunk = createPngChunk('eXIf', orientationPayload);
+          segName = 'eXIf (EXIF removed; orientation tag preserved)';
+        } else {
+          shouldKeep = false;
+          segName = 'eXIf (Embedded EXIF data)';
+        }
         removedSegments.push(segName);
         break;
+      }
       case 'tIME':
         shouldKeep = false;
         segName = 'tIME (Timestamp metadata)';
@@ -122,15 +179,16 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
         segName = 'C2PA / Digital Signature Credential';
         removedSegments.push(segName);
         break;
-      default:
-        // Any unrecognized or ancillary chunk is dropped for strict privacy
-        shouldKeep = false;
-        removedSegments.push(`Ancillary chunk (${chunkType})`);
-        break;
+      default: {
+        // Unknown chunks may contain private metadata or affect rendering. Do not
+        // pass them through or silently change the image: refuse to clean safely.
+        const isAncillary = (typeBytes[0] & 0x20) !== 0;
+        throw new Error(`PNG contains an unrecognized ${isAncillary ? 'ancillary' : 'critical'} chunk (${chunkType}); safe cleaning is not available for this variant.`);
+      }
     }
 
     if (shouldKeep) {
-      chunks.push(buffer.slice(offset, offset + totalChunkLength));
+      chunks.push(replacementChunk || buffer.slice(offset, offset + totalChunkLength));
     }
 
     offset += totalChunkLength;
@@ -140,6 +198,8 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
       break;
     }
   }
+
+  if (!seenIHDR || !seenIDAT || !seenIEND) throw new Error('Malformed PNG: required IHDR, IDAT, or IEND chunk is missing');
 
   // Calculate clean length
   let totalLength = 0;

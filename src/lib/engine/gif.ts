@@ -40,77 +40,74 @@ export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
   chunks.push(buffer.slice(0, headerLength));
   offset = headerLength;
   const len = buffer.length;
+  const skipSubBlocks = (start: number): number => {
+    let cursor = start;
+    while (cursor < len) {
+      const subLength = buffer[cursor++];
+      if (subLength === 0) return cursor;
+      if (cursor + subLength > len) throw new Error('Malformed GIF: truncated extension sub-block');
+      cursor += subLength;
+    }
+    throw new Error('Malformed GIF: missing extension terminator');
+  };
 
+  let seenTrailer = false;
   while (offset < len) {
     const intro = buffer[offset];
 
     if (intro === 0x3B) {
       // Trailer (End of GIF)
       chunks.push(new Uint8Array([0x3B]));
+      seenTrailer = true;
       break;
     }
 
     if (intro === 0x21) {
       // Extension block
-      if (offset + 2 > len) break;
+      if (offset + 2 > len) throw new Error('Malformed GIF: truncated extension introducer');
       const label = buffer[offset + 1];
       const extStart = offset;
 
       if (label === 0xFE) {
-        // Comment Extension (0x21, 0xFE)
-        offset += 2;
-        // Skip sub-blocks
-        while (offset < len) {
-          const subLen = buffer[offset];
-          offset++;
-          if (subLen === 0) break;
-          offset += subLen;
-        }
+        // Comment Extension is metadata.
+        offset = skipSubBlocks(offset + 2);
         removedSegments.push('GIF Comment Extension');
         continue;
       } else if (label === 0x01) {
-        // Plain Text Extension (0x21, 0x01)
-        offset += 2;
-        while (offset < len) {
-          const subLen = buffer[offset];
-          offset++;
-          if (subLen === 0) break;
-          offset += subLen;
-        }
-        removedSegments.push('GIF Plain Text Extension');
+        // Plain-text extensions contribute visible content; retain them byte-for-byte.
+        const headerLengthOffset = offset + 2;
+        if (headerLengthOffset >= len) throw new Error('Malformed GIF: truncated plain-text extension');
+        const headerLength = buffer[headerLengthOffset];
+        const subBlocksStart = headerLengthOffset + 1 + headerLength;
+        if (subBlocksStart > len) throw new Error('Malformed GIF: truncated plain-text header');
+        offset = skipSubBlocks(subBlocksStart);
+        chunks.push(buffer.slice(extStart, offset));
         continue;
       } else if (label === 0xFF) {
-        // Application Extension
+        // Preserve common animation-loop extensions; strip known metadata, but reject unknown apps
+        // because they may carry private fields or alter animation behavior.
+        if (offset + 3 > len) throw new Error('Malformed GIF: truncated application extension');
         const appBlockLen = buffer[offset + 2];
-        const appId = String.fromCharCode(...buffer.slice(offset + 3, offset + 3 + Math.min(appBlockLen, 11)));
-        
-        offset += 3 + appBlockLen;
-        // Check sub-blocks
-        const subBlocksStart = offset;
-        while (offset < len) {
-          const subLen = buffer[offset];
-          offset++;
-          if (subLen === 0) break;
-          offset += subLen;
-        }
-
-        if (appId.startsWith('NETSCAPE') || appId.startsWith('ANIMEXTS')) {
-          // Animation control: KEEP
+        const appBlockStart = offset + 3;
+        const blockEnd = appBlockStart + appBlockLen;
+        if (blockEnd > len) throw new Error('Malformed GIF: truncated application identifier');
+        const appId = String.fromCharCode(...buffer.slice(appBlockStart, appBlockStart + Math.min(appBlockLen, 11))).trim();
+        offset = skipSubBlocks(blockEnd);
+        if (/^(NETSCAPE2\.0|ANIMEXTS1\.0)$/i.test(appId)) {
           chunks.push(buffer.slice(extStart, offset));
+        } else if (/^(XMP DataXMP|C2PA|C2PA Data)/i.test(appId)) {
+          removedSegments.push(`GIF Application Metadata (${appId || 'Vendor'})`);
         } else {
-          // XMP or third party vendor metadata: DROP
-          removedSegments.push(`GIF Application Metadata (${appId.trim() || 'Vendor'})`);
+          throw new Error(`GIF contains an unrecognized application extension (${appId || 'unknown'}); safe cleaning is not available for this variant.`);
         }
         continue;
       } else {
-        // Graphic Control Extension (0xF9) or other extension -> KEEP
-        offset += 2;
-        while (offset < len) {
-          const subLen = buffer[offset];
-          offset++;
-          if (subLen === 0) break;
-          offset += subLen;
-        }
+        // Graphic-control and other extension blocks can affect display; preserve them.
+        if (offset + 3 > len) throw new Error('Malformed GIF: truncated extension block');
+        const fixedBlockLength = buffer[offset + 2];
+        const subBlocksStart = offset + 3 + fixedBlockLength;
+        if (subBlocksStart > len) throw new Error('Malformed GIF: truncated extension header');
+        offset = skipSubBlocks(subBlocksStart);
         chunks.push(buffer.slice(extStart, offset));
         continue;
       }
@@ -119,32 +116,27 @@ export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
     if (intro === 0x2C) {
       // Image Descriptor (0x2C)
       const imgStart = offset;
-      if (offset + 10 > len) break;
+      if (offset + 10 > len) throw new Error('Malformed GIF: truncated image descriptor');
       const imgPacked = buffer[offset + 9];
       const hasLct = (imgPacked & 0x80) !== 0;
       const lctSize = hasLct ? 3 * Math.pow(2, (imgPacked & 0x07) + 1) : 0;
 
       offset += 10 + lctSize; // Image descriptor + LCT
-      if (offset >= len) break;
+      if (offset >= len) throw new Error('Malformed GIF: missing LZW code size');
 
       const lzwMinCodeSize = buffer[offset];
       offset++; // LZW min code size byte
 
       // Skip raster data sub-blocks
-      while (offset < len) {
-        const subLen = buffer[offset];
-        offset++;
-        if (subLen === 0) break;
-        offset += subLen;
-      }
-
+      offset = skipSubBlocks(offset);
       chunks.push(buffer.slice(imgStart, offset));
       continue;
     }
 
-    // Unknown byte / padding, advance safely
-    offset++;
+    throw new Error(`Malformed GIF: unexpected block introducer 0x${intro.toString(16)}`);
   }
+
+  if (!seenTrailer) throw new Error('Malformed GIF: missing trailer');
 
   let totalLength = 0;
   for (let i = 0; i < chunks.length; i++) {

@@ -56,13 +56,14 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled || isProcessing) { e.target.value = ''; return; }
     if (e.target.files?.length) {
       onFilesSelected(Array.from(e.target.files));
       e.target.value = '';
     }
   };
 
-  const supportedFormats = ['JPEG', 'PNG', 'WebP', 'HEIC', 'AVIF', 'GIF', 'TIFF', 'SVG', 'RAW'];
+  const supportedFormats = ['JPEG', 'PNG', 'WebP', 'GIF', 'SVG'];
 
   return (
     <div className="w-full">
@@ -70,7 +71,17 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => !isProcessing && fileInputRef.current?.click()}
+        onClick={() => !isProcessing && !disabled && fileInputRef.current?.click()}
+        onKeyDown={(event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && !isProcessing && !disabled && event.target === event.currentTarget) {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        role="button"
+        tabIndex={isProcessing || disabled ? -1 : 0}
+        aria-label="Add images by choosing files, dropping them here, or pasting from the clipboard"
+        aria-disabled={isProcessing || disabled}
         className={`relative group cursor-pointer rounded-dropzone transition-all duration-apple ease-apple overflow-hidden p-8 sm:p-14 text-center flex flex-col items-center justify-center ${
           isDragOver
             ? 'scale-[1.01] border-2 border-accent bg-accent-light ring-4 ring-accent-glow shadow-floating'
@@ -90,8 +101,9 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           ref={fileInputRef}
           type="file"
           multiple
-          accept="image/*,.heic,.heif,.avif,.cr2,.cr3,.nef,.arw,.dng,.orf,.rw2,.raf,.svg,.jxl"
+          accept=".jpg,.jpeg,.png,.webp,.gif,.svg"
           onChange={handleFileInputChange}
+          disabled={isProcessing || disabled}
           className="hidden"
         />
         <input
@@ -102,6 +114,7 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           directory=""
           multiple
           onChange={handleFileInputChange}
+          disabled={isProcessing || disabled}
           className="hidden"
         />
 
@@ -139,7 +152,7 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
 
         {/* Subtitle with physical keycap */}
         <p className="text-[14px] text-text-sec max-w-sm mb-7 leading-relaxed">
-          Batch process 100+ images. Paste <kbd className="keycap mx-1">Ctrl+V</kbd> or upload a folder.
+          Batch process supported images. Paste <kbd className="keycap mx-1">Ctrl+V</kbd> or upload a folder.
         </p>
 
         {/* Action Buttons */}
@@ -150,8 +163,9 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           {/* Primary Select Photos Button */}
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center justify-center gap-2 shadow-accent-button apple-spring relative overflow-hidden"
+            onClick={() => !isProcessing && !disabled && fileInputRef.current?.click()}
+            disabled={isProcessing || disabled}
+            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center justify-center gap-2 shadow-accent-button apple-spring relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               boxShadow: '0 4px 16px 0 rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
             }}
@@ -163,8 +177,9 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           {/* Secondary Folder Button */}
           <button
             type="button"
-            onClick={() => folderInputRef.current?.click()}
-            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill liquid-glass hover:bg-glass-hover active:scale-[0.97] text-foreground text-[13px] font-medium flex items-center justify-center gap-2 apple-spring"
+            onClick={() => !isProcessing && !disabled && folderInputRef.current?.click()}
+            disabled={isProcessing || disabled}
+            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill liquid-glass hover:bg-glass-hover active:scale-[0.97] text-foreground text-[13px] font-medium flex items-center justify-center gap-2 apple-spring disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FolderPlus className="w-4 h-4 shrink-0 text-text-sec" />
             <span>Folder</span>

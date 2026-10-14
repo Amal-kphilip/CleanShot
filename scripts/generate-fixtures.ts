@@ -7,7 +7,7 @@ import {
   createSampleSvgWithMetadata,
 } from '../src/lib/engine/__tests__/fixtures';
 
-const samplesDir = path.resolve(__dirname, '../../sample-images');
+const samplesDir = path.resolve(__dirname, '../sample-images');
 
 if (!fs.existsSync(samplesDir)) {
   fs.mkdirSync(samplesDir, { recursive: true });

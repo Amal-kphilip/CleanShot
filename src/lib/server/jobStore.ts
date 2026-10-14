@@ -1,15 +1,13 @@
 import crypto from 'crypto';
-import { StripResult, ParsedMetadata, StripOptions } from '../engine/types';
+import { StripResult, StripOptions } from '../engine/types';
 
 export interface StoredFile {
   fileId: string;
   originalFilename: string;
   cleanedFilename: string;
   mimeType: string;
-  originalBuffer: Uint8Array;
   cleanedBuffer: Uint8Array;
   stripResult: StripResult;
-  metadata?: ParsedMetadata;
   createdAt: number;
 }
 
@@ -81,4 +79,20 @@ export function addFileToJob(jobId: string, file: StoredFile): boolean {
     job.status = 'completed';
   }
   return true;
+}
+
+export function getStoredByteCount(): number {
+  const now = Date.now();
+  let total = 0;
+  for (const [jobId, job] of jobs.entries()) {
+    if (now > job.expiresAt) { jobs.delete(jobId); continue; }
+    for (const file of job.files.values()) total += file.cleanedBuffer.byteLength;
+  }
+  return total;
+}
+
+export function getActiveJobCount(): number {
+  const now = Date.now();
+  for (const [jobId, job] of jobs.entries()) if (now > job.expiresAt) jobs.delete(jobId);
+  return jobs.size;
 }

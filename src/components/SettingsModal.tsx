@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, Shield, Palette, RotateCw, FolderTree, Cpu, Check } from 'lucide-react';
 import { StripOptions } from '@/lib/engine/types';
+import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export function SettingsModal({
   isServerMode,
   onToggleServerMode,
 }: SettingsModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogAccessibility(isOpen, onClose, dialogRef);
   if (!isOpen) return null;
 
   const updateOpt = <K extends keyof StripOptions>(key: K, val: StripOptions[K]) => {
@@ -53,7 +56,7 @@ export function SettingsModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Bottom sheet on mobile, centered modal on sm+ */}
-      <div className="relative w-full sm:max-w-lg liquid-glass sm:rounded-card rounded-t-card shadow-floating border border-border-subtle overflow-hidden flex flex-col max-h-[90dvh] animate-slide-up">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabIndex={-1} className="relative w-full sm:max-w-lg liquid-glass sm:rounded-card rounded-t-card shadow-floating border border-border-subtle overflow-hidden flex flex-col max-h-[90dvh] animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border-subtle">
           <div className="flex items-center gap-3">
@@ -61,7 +64,7 @@ export function SettingsModal({
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-[15px] font-semibold text-foreground">Settings</h3>
+              <h3 id="settings-dialog-title" className="text-[15px] font-semibold text-foreground">Settings</h3>
               <p className="text-[12px] text-text-ter">Stripping &amp; export options</p>
             </div>
           </div>
@@ -109,7 +112,7 @@ export function SettingsModal({
                     Preserve Image Orientation
                   </span>
                   <span className="text-[12px] text-text-ter block mt-0.5">
-                    Ensures portrait photos display correctly after stripping.
+                    Retains only EXIF orientation where supported (JPEG, PNG, and WebP).
                   </span>
                 </div>
               </div>
@@ -128,6 +131,7 @@ export function SettingsModal({
             <input
               type="text"
               value={options.filenameSuffix ?? ''}
+              maxLength={40}
               onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
               placeholder='e.g. "_clean" or leave blank'
               className="w-full px-3.5 py-2.5 text-[13px] rounded-small liquid-glass border border-border-subtle text-foreground placeholder:text-text-ter focus:outline-none focus:ring-2 focus:ring-accent/40 transition"
@@ -185,7 +189,7 @@ export function SettingsModal({
                   {!isServerMode && <Check className="w-4 h-4 text-accent" />}
                 </div>
                 <div className="text-[13px] font-semibold text-foreground">Client-Side</div>
-                <p className="text-[11px] text-text-ter mt-0.5">100% offline, never leaves device.</p>
+                <p className="text-[11px] text-text-ter mt-0.5">File bytes stay in your browser for processing.</p>
               </button>
 
               <button
@@ -202,7 +206,7 @@ export function SettingsModal({
                   {isServerMode && <Check className="w-4 h-4 text-accent" />}
                 </div>
                 <div className="text-[13px] font-semibold text-foreground">Server-Side</div>
-                <p className="text-[11px] text-text-ter mt-0.5">In-memory, 15-min auto purge.</p>
+                <p className="text-[11px] text-text-ter mt-0.5">Uploads selected files (max 20 MB each, 50 MB and 40 files per batch). Cleaned outputs are held in server memory for up to about 15 minutes; serverless or multi-instance hosting may lose jobs. Do not use for sensitive photos you do not want to upload.</p>
               </button>
             </div>
           </section>

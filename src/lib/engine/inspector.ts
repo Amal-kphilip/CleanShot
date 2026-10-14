@@ -12,7 +12,6 @@ export async function inspectMetadata(buffer: Uint8Array): Promise<ParsedMetadat
   const format = formatInfo.format;
   const fields: MetadataField[] = [];
   let gps: GpsLocation | undefined = undefined;
-  let rawData: Record<string, any> = {};
 
   const categoriesCount = {
     location: 0,
@@ -43,7 +42,6 @@ export async function inspectMetadata(buffer: Uint8Array): Promise<ParsedMetadat
     });
 
     if (parsed) {
-      rawData = parsed;
       width = parsed.ImageWidth || parsed.ExifImageWidth || parsed.width;
       height = parsed.ImageHeight || parsed.ExifImageHeight || parsed.height;
 
@@ -107,7 +105,9 @@ export async function inspectMetadata(buffer: Uint8Array): Promise<ParsedMetadat
     gps,
     categories: categoriesCount,
     hasHighRiskFields,
-    rawSummary: rawData,
+    // Raw parser objects can retain large amounts of private EXIF/XMP data and are not
+    // consumed by the UI. Keep only the normalized fields needed by the inspector.
+    rawSummary: {},
   };
 }
 

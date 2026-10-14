@@ -5,8 +5,6 @@ import { stripPng } from './png';
 import { stripWebp } from './webp';
 import { stripGif } from './gif';
 import { stripSvg } from './svg';
-import { stripTiff } from './tiff';
-import { stripBmff } from './bmff';
 
 /**
  * Main lossless metadata stripping engine entry point.
@@ -33,10 +31,28 @@ export async function stripImageMetadata(
       percentSaved: 0,
       removedFieldsCount: 0,
       removedSegments: [],
-      pixelIdentical: true,
+      pixelIdentical: false,
       cleanedBuffer: fileBuffer,
       mimeType: formatInfo.mimeType,
       error: 'Unsupported image format for metadata stripping',
+    };
+  }
+
+  if (!formatInfo.isLosslessStrippable) {
+    return {
+      filename,
+      cleanedFilename,
+      format,
+      originalSize,
+      cleanedSize: originalSize,
+      bytesSaved: 0,
+      percentSaved: 0,
+      removedFieldsCount: 0,
+      removedSegments: [],
+      pixelIdentical: false,
+      cleanedBuffer: fileBuffer,
+      mimeType: formatInfo.mimeType,
+      error: `Safe lossless metadata removal is not currently supported for ${formatInfo.description}. The original file has not been modified.`,
     };
   }
 
@@ -81,27 +97,12 @@ export async function stripImageMetadata(
       }
 
       case 'tiff':
-      case 'raw': {
-        const res = stripTiff(fileBuffer, options);
-        cleanedBuffer = res.cleanedBuffer;
-        removedSegments = res.removedSegments;
-        break;
-      }
-
+      case 'raw':
       case 'heic':
-      case 'avif': {
-        const res = stripBmff(fileBuffer, options);
-        cleanedBuffer = res.cleanedBuffer;
-        removedSegments = res.removedSegments;
-        break;
-      }
-
+      case 'avif':
       case 'bmp':
       case 'jxl': {
-        // BMP / JXL basic passthrough with header preservation
-        cleanedBuffer = fileBuffer;
-        removedSegments = [];
-        break;
+        throw new Error(`Safe metadata removal is not implemented for ${formatInfo.description}`);
       }
 
       default:
@@ -109,8 +110,12 @@ export async function stripImageMetadata(
         break;
     }
 
+    if (cleanedBuffer.length < 4 || detectImageFormat(cleanedBuffer).format !== format) {
+      throw new Error('Verification failed: the processed output no longer matches the input image format.');
+    }
+
     const cleanedSize = cleanedBuffer.length;
-    const bytesSaved = Math.max(0, originalSize - cleanedSize);
+    const bytesSaved = originalSize - cleanedSize; // Negative means the cleaned output grew.
     const percentSaved = originalSize > 0 ? (bytesSaved / originalSize) * 100 : 0;
 
     return {
@@ -123,7 +128,9 @@ export async function stripImageMetadata(
       percentSaved: Number(percentSaved.toFixed(2)),
       removedFieldsCount: removedSegments.length,
       removedSegments,
-      pixelIdentical: true,
+      // Raster/container formats preserve their encoded image payload; SVG markup is
+      // transformed, so do not claim pixel identity without raster comparison.
+      pixelIdentical: format !== 'svg' && options.keepIccProfile !== false && (format === 'gif' || options.keepOrientation !== false),
       cleanedBuffer,
       mimeType: formatInfo.mimeType,
     };
