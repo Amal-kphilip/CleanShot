@@ -3,23 +3,28 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: 'CleanShot — Lossless Bulk Photo Metadata Stripper & EXIF Inspector',
+  title: 'CleanShot — Photo Metadata Cleaner & EXIF Inspector',
   description:
-    'Remove EXIF, GPS coordinates, camera serial numbers, and device fingerprints from photos in bulk losslessly with zero quality loss directly in your browser.',
+    'Inspect and remove selected EXIF, GPS, and other metadata from supported images. CleanShot processes in your browser by default and reports unsupported files instead of marking them as cleaned.',
   keywords: [
-    'EXIF stripper',
+    'EXIF metadata cleaner',
     'remove metadata from photos',
-    'lossless EXIF cleaner',
-    'bulk photo privacy',
-    'remove GPS from photos',
-    'pixel identical metadata remover',
+    'photo privacy tool',
+    'bulk photo metadata remover',
+    'remove GPS metadata from photos',
+    'image metadata inspector',
   ],
   authors: [{ name: 'CleanShot Privacy Team' }],
   openGraph: {
-    title: 'CleanShot — Lossless Photo Metadata Stripper',
+    title: 'CleanShot — Photo Metadata Cleaner',
     description:
-      'Remove EXIF, GPS, serials, and timestamps from photos in bulk losslessly with zero quality loss.',
+      'Inspect and remove selected metadata from supported image formats. Browser processing is the default; server uploads only occur when server mode is explicitly selected.',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'CleanShot — Photo Metadata Cleaner',
+    description: 'Inspect and remove selected metadata from supported images, with browser processing by default.',
   },
   icons: {
     icon: [
@@ -41,16 +46,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
       <body className="antialiased min-h-dvh bg-background text-foreground transition-colors duration-200 relative selection:bg-accent/20 selection:text-accent">
         <ThemeProvider>
-          {/* Hardware-accelerated static Aurora background (zero CPU/GPU overhead) */}
+          {/* Static decorative glow: avoids a continuously animated filter layer. */}
           <div className="aurora-mesh" aria-hidden="true" />
 
           {/* Main Content */}

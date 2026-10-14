@@ -56,9 +56,9 @@ export function Header({ onOpenSettings }: HeaderProps) {
   return (
     <>
       {/* Floating Centered Pill Navbar */}
-      <header className="sticky top-4 z-50 w-full px-4 sm:px-6 pointer-events-none">
-        <div className="max-w-[900px] mx-auto pointer-events-auto relative">
-          <nav className="liquid-glass-nav rounded-pill px-3.5 sm:px-4 py-2 flex items-center justify-between transition-all duration-200">
+      <header className="sticky top-0 z-50 w-full px-4 sm:px-6 pointer-events-none">
+        <div className="max-w-[1280px] mx-auto pointer-events-auto relative">
+          <nav className="liquid-glass-nav site-nav px-3.5 sm:px-4 py-2 flex items-center justify-between transition-all duration-200">
             {/* Logo on Left */}
             <Link
               href="/"

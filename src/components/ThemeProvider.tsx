@@ -18,24 +18,23 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem('cleanshot_theme') as Theme | null;
-    if (saved === 'light' || saved === 'dark') {
-      setThemeState(saved);
-      document.documentElement.classList.toggle('dark', saved === 'dark');
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setThemeState(prefersDark ? 'dark' : 'light');
-      document.documentElement.classList.toggle('dark', prefersDark);
+    let saved: Theme | null = null;
+    try {
+      const value = localStorage.getItem('cleanshot_theme');
+      if (value === 'light' || value === 'dark') saved = value;
+    } catch {
+      // Storage can be unavailable in strict privacy modes; keep the dark default.
     }
+    const selected: Theme = saved || 'dark';
+    setThemeState(selected);
+    document.documentElement.classList.toggle('dark', selected === 'dark');
   }, []);
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
-    localStorage.setItem('cleanshot_theme', t);
+    try { localStorage.setItem('cleanshot_theme', t); } catch { /* Theme still works for this session. */ }
     document.documentElement.classList.toggle('dark', t === 'dark');
   };
 

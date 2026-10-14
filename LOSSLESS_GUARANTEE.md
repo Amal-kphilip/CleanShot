@@ -1,93 +1,27 @@
-# CleanShot Lossless Guarantee & Technical Specification
+# CleanShot — Format Support and Verification Boundaries
 
-CleanShot guarantees **zero visual quality degradation** and **zero generational compression loss** when stripping metadata from images.
+This document describes the current implementation, not a universal guarantee that every image or metadata format is fully sanitized. The supported parsers operate on container structures and do not re-encode raster image data. Unsupported or malformed inputs should return an error instead of being reported as cleaned.
 
-Unlike traditional image editors that decode images to uncompressed pixel buffers and re-encode them using lossy encoders (e.g. `libjpeg`, `pngquant`, `cwebp`), CleanShot operates directly on the container byte stream.
+## Current status by format
 
----
+| Format | Current behavior | Important limits |
+|---|---|---|
+| JPEG/JFIF | Parses marker segments, removes comments and selected auxiliary APP segments, removes trailing bytes after EOI, and preserves the compressed scan data. JFIF, Adobe transform markers, and ICC data are retained according to implementation/options. | The orientation setting may preserve a minimal EXIF block containing only the orientation tag. Marker-based handling is not a certification against every non-standard private-data convention. |
+| PNG | Validates chunk boundaries and CRCs, removes known text/timestamp/signature metadata, and can replace EXIF with an orientation-only chunk. | Known rendering/color chunks are kept or filtered according to settings. Unknown chunks and malformed files are rejected rather than passed through. |
+| WebP | Parses RIFF chunks, strips EXIF/XMP, updates RIFF length and metadata feature flags, and can preserve only EXIF orientation. | Unknown chunk types and malformed RIFF structures are rejected. |
+| GIF | Removes comment blocks and recognized metadata application extensions while keeping image blocks, timing/control structures, and known animation-loop extensions. | Plain-text extensions are retained because they can affect visible content. Unknown application extensions are rejected. |
+| SVG | Removes selected comments, metadata/editor attributes, and simple script/event-handler markup patterns. | This is text sanitization, not an XML security certification. Treat untrusted SVGs cautiously; the output is not claimed to be pixel-identical. |
+| HEIC/HEIF, AVIF, TIFF/RAW, BMP, JPEG XL | Explicitly not supported for safe lossless stripping in this implementation. | Processing should return an unsupported-format error without modifying the original. |
 
-## 1. The Core Architecture: Byte-Stream Segment Stripping
+## What “without re-encoding” means
 
-When an image is processed:
-1. **No Canvas/Decoders are used for re-saving**: The image pixel data is never decoded into RGBA bitmap pixels and recompressed.
-2. **Binary Header Traversal**: The file's binary stream is parsed to identify metadata segments, chunks, and tags.
-3. **Surgical Removal**: Only auxiliary metadata segments (`APPn`, `COM`, `tEXt`, `EXIF`, `XMP`) are excised.
-4. **Pass-Through**: The raw entropy-coded scan data (e.g., DCT coefficients in JPEG, zlib IDAT stream in PNG, VP8 intra-frames in WebP) is copied byte-for-byte directly to the output.
+For the supported raster formats, the implementation edits the container and retains encoded image-data segments rather than decoding and recompressing the picture. That avoids an additional lossy encode. It does not mean every output has identical rendering under every viewer: for example, orientation or color-profile settings can affect display interpretation. SVG text is modified directly, so pixel equality is not asserted.
 
----
+## Verification limits
 
-## 2. Format-by-Format Guarantees
+- The engine validates selected structural properties and has unit tests and direct checks for representative metadata cases.
+- Test fixtures do not cover every vendor extension, camera model, file corruption mode, or metadata convention.
+- No claim is made here that a full independent decoded-pixel comparison has been run for every format.
+- A successful operation means the supported parser completed its checks; it is not a forensic guarantee that all possible private information was removed.
 
-### 1. JPEG / JFIF
-- **Structure**: Marker stream beginning with `0xFFD8` (SOI) and ending with `0xFFD9` (EOI).
-- **Metadata Stripped**:
-  - `0xFFE1` (APP1): EXIF header (`Exif\0\0`), XMP packet (`http://ns.adobe.com/xap/1.0/\0`), C2PA Content Credentials.
-  - `0xFFE2` (APP2): FlashPix, Multi-Picture Format (MPF) auxiliary thumbnail previews.
-  - `0xFFE3`–`0xFFEF` (APP3–APP15): Vendor tags, camera makernotes, Photoshop 8BIM / IPTC (`0xFFED`).
-  - `0xFFFE` (COM): Text comments.
-- **Critical Stream Preserved**:
-  - `0xFFDB` (DQT): Quantization Tables.
-  - `0xFFC4` (DHT): Huffman Tables.
-  - `0xFFC0`–`0xFFCF` (SOFn): Start of Frame definitions (dimensions, color channels).
-  - `0xFFDA` (SOS & Scan): **All compressed DCT coefficients are copied 100% untouched.**
-  - `0xFFE2` (ICC Profile) & `0xFFEE` (Adobe Color Transform): Preserved when "Keep ICC Profile" is active to maintain color accuracy.
-
-### 2. PNG
-- **Structure**: 8-byte signature `89 50 4E 47 0D 0A 1A 0A` followed by a sequence of 4-part chunks `[Length][Type][Data][CRC32]`.
-- **Metadata Chunks Dropped**:
-  - `tEXt`, `zTXt`, `iTXt`: Uncompressed, compressed, and international UTF-8 metadata (Title, Author, Description, Software, XMP).
-  - `eXIf`: Embedded EXIF metadata.
-  - `tIME`: Last modification timestamp.
-  - `dSIG`: Digital signatures and C2PA credentials.
-- **Visual Data Preserved**:
-  - `IHDR`: Image dimensions, bit depth, color type.
-  - `PLTE`: Color palette table (indexed color).
-  - `IDAT`: Deflate-compressed pixel stream (never decompressed or altered).
-  - `tRNS`: Alpha transparency masks.
-  - `IEND`: End of file marker.
-
-### 3. WebP
-- **Structure**: RIFF container `RIFF [Size] WEBP` holding FourCC sub-chunks.
-- **Metadata Chunks Dropped**:
-  - `EXIF`: Raw EXIF chunk.
-  - `XMP `: Adobe XMP metadata.
-- **Header Bitmask Update**:
-  - The `VP8X` extended header feature flags byte is updated: bits for EXIF (`0x08`) and XMP (`0x04`) are cleared.
-- **Visual Data Preserved**:
-  - `VP8 ` (Lossy DCT bitstream), `VP8L` (Lossless spatial stream), `ALPH` (Alpha bitstream), `ANIM`/`ANMF` (Animation frames).
-
-### 4. GIF
-- **Structure**: GIF87a/GIF89a block stream.
-- **Metadata Stripped**:
-  - `0x21 0xFE`: Comment Extension blocks.
-  - `0x21 0x01`: Plain Text Extension blocks.
-  - `0x21 0xFF`: Non-animation Application Extension blocks (XMP).
-- **Visual Data Preserved**:
-  - `0x21 0xF9`: Graphic Control Extensions (frame delays, transparent color index).
-  - `0x21 0xFF NETSCAPE2.0`: Animation loop count.
-  - `0x2C`: Image Descriptors, Local Color Tables, and LZW compressed raster streams.
-
-### 5. TIFF & RAW (DNG, CR2, NEF, ARW)
-- **Structure**: TIFF header with Image File Directory (IFD0) entries.
-- **Method**: IFD pointer sanitization.
-- **Tags Stripped**:
-  - `34665` (ExifIFDPointer), `34853` (GPSInfoPointer), `700` (XMP), `33723` (IPTC), `270` (ImageDescription), `271` (Make), `272` (Model), `305` (Software), `306` (DateTime), `315` (Artist), `33432` (Copyright).
-- **Pixel Data Preserved**:
-  - `StripOffsets` (273), `TileOffsets` (324), `StripByteCounts` (279), `SubIFDs` (330 - CFA Bayer raw matrix).
-
-### 6. SVG
-- **Structure**: XML DOM.
-- **Metadata Stripped**:
-  - `<!-- comments -->`, `<metadata>`, `<rdf:RDF>`, `<?xpacket?>`, inkscape / adobe / sodipodi namespaces and attributes, dangerous embedded `<script>` tags.
-- **Visual Data Preserved**:
-  - Path geometry, fill, stroke, gradients, clip paths, viewBox, CSS styles.
-
----
-
-## 3. Pixel-Identical Verification (How we test)
-
-Every format engine undergoes automated regression tests:
-1. An image is generated with known metadata segments.
-2. The image is passed through CleanShot's lossless stripper.
-3. The cleaned image's payload is scanned to verify that metadata markers are 0.
-4. The decoded raster bitmap of the cleaned file matches the original file with **0% pixel delta**.
+For high-sensitivity use cases, independently inspect cleaned outputs with a separate metadata parser and verify that the specific metadata fields of concern are absent.

@@ -1,47 +1,40 @@
 # CleanShot
 
-> Bulk, lossless photo metadata (EXIF/GPS) stripper with zero visual quality loss. Runs 100% in-browser.
+> A privacy-focused photo metadata inspector and remover. Processing is browser-side by default, with an explicitly selectable server mode.
 
----
+## Features
 
-## ✨ Features
+- **Metadata removal without re-encoding** for the supported JPEG, PNG, WebP, and GIF paths. SVG is sanitized as text markup, so its serialized bytes change and exact pixel equivalence is not claimed.
+- **Bounded browser worker pool** for supported image-processing tasks, with a safe main-thread fallback where module workers are unavailable.
+- **Metadata inspector** for reviewing common image metadata and GPS-related fields before and after cleaning.
+- **Color profile controls** to preserve supported color-profile chunks by default.
+- **Batch processing and ZIP download** with browser-side output in client mode and API-backed downloads in server mode.
+- **Honest unsupported-format handling** for HEIC/HEIF, AVIF, TIFF/RAW, BMP, and JPEG XL. These are recognized where possible, but are not marked as cleaned.
+- **Privacy modes:** Client-Side mode processes images in the browser. Server-Side mode uploads selected images to the application server for processing. Server-side job data is held in process memory and is subject to the host's lifecycle; this is not a guarantee of secure erasure or persistence across instances.
 
-- **Lossless & Zero-Recompression**: Strips metadata directly from binary segment streams (JPEG APPn/COM, PNG chunks, WebP RIFF). 0% pixel data re-encoded.
-- **Bulk & Fast**: Process 100+ photos at once with Web Workers. Drag-and-drop, folder upload, or clipboard paste (`Ctrl+V`).
-- **Metadata Inspector**: Inspect EXIF tags before stripping, with GPS coordinates and sensitive leak alerts.
-- **Color Fidelity**: Preserves ICC color profiles (sRGB, Display P3) to prevent color shifting.
-- **Instant ZIP Download**: Generates uncompressed (STORE mode) ZIPs client-side without server bandwidth bottlenecks.
-- **100% Private**: Runs entirely in your browser. Photos never leave your device.
-- **Supported Formats**: JPEG, PNG, WebP, GIF, HEIC/HEIF, AVIF, TIFF, DNG, RAW, SVG.
-
----
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# Install dependencies
-npm install
-
-# Run dev server
+npm ci
 npm run dev
+```
 
-# Run tests
+## Validation
+
+```bash
+node node_modules/typescript/bin/tsc --noEmit
 npm test
-
-# Build for production
 npm run build
 ```
 
----
+A successful type check is not a substitute for the tests and production build. Run all three validation commands in an environment with the platform-specific Next.js and Rollup optional dependencies installed before deploying.
 
-## 🐳 Docker
+## Docker
 
 ```bash
 docker-compose up -d --build
 ```
 
----
-
-## 📄 License
+## License
 
 MIT

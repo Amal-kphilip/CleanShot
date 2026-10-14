@@ -1,8 +1,32 @@
+import { deflateSync } from 'node:zlib';
+
 /**
  * Test Fixture Generator.
  * Constructs minimal valid image byte streams with embedded EXIF, XMP, Comments,
  * and PNG chunks for rigorous unit testing.
  */
+
+
+export function repairPngCrcs(png: Uint8Array): Uint8Array {
+  const out = new Uint8Array(png);
+  let offset = 8;
+  while (offset + 12 <= out.length) {
+    const length = new DataView(out.buffer, out.byteOffset + offset, 4).getUint32(0, false);
+    const crcStart = offset + 4;
+    const crcEnd = offset + 8 + length;
+    if (crcEnd + 4 > out.length) break;
+    let crc = 0xffffffff;
+    for (let i = crcStart; i < crcEnd; i++) {
+      crc ^= out[i];
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    new DataView(out.buffer).setUint32(crcEnd, (crc ^ 0xffffffff) >>> 0, false);
+    const type = String.fromCharCode(out[offset + 4], out[offset + 5], out[offset + 6], out[offset + 7]);
+    offset = crcEnd + 4;
+    if (type === 'IEND') break;
+  }
+  return out;
+}
 
 // Minimal 1x1 red pixel JPEG with APP1 (EXIF), APP2 (ICC), and COM segments
 export function createSampleJpegWithMetadata(): Uint8Array {
@@ -71,102 +95,44 @@ export function createSampleJpegWithMetadata(): Uint8Array {
   ]);
 }
 
-// Minimal 1x1 PNG with tEXt metadata chunk
+// Valid 1x1 RGBA PNG with a tEXt metadata chunk.
 export function createSamplePngWithMetadata(): Uint8Array {
-  // Signature
-  const sig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const encode = new TextEncoder();
+  const chunk = (type: string, data: Uint8Array): Uint8Array => {
+    const result = new Uint8Array(12 + data.length);
+    new DataView(result.buffer).setUint32(0, data.length, false);
+    result.set(encode.encode(type), 4);
+    result.set(data, 8);
+    return result;
+  };
+  const concat = (...items: Uint8Array[]): Uint8Array => {
+    const total = items.reduce((length, item) => length + item.length, 0);
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (const item of items) { result.set(item, offset); offset += item.length; }
+    return result;
+  };
 
-  // IHDR (1x1, 8-bit RGBA)
-  const ihdrData = [
-    0x00, 0x00, 0x00, 0x01, // width: 1
-    0x00, 0x00, 0x00, 0x01, // height: 1
-    0x08, 0x06, 0x00, 0x00, 0x00,
-  ];
-  const ihdrChunk = [
-    0x00, 0x00, 0x00, 0x0D, // len: 13
-    0x49, 0x48, 0x44, 0x52, // "IHDR"
-    ...ihdrData,
-    0x5D, 0x2A, 0x22, 0x4B, // CRC
-  ];
-
-  // tEXt chunk ("Author\0Jane Doe")
-  const textPayload = [
-    0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x00, // "Author\0"
-    0x4A, 0x61, 0x6E, 0x65, 0x20, 0x44, 0x6F, 0x65, // "Jane Doe"
-  ];
-  const textLen = textPayload.length;
-  const textChunk = [
-    (textLen >> 24) & 0xFF, (textLen >> 16) & 0xFF, (textLen >> 8) & 0xFF, textLen & 0xFF,
-    0x74, 0x45, 0x58, 0x74, // "tEXt"
-    ...textPayload,
-    0x00, 0x00, 0x00, 0x00, // dummy CRC
-  ];
-
-  // IDAT (1x1 uncompressed deflate stream)
-  const idatData = [0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x03, 0x01, 0x01, 0x00];
-  const idatLen = idatData.length;
-  const idatChunk = [
-    (idatLen >> 24) & 0xFF, (idatLen >> 16) & 0xFF, (idatLen >> 8) & 0xFF, idatLen & 0xFF,
-    0x49, 0x44, 0x41, 0x54, // "IDAT"
-    ...idatData,
-    0x18, 0xDD, 0x8D, 0xB0,
-  ];
-
-  // IEND
-  const iendChunk = [
-    0x00, 0x00, 0x00, 0x00,
-    0x49, 0x45, 0x4E, 0x44,
-    0xAE, 0x42, 0x60, 0x82,
-  ];
-
-  return new Uint8Array([
-    ...sig,
-    ...ihdrChunk,
-    ...textChunk,
-    ...idatChunk,
-    ...iendChunk,
-  ]);
+  // One scanline: filter byte 0 followed by one opaque red RGBA pixel.
+  const ihdr = new Uint8Array([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]);
+  const text = encode.encode('Author\0Jane Doe');
+  const pixels = deflateSync(new Uint8Array([0, 255, 0, 0, 255]));
+  return repairPngCrcs(concat(
+    signature,
+    chunk('IHDR', ihdr),
+    chunk('tEXt', text),
+    chunk('IDAT', pixels),
+    chunk('IEND', new Uint8Array()),
+  ));
 }
 
-// Minimal WebP with EXIF chunk
+// Valid lossless 2x2 WebP generated with a standard VP8L stream and EXIF tags.
+// Keep this fixture small and decodable so the regression suite can verify real raster output.
 export function createSampleWebpWithMetadata(): Uint8Array {
-  // VP8X header (flags = 0x08 for EXIF)
-  const vp8xPayload = [
-    0x08, 0x00, 0x00, 0x00, // flags (EXIF bit set)
-    0x00, 0x00, 0x00,       // canvas width - 1 (1px)
-    0x00, 0x00, 0x00,       // canvas height - 1 (1px)
-  ];
-  const vp8xChunk = [
-    0x56, 0x50, 0x38, 0x58, // "VP8X"
-    0x0A, 0x00, 0x00, 0x00, // length: 10
-    ...vp8xPayload,
-  ];
-
-  // EXIF chunk
-  const exifPayload = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 0x01, 0x02];
-  const exifChunk = [
-    0x45, 0x58, 0x49, 0x46, // "EXIF"
-    0x08, 0x00, 0x00, 0x00, // length: 8
-    ...exifPayload,
-  ];
-
-  // VP8 chunk (minimal frame)
-  const vp8Payload = [0x30, 0x01, 0x00, 0x9D, 0x01, 0x2A, 0x01, 0x00, 0x01, 0x00];
-  const vp8Chunk = [
-    0x56, 0x50, 0x38, 0x20, // "VP8 "
-    0x0A, 0x00, 0x00, 0x00, // length: 10
-    ...vp8Payload,
-  ];
-
-  const totalChunks = [...vp8xChunk, ...exifChunk, ...vp8Chunk];
-  const riffSize = 4 + totalChunks.length;
-
-  return new Uint8Array([
-    0x52, 0x49, 0x46, 0x46, // "RIFF"
-    riffSize & 0xFF, (riffSize >> 8) & 0xFF, (riffSize >> 16) & 0xFF, (riffSize >> 24) & 0xFF,
-    0x57, 0x45, 0x42, 0x50, // "WEBP"
-    ...totalChunks,
-  ]);
+  const base64 = 'UklGRoQAAABXRUJQVlA4WAoAAAAIAAAAAQAAAQAAVlA4TBEAAAAvAUAAAAdQlHKXp/+BiOh/AABFWElGTAAAAE1NACoAAAAIAAMBDwACAAAABQAAADIBEAACAAAABQAAADgBOwACAAAADgAAAD4AAAAAU29ueQAAQTdJVgAAVGFrZW4gYnkgSm9obgA='
+  const bytes = Buffer.from(base64, 'base64');
+  return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice();
 }
 
 // Sample SVG with comments & metadata

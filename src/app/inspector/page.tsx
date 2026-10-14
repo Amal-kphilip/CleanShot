@@ -53,9 +53,9 @@ export default function InspectorPage() {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         {/* Title */}
         <div className="text-center space-y-3">
-          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
             Metadata{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
               Inspector
             </span>
           </h1>
@@ -199,8 +199,8 @@ export default function InspectorPage() {
 
       {/* Minimal Footer */}
       <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
-        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
+        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
       </footer>
     </div>
   );

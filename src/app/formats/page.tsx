@@ -2,65 +2,63 @@
 
 import React from 'react';
 import { Header } from '@/components/Header';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, CircleAlert } from 'lucide-react';
 
 export default function FormatsPage() {
   const formats = [
     {
-      name: 'JPEG / JPG',
-      ext: '.jpg, .jpeg, .jfif',
-      method: 'APPn / COM segment stripper',
-      tagsStripped: 'EXIF (APP1), XMP (APP1), Comments (COM), Photoshop 8BIM / IPTC (APP13), FlashPix (APP2), Vendor tags (APP3-APP15)',
-      guarantee: '100% untouched DCT entropy stream. Zero recompression artifacts.',
+      name: 'JPEG / JPG', ext: '.jpg, .jpeg, .jfif', supported: true,
+      method: 'JPEG marker parser',
+      tagsStripped: 'EXIF/XMP APP1 content (only orientation may be retained when enabled), comments, selected APPn vendor metadata, and trailing payload after EOI.',
+      guarantee: 'Removes selected metadata segments without re-encoding the compressed image scan.',
     },
     {
-      name: 'PNG',
-      ext: '.png',
-      method: 'Ancillary chunk filter',
-      tagsStripped: 'tEXt, zTXt, iTXt, eXIf, tIME, dSIG (C2PA), prPt',
-      guarantee: 'Preserves critical IHDR, PLTE, IDAT, IEND chunks. 100% bit-exact pixel raster.',
+      name: 'PNG', ext: '.png', supported: true,
+      method: 'PNG chunk filter',
+      tagsStripped: 'Text chunks, timestamps, digital-signature/C2PA chunks, and known metadata blocks. Only EXIF orientation may be retained when enabled. Unknown chunks cause a safe error rather than being passed through.',
+      guarantee: 'Preserves supported image-data and required structural chunks. Malformed streams are reported as errors.',
     },
     {
-      name: 'WebP',
-      ext: '.webp',
-      method: 'RIFF container sub-chunk stripper',
-      tagsStripped: 'EXIF FourCC chunk, XMP FourCC chunk, updates VP8X feature flag bitmask',
-      guarantee: 'VP8 / VP8L raster frames untouched. Zero loss in lossy or lossless WebP.',
+      name: 'WebP', ext: '.webp', supported: true,
+      method: 'RIFF container parser',
+      tagsStripped: 'EXIF and XMP chunks, with container size and feature flags updated by the parser. Only EXIF orientation may be retained when enabled; unknown chunks cause a safe error.',
+      guarantee: 'Does not decode or re-encode the VP8/VP8L image bitstream.',
     },
     {
-      name: 'HEIF / HEIC',
-      ext: '.heic, .heif',
-      method: 'ISOBMFF meta container cleaner',
-      tagsStripped: 'Standalone exif / xml boxes, item references in meta box',
-      guarantee: 'H.265 / HEVC media bitstreams in mdat box 100% preserved.',
+      name: 'GIF', ext: '.gif', supported: true,
+      method: 'GIF block parser',
+      tagsStripped: 'Comment blocks and known XMP/C2PA application metadata. Unknown application extensions cause a safe error.',
+      guarantee: 'Keeps image data blocks and animation timing structures in supported files.',
     },
     {
-      name: 'AVIF',
-      ext: '.avif',
-      method: 'ISOBMFF meta container cleaner',
-      tagsStripped: 'exif, xml / XMP boxes, auxiliary metadata items',
-      guarantee: 'AV1 image video bitstreams preserved without re-encoding.',
+      name: 'SVG Vector Graphics', ext: '.svg', supported: true,
+      method: 'SVG metadata sanitizer',
+      tagsStripped: 'XML comments, metadata/RDF blocks, editor tags, and script elements.',
+      guarantee: 'Vector markup is filtered without rasterizing the graphic; review third-party SVGs before opening.',
     },
     {
-      name: 'GIF',
-      ext: '.gif',
-      method: 'Block stream parser',
-      tagsStripped: 'Comment Extensions (0x21 0xFE), Plain Text Extensions, XMP Application Extensions',
-      guarantee: 'Preserves Graphic Control Extensions (transparency & timing) and LZW raster data.',
+      name: 'HEIF / HEIC', ext: '.heic, .heif', supported: false,
+      method: 'Not enabled for cleaning yet',
+      tagsStripped: 'No changes are made.',
+      guarantee: 'The original is left unchanged and processing returns an unsupported-format error.',
     },
     {
-      name: 'TIFF & RAW',
-      ext: '.tif, .tiff, .dng, .cr2, .nef, .arw',
-      method: 'IFD0 pointer sanitizer',
-      tagsStripped: 'ExifIFDPointer, GPSInfoPointer, XMP, IPTC, Make, Model, Software, Artist',
-      guarantee: 'Preserves StripOffsets, TileOffsets, and SubIFD raw CFA/Bayer pixel arrays.',
+      name: 'AVIF', ext: '.avif', supported: false,
+      method: 'Not enabled for cleaning yet',
+      tagsStripped: 'No changes are made.',
+      guarantee: 'The original is left unchanged and processing returns an unsupported-format error.',
     },
     {
-      name: 'SVG Vector Graphics',
-      ext: '.svg',
-      method: 'XML / DOM metadata sanitizer',
-      tagsStripped: '<metadata>, <rdf:RDF>, XML comments, Inkscape/Illustrator editor tags, script tags',
-      guarantee: 'Preserves SVG paths, gradients, shapes, viewbox, and visual styling.',
+      name: 'TIFF & Camera RAW', ext: '.tif, .tiff, .dng, .cr2, .nef, .arw', supported: false,
+      method: 'Not enabled for cleaning yet',
+      tagsStripped: 'No changes are made.',
+      guarantee: 'Safe metadata removal requires a full offset-aware IFD rebuild; these formats are rejected for now.',
+    },
+    {
+      name: 'BMP / JPEG XL', ext: '.bmp, .jxl', supported: false,
+      method: 'Not enabled for cleaning yet',
+      tagsStripped: 'No changes are made.',
+      guarantee: 'These formats are explicitly reported as unsupported rather than marked as cleaned.',
     },
   ];
 
@@ -70,14 +68,14 @@ export default function FormatsPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
         <div className="text-center space-y-3">
-          <h1 className="text-[36px] sm:text-[50px] font-semibold tracking-headline text-foreground leading-tight-title">
+          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
             Supported{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
               Formats
             </span>
           </h1>
           <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
-            Lossless segment-level stripping across raster, vector, next-generation, and camera RAW formats.
+            The formats currently supported for metadata removal, plus formats the engine recognizes but deliberately refuses to modify.
           </p>
         </div>
 
@@ -107,8 +105,8 @@ export default function FormatsPage() {
                 </div>
               </div>
 
-              <div className="pt-3.5 border-t border-border-subtle flex items-center gap-2 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <div className={`pt-3.5 border-t border-border-subtle flex items-start gap-2 text-[12px] font-medium ${fmt.supported ? 'text-lime-600 dark:text-lime-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                {fmt.supported ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <CircleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
                 <span>{fmt.guarantee}</span>
               </div>
             </div>
@@ -118,8 +116,8 @@ export default function FormatsPage() {
 
       {/* Minimal Footer */}
       <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Lossless Photo Privacy · 100% Client-Side</p>
-        <p className="text-[11px]">Zero tracking · Zero server uploads · Pure byte manipulation</p>
+        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
+        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
       </footer>
     </div>
   );

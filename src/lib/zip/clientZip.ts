@@ -1,3 +1,4 @@
+import { sanitizeFilename } from '../engine/magic';
 import { zipSync, Zippable } from 'fflate';
 
 export interface ZipFileInput {
@@ -18,18 +19,24 @@ export function createZipArchive(
   const usedNames = new Set<string>();
 
   for (const file of files) {
-    let zipPath = preserveFolders && file.path ? file.path : file.name;
+    const requestedPath = preserveFolders && file.path ? file.path : file.name;
+    // Normalize paths and remove traversal segments before creating archive entries.
+    const pathParts = requestedPath.replace(/\\/g, '/').split('/').filter((part) => part && part !== '.' && part !== '..');
+    const leaf = sanitizeFilename(pathParts.pop() || file.name);
+    let zipPath = [...pathParts.map((part) => sanitizeFilename(part)), leaf].join('/');
+    if (!zipPath || zipPath.startsWith('/')) zipPath = sanitizeFilename(file.name);
 
     // Avoid duplicate names in ZIP
     if (usedNames.has(zipPath)) {
-      const dot = zipPath.lastIndexOf('.');
-      let base = dot === -1 ? zipPath : zipPath.substring(0, dot);
-      const ext = dot === -1 ? '' : zipPath.substring(dot);
+      const slash = zipPath.lastIndexOf('/');
+      const directory = slash >= 0 ? zipPath.slice(0, slash + 1) : '';
+      const filename = slash >= 0 ? zipPath.slice(slash + 1) : zipPath;
+      const dot = filename.lastIndexOf('.');
+      const base = dot > 0 ? filename.substring(0, dot) : filename;
+      const ext = dot > 0 ? filename.substring(dot) : '';
       let counter = 1;
-      while (usedNames.has(`${base}_${counter}${ext}`)) {
-        counter++;
-      }
-      zipPath = `${base}_${counter}${ext}`;
+      while (usedNames.has(`${directory}${base}_${counter}${ext}`)) counter++;
+      zipPath = `${directory}${base}_${counter}${ext}`;
     }
 
     usedNames.add(zipPath);

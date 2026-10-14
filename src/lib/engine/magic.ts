@@ -97,7 +97,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
         format: 'raw',
         mimeType: 'image/x-canon-cr2',
         extension: 'cr2',
-        isLosslessStrippable: true,
+        isLosslessStrippable: false,
         description: 'Canon RAW (CR2)',
       };
     }
@@ -106,7 +106,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
       format: 'tiff',
       mimeType: 'image/tiff',
       extension: 'tif',
-      isLosslessStrippable: true,
+      isLosslessStrippable: false,
       description: 'TIFF Image',
     };
   }
@@ -117,7 +117,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
       format: 'bmp',
       mimeType: 'image/bmp',
       extension: 'bmp',
-      isLosslessStrippable: true,
+      isLosslessStrippable: false,
       description: 'Bitmap Image',
     };
   }
@@ -133,7 +133,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
         format: 'avif',
         mimeType: 'image/avif',
         extension: 'avif',
-        isLosslessStrippable: true,
+        isLosslessStrippable: false,
         description: 'AVIF Image',
       };
     }
@@ -146,7 +146,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
         format: 'heic',
         mimeType: 'image/heic',
         extension: 'heic',
-        isLosslessStrippable: true,
+        isLosslessStrippable: false,
         description: 'HEIF/HEIC Image',
       };
     }
@@ -163,7 +163,7 @@ export function detectImageFormat(buffer: Uint8Array): FormatInfo {
       format: 'jxl',
       mimeType: 'image/jxl',
       extension: 'jxl',
-      isLosslessStrippable: true,
+      isLosslessStrippable: false,
       description: 'JPEG XL Image',
     };
   }
@@ -213,14 +213,15 @@ export function sanitizeFilename(rawFilename: string): string {
  */
 export function buildCleanedFilename(originalName: string, suffix: string = ''): string {
   const sanitized = sanitizeFilename(originalName);
-  if (!suffix) return sanitized;
+  const safeSuffix = suffix.replace(/[\\/:*?"<>|\0-\x1f\x7f]/g, '').slice(0, 40);
+  if (!safeSuffix) return sanitized;
   
   const lastDot = sanitized.lastIndexOf('.');
   if (lastDot === -1) {
-    return `${sanitized}${suffix}`;
+    return `${sanitized}${safeSuffix}`;
   }
   
   const namePart = sanitized.substring(0, lastDot);
   const extPart = sanitized.substring(lastDot);
-  return `${namePart}${suffix}${extPart}`;
+  return `${namePart}${safeSuffix}${extPart}`;
 }
