@@ -1,55 +1,19 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
-type Theme = 'dark' | 'light';
-
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
-}
-
-const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
-  toggleTheme: () => {},
-  setTheme: () => {},
-});
-
+/** StripMeta uses a single dark theme so colors stay consistent across devices. */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-
   useEffect(() => {
-    let saved: Theme | null = null;
+    document.documentElement.classList.add('dark');
+    document.documentElement.style.colorScheme = 'dark';
+    // Remove a theme preference saved by older versions; it must not reactivate light mode.
     try {
-      const value = localStorage.getItem('cleanshot_theme');
-      if (value === 'light' || value === 'dark') saved = value;
+      localStorage.removeItem('cleanshot_theme');
     } catch {
-      // Storage can be unavailable in strict privacy modes; keep the dark default.
+      // Storage may be blocked; the app remains dark regardless.
     }
-    const selected: Theme = saved || 'dark';
-    setThemeState(selected);
-    document.documentElement.classList.toggle('dark', selected === 'dark');
   }, []);
 
-  const setTheme = (t: Theme) => {
-    setThemeState(t);
-    try { localStorage.setItem('cleanshot_theme', t); } catch { /* Theme still works for this session. */ }
-    document.documentElement.classList.toggle('dark', t === 'dark');
-  };
-
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-  };
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      <div className={theme === 'dark' ? 'dark' : ''}>{children}</div>
-    </ThemeContext.Provider>
-  );
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
+  return <div className="dark">{children}</div>;
 }

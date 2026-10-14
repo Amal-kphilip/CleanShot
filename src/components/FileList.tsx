@@ -231,16 +231,16 @@ export function FileList({
                   )}
 
                   {isError && (
-                    <p className="text-[12px] text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
+                    <p className="text-[12px] text-red-600 dark:text-red-400 flex items-start gap-1 mt-1 min-w-0 break-words">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{item.error || 'Failed to process'}</span>
+                      <span className="min-w-0 break-words">{item.error || 'Failed to process'}</span>
                     </p>
                   )}
                 </div>
               </div>
 
               {/* Right: Actions */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-border-subtle">
+              <div className="file-item-actions flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-border-subtle">
                 <button
                   type="button"
                   onClick={() => onInspectFile(item)}

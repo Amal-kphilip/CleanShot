@@ -149,9 +149,9 @@ export function InspectorModal({
 
             <div className="flex-1 overflow-y-auto mx-4 mb-4 rounded-card border border-border-subtle divide-y divide-border-subtle">
               {filteredFields.length === 0 ? <div className="p-8 text-center text-[13px] text-text-ter">No fields match your search.</div> : filteredFields.map((field) => (
-                <div key={field.id} className="flex items-start justify-between gap-4 px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                <div key={field.id} className="inspector-field-row flex items-start justify-between gap-4 px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                   <div className="min-w-0"><div className="flex items-center gap-1.5 mb-0.5 flex-wrap"><span className="text-[13px] font-semibold text-foreground">{field.name}</span>{field.riskLevel === 'high' && <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-pill bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"><AlertTriangle className="w-2.5 h-2.5" />High risk</span>}</div>{field.description && <p className="text-[11px] text-text-ter leading-relaxed">{field.description}</p>}</div>
-                  <div className="text-right shrink-0 max-w-[160px] sm:max-w-[220px]"><span className="text-[12px] font-mono text-foreground break-all select-all">{field.formattedValue || String(field.value)}</span></div>
+                  <div className="inspector-field-value text-right shrink-0 max-w-[160px] sm:max-w-[220px]"><span className="text-[12px] font-mono text-foreground break-all select-all">{field.formattedValue || String(field.value)}</span></div>
                 </div>
               ))}
             </div>
