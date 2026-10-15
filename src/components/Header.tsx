@@ -107,7 +107,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
 
   const overlayTransition = shouldReduceMotion
     ? { duration: 0.01 }
-    : { duration: 0.24, ease: 'easeOut' as const };
+    : { duration: 0.12, ease: 'easeOut' as const };
 
   const contentVariants = {
     hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 12 },
@@ -116,7 +116,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
       y: 0,
       transition: shouldReduceMotion
         ? { duration: 0.01 }
-        : { duration: 0.36, ease: [0.22, 1, 0.36, 1] as const, staggerChildren: 0.055, delayChildren: 0.08 },
+        : { duration: 0.16, ease: [0.22, 1, 0.36, 1] as const, staggerChildren: 0.025, delayChildren: 0.015 },
     },
     exit: { opacity: 0, y: shouldReduceMotion ? 0 : 6, transition: overlayTransition },
   };
@@ -128,9 +128,9 @@ export function Header({ onOpenSettings }: HeaderProps) {
       y: 0,
       transition: shouldReduceMotion
         ? { duration: 0.01 }
-        : { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const },
+        : { duration: 0.15, ease: [0.22, 1, 0.36, 1] as const },
     },
-    exit: { opacity: 0, y: 4, transition: { duration: shouldReduceMotion ? 0.01 : 0.12 } },
+    exit: { opacity: 0, y: 2, transition: { duration: shouldReduceMotion ? 0.01 : 0.08 } },
   };
 
   return (
@@ -208,7 +208,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
                 ref={menuTriggerRef}
                 type="button"
                 onClick={() => setMobileMenuOpen((open) => !open)}
-                className={`lg:hidden relative isolate inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4ff4b] focus-visible:ring-offset-2 focus-visible:ring-offset-black apple-press ${mobileMenuOpen ? 'border-[#c4ff4b]/40 bg-[#c4ff4b] text-[#0b0d08]' : 'border-white/[0.10] bg-white/[0.035] text-text-sec hover:border-[#c4ff4b]/40 hover:text-[#c4ff4b]'}`}
+                className={`lg:hidden relative isolate inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4ff4b] focus-visible:ring-offset-2 focus-visible:ring-offset-black apple-press ${mobileMenuOpen ? 'border-[#c4ff4b]/40 bg-[#c4ff4b] text-[#0b0d08]' : 'border-white/[0.10] bg-white/[0.035] text-text-sec hover:border-[#c4ff4b]/40 hover:text-[#c4ff4b]'}`}
                 aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
                 aria-expanded={mobileMenuOpen}
                 aria-controls="mobile-navigation"
@@ -218,17 +218,17 @@ export function Header({ onOpenSettings }: HeaderProps) {
                   <motion.span
                     className="absolute left-[3px] top-1/2 h-[1.5px] w-5 rounded-full bg-current"
                     animate={mobileMenuOpen ? { rotate: 45, y: 0 } : { rotate: 0, y: -6 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                    transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 600, damping: 36, mass: 0.45 }}
                   />
                   <motion.span
                     className="absolute left-[3px] top-1/2 h-[1.5px] w-5 rounded-full bg-current"
                     animate={mobileMenuOpen ? { opacity: 0, scaleX: 0.25 } : { opacity: 1, scaleX: 1 }}
-                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.16 }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.1 }}
                   />
                   <motion.span
                     className="absolute left-[3px] top-1/2 h-[1.5px] w-5 rounded-full bg-current"
                     animate={mobileMenuOpen ? { rotate: -45, y: 0 } : { rotate: 0, y: 6 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                    transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 600, damping: 36, mass: 0.45 }}
                   />
                 </span>
                 <span className="sr-only">{mobileMenuOpen ? 'Close menu' : 'Open menu'}</span>
@@ -256,8 +256,8 @@ export function Header({ onOpenSettings }: HeaderProps) {
               aria-labelledby="mobile-menu-title"
               className="relative flex min-h-[100dvh] flex-col overflow-hidden"
             >
-              <div aria-hidden="true" className="pointer-events-none absolute -right-32 -top-28 h-[330px] w-[330px] rounded-full bg-[#c4ff4b]/[0.11] blur-[100px]" />
-              <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 -left-32 h-[360px] w-[360px] rounded-full bg-[#a5c96a]/[0.06] blur-[110px]" />
+              <div aria-hidden="true" className="mobile-menu-glow mobile-menu-glow-primary" />
+              <div aria-hidden="true" className="mobile-menu-glow mobile-menu-glow-secondary" />
               <div aria-hidden="true" className="pointer-events-none absolute right-3 top-[18%] select-none font-serif text-[clamp(9rem,40vw,22rem)] leading-none tracking-[-0.1em] text-white/[0.018]">SM</div>
 
               <div className="relative z-10 mx-auto flex w-full max-w-[1040px] items-center justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-7">
