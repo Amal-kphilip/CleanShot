@@ -6,6 +6,7 @@ import {
   Search, ExternalLink, ShieldAlert, CheckCircle2, Layers, Info,
 } from 'lucide-react';
 import { ParsedMetadata } from '@/lib/engine/types';
+import { ExifToolFullScan } from '@/components/ExifToolFullScan';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 
 interface InspectorModalProps {
@@ -16,6 +17,7 @@ interface InspectorModalProps {
   isProcessed?: boolean;
   processingError?: string;
   filename: string;
+  file?: File;
   thumbnailUrl?: string;
 }
 
@@ -27,11 +29,12 @@ export function InspectorModal({
   isProcessed = false,
   processingError,
   filename,
+  file,
   thumbnailUrl,
 }: InspectorModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'before' | 'after'>('before');
+  const [activeTab, setActiveTab] = useState<'before' | 'after' | 'exiftool'>('before');
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogAccessibility(isOpen && Boolean(metadata), onClose, dialogRef);
 
@@ -90,15 +93,27 @@ export function InspectorModal({
           </button>
         </div>
 
-        <div className="px-5 sm:px-6 py-2.5 border-b border-border-subtle flex items-center gap-2 bg-black/[0.02] dark:bg-white/[0.02]">
-          <button type="button" onClick={() => setActiveTab('before')} aria-pressed={!showingAfter} className={`px-3.5 py-1.5 text-[12px] font-medium rounded-pill transition-all ${!showingAfter ? 'liquid-glass text-foreground font-semibold shadow-xs' : 'text-text-sec hover:text-foreground'}`}>
+        <div className="px-5 sm:px-6 py-2.5 border-b border-border-subtle flex items-center gap-2 flex-wrap bg-black/[0.02] dark:bg-white/[0.02]">
+          <button type="button" onClick={() => setActiveTab('before')} aria-pressed={activeTab === 'before'} className={`px-3.5 py-1.5 text-[12px] font-medium rounded-pill transition-all ${activeTab === 'before' ? 'liquid-glass text-foreground font-semibold shadow-xs' : 'text-text-sec hover:text-foreground'}`}>
             Original
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('exiftool')}
+            aria-pressed={activeTab === 'exiftool'}
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-pill transition-all ${activeTab === 'exiftool' ? 'bg-emerald-500/15 border border-emerald-500/30 text-foreground font-semibold' : 'text-text-sec hover:text-foreground'}`}
+          >
+            Full ExifTool Scan
           </button>
           <button type="button" onClick={() => setActiveTab('after')} disabled={!isProcessed || !cleanedMetadata} aria-pressed={showingAfter} className={`px-3.5 py-1.5 text-[12px] font-medium rounded-pill transition-all disabled:opacity-40 disabled:cursor-not-allowed ${showingAfter ? 'bg-emerald-600 text-white shadow-sm font-semibold' : 'text-text-sec hover:text-foreground'}`}>
             After Cleaning
           </button>
         </div>
 
+        {activeTab === 'exiftool' ? (
+          <ExifToolFullScan file={file} />
+        ) : (
+          <>
         {processingError && !isProcessed && (
           <div className="mx-5 sm:mx-6 mt-3 p-3 rounded-small bg-amber-500/10 border border-amber-500/20 text-[12px] text-amber-800 dark:text-amber-300" role="status">
             A cleaned output is not available for this file: {processingError}
@@ -158,8 +173,11 @@ export function InspectorModal({
           </div>
         </div>
 
+          </>
+        )}
+
         <div className="px-5 sm:px-6 py-3.5 border-t border-border-subtle flex items-center justify-between" style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-[12px] text-text-ter">{displayMetadata.fields.length} fields in {showingAfter ? 'cleaned output' : 'original'}</span>
+          <span className="text-[12px] text-text-ter">{activeTab === 'exiftool' ? 'Full ExifTool scan' : `${displayMetadata.fields.length} fields in ${showingAfter ? 'cleaned output' : 'original'}`}</span>
           <button onClick={onClose} className="px-4 py-2 text-[12px] font-semibold rounded-pill liquid-glass hover:bg-glass-hover text-foreground apple-spring apple-press">Close</button>
         </div>
       </div>

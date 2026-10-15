@@ -194,6 +194,8 @@ export default function InspectorPage() {
           metadata={metadata ?? undefined}
           filename={file?.name || ''}
           thumbnailUrl={thumbnailUrl}
+        
+          file={file ?? undefined}
         />
       </main>
 

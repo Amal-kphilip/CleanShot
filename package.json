@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node scripts/copy-exiftool-wasm.mjs"
   },
   "dependencies": {
     "archiver": "^7.0.1",
@@ -21,7 +22,8 @@
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^2.5.4",
+    "@uswriting/exiftool": "^1.0.9"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.2",

@@ -432,7 +432,9 @@ export default function HomePage() {
 
       <ActionBar files={files} isProcessing={isProcessing} onDownload={handleDownload} onClearAll={handleClearAll} onProcessAll={handleProcessAll} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} options={options} onChangeOptions={setOptions} isServerMode={isServerMode} onToggleServerMode={setIsServerMode} />
-      <InspectorModal isOpen={Boolean(inspectItem)} onClose={() => setInspectItem(null)} metadata={files.find((file) => file.id === inspectItem?.id)?.metadata || inspectItem?.metadata} cleanedMetadata={files.find((file) => file.id === inspectItem?.id)?.cleanedMetadata} isProcessed={files.some((file) => file.id === inspectItem?.id && file.status === 'completed')} processingError={files.find((file) => file.id === inspectItem?.id)?.error} filename={inspectItem?.file.name || ''} thumbnailUrl={files.find((file) => file.id === inspectItem?.id)?.thumbnailUrl || inspectItem?.thumbnailUrl} />
+      <InspectorModal isOpen={Boolean(inspectItem)} onClose={() => setInspectItem(null)} metadata={files.find((file) => file.id === inspectItem?.id)?.metadata || inspectItem?.metadata} cleanedMetadata={files.find((file) => file.id === inspectItem?.id)?.cleanedMetadata} isProcessed={files.some((file) => file.id === inspectItem?.id && file.status === 'completed')} processingError={files.find((file) => file.id === inspectItem?.id)?.error} filename={inspectItem?.file.name || ''} thumbnailUrl={files.find((file) => file.id === inspectItem?.id)?.thumbnailUrl || inspectItem?.thumbnailUrl} 
+          file={inspectItem?.file}
+        />
     </div>
   );
 }
