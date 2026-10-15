@@ -14,6 +14,7 @@ import {
   FileCheck,
   Lock,
   Cpu,
+  Wrench,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -42,6 +43,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
   const navLinks = [
     { href: '/',             label: 'Strip',        icon: Layers },
     { href: '/inspector',   label: 'Inspector',    icon: Eye },
+    { href: '/tools',       label: 'Tools',        icon: Wrench },
     { href: '/how-it-works',label: 'How It Works', icon: Cpu },
     { href: '/formats',     label: 'Formats',      icon: FileCheck },
     { href: '/privacy',     label: 'Privacy',      icon: Lock },
