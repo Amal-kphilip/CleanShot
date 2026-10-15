@@ -315,3 +315,103 @@ html, body { width: 100%; min-width: 0; max-width: 100%; }
   .hero-section, .hero-section > *, .section-heading-row > *, .feature-card { min-width: 0; max-width: 100%; }
   .feature-card p, .section-copy, .hero-copy { overflow-wrap: anywhere; }
 }
+
+/* StripMeta mobile centering fix.
+   Keeps the page and all content centered on the actual viewport width. */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: clip;
+}
+
+/* Next.js root wrapper rendered directly inside body. */
+body > div.relative.z-10.flex.flex-col.min-h-dvh {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+  align-items: stretch;
+}
+
+.site-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+}
+
+.site-main {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1320px;
+  min-width: 0;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.site-main > *,
+.site-main .hero-section > *,
+.site-main .section-heading-row > *,
+.site-main .feature-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.site-main .product-showcase {
+  width: min(100%, 980px);
+  max-width: 100%;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.site-main .benefit-strip,
+.site-main .workspace-section,
+.site-main .features-section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.site-footer {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 760px) {
+  /* Give both sides the same inset. Override legacy px-4/sm:px-6 utilities. */
+  .site-main {
+    padding-left: clamp(14px, 4vw, 18px) !important;
+    padding-right: clamp(14px, 4vw, 18px) !important;
+  }
+
+  .site-main .hero-section,
+  .site-main .benefit-strip,
+  .site-main .workspace-section,
+  .site-main .features-section {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .site-main .product-showcase {
+    align-self: center;
+  }
+
+  .site-footer {
+    padding-left: clamp(14px, 4vw, 18px);
+    padding-right: clamp(14px, 4vw, 18px);
+  }
+
+  .footer-inner,
+  .footer-bottom {
+    width: 100%;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
