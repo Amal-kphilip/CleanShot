@@ -23,7 +23,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^2.5.4",
-    "@uswriting/exiftool": "^1.0.9"
+    "@lilohuang/exiftool": "1.0.10"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.2",

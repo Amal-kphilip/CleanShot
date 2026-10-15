@@ -13,10 +13,10 @@ This patch adds an opt-in **Full ExifTool Scan** tab to the existing Metadata In
 
 ## Privacy and runtime
 
-Metadata extraction runs in the browser. The selected file is passed to `@uswriting/exiftool`; there is no metadata upload route. The runtime fetches `/zeroperl.wasm` from the same origin. This file is generated from the installed `@6over3/zeroperl-ts` dependency during `postinstall` and is intentionally ignored by Git so deployments generate it from the lockfile.
+Metadata extraction runs in the browser. The selected file is passed to `@lilohuang/exiftool`; there is no metadata upload route. The runtime fetches `/zeroperl.wasm` from the same origin. This file is generated from the installed `@lilohuang/zeroperl-ts` dependency during `postinstall` and is intentionally ignored by Git so deployments generate it from the lockfile.
 
 The initial runtime download is several megabytes. If it fails, confirm `public/zeroperl.wasm` was created after `npm install` and is served from `/zeroperl.wasm` by the development server/hosting build.
 
 ## Limits
 
-The package integration currently embeds ExifTool 13.42; that is not necessarily the same version currently deployed by exif.tools. The tool reports what the bundled ExifTool can parse from the chosen file. It does not guarantee that every format-specific tag, proprietary maker note or damaged-file structure is readable, and missing tags are not evidence of authenticity or AI origin.
+The package integration pins @lilohuang/exiftool 1.0.10, which bundles ExifTool 13.59. Keep this dependency pinned and re-check the upstream package metadata when upgrading. The tool reports what the bundled ExifTool can parse from the chosen file. It does not guarantee that every format-specific tag, proprietary maker note or damaged-file structure is readable, and missing tags are not evidence of authenticity or AI origin.

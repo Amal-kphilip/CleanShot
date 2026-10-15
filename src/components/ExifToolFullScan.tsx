@@ -86,7 +86,7 @@ async function getFileDetails(file: File): Promise<FileDetails> {
 async function runExifToolNow(file: File, json: boolean): Promise<string> {
   // This package is loaded only when the user explicitly starts a deep scan.
   // The selected file is passed directly to ExifTool; no upload API is used.
-  const { parseMetadata } = await import('@uswriting/exiftool');
+  const { parseMetadata } = await import('@lilohuang/exiftool');
   const args = json ? ['-json', '-a', '-u', '-G1', '-n'] : ['-a', '-u', '-G1', '-s', '-n'];
 
   const result = (await parseMetadata(file, {
