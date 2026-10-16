@@ -62,9 +62,9 @@ export interface ParsedMetadata {
 }
 
 export interface StripOptions {
-  keepIccProfile?: boolean;      // Keep ICC Color Profile (default: true)
-  keepOrientation?: boolean;     // Retain or normalize orientation (default: true)
-  stripAll?: boolean;            // Strip everything (default: true)
+  keepIccProfile?: boolean;      // Opt in to preserving color-profile/rendering metadata (default: false; strict metadata removal)
+  keepOrientation?: boolean;     // Opt in to retaining only EXIF orientation where supported (default: false; strict metadata removal)
+  stripAll?: boolean;            // Strip all removable metadata in supported formats (default: true)
   removeGps?: boolean;           // GPS coordinates, altitude (default: true)
   removeCameraInfo?: boolean;    // Make, model, serial numbers (default: true)
   removeTimestamps?: boolean;    // Capture date/time (default: true)

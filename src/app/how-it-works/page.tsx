@@ -9,15 +9,15 @@ export default function HowItWorksPage() {
   const formats = [
     {
       title: '1. JPEG / JFIF',
-      desc: 'JPEG files are structured as markers. CleanShot parses marker segments, removes comments and selected auxiliary APP segments, preserves recognized JFIF/Adobe and enabled ICC data, and copies the compressed scan data without re-encoding. When enabled, it can preserve a minimal orientation-only EXIF block.',
+      desc: 'JPEG files are structured as markers. StripMeta removes APP metadata, comments, JFIF/JFXX density and thumbnail data, ICC metadata, and trailing payloads by default while retaining the compressed scan without re-encoding. Color/rendering metadata and a minimal orientation-only EXIF block can be explicitly preserved in Settings; those options retain metadata and can affect color/orientation behavior.',
     },
     {
       title: '2. PNG',
-      desc: 'PNG files are sequences of typed chunks. CleanShot removes known text, timestamp, EXIF, and signature metadata, preserves allowlisted rendering chunks and compressed image data, and recalculates the CRC if orientation-only EXIF is retained. Unknown chunks or invalid checksums cause a clear error.',
+      desc: 'PNG files are sequences of typed chunks. StripMeta removes text/XMP, timestamps, EXIF, C2PA (including caBX), digital signatures, physical-size/resolution chunks, color metadata, and unknown ancillary chunks by default. Core raster/transparency/animation data is preserved; unknown critical chunks and invalid checksums return an error.',
     },
     {
       title: '3. WebP',
-      desc: 'WebP files use a RIFF container. CleanShot drops EXIF/XMP chunks, synchronizes the VP8X metadata flags with chunks that remain, and recalculates the RIFF length without decoding the VP8/VP8L bitstream. Unknown chunks are rejected.',
+      desc: 'WebP files use a RIFF container. StripMeta drops EXIF, XMP, ICC and unknown optional chunks by default, synchronizes VP8X flags with chunks that remain, and recalculates RIFF length without decoding the VP8/VP8L bitstream.',
     },
     {
       title: '4. SVG Vector Graphics',

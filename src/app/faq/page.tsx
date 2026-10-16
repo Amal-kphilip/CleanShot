@@ -16,8 +16,8 @@ export default function FaqPage() {
       a: 'For supported formats, CleanShot removes selected metadata/container structures without re-encoding the image data. Unsupported or malformed files are reported as errors rather than advertised as cleaned. Results should be checked for the formats and metadata you rely on.',
     },
     {
-      q: 'Why is "Keep ICC Profile" enabled by default?',
-      a: 'An ICC profile tells displays and operating systems how to interpret colors (e.g. Display P3 on iPhones or Adobe RGB on cameras). If you strip the ICC profile, wide-gamut photos can look dull, washed out, or have shifted skin tones. CleanShot keeps the color profile intact while stripping all personal identifiers.',
+      q: 'Why are color and orientation preservation off by default?',
+      a: 'Color profiles and EXIF orientation are metadata. StripMeta removes them by default for stricter metadata removal, but this can change color interpretation or the displayed orientation of some photos. You can opt in to preserve them in Settings; doing so intentionally retains rendering-related metadata.',
     },
     {
       q: 'Can CleanShot process 100+ photos at once?',

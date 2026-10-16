@@ -130,7 +130,7 @@ export async function stripImageMetadata(
       removedSegments,
       // Raster/container formats preserve their encoded image payload; SVG markup is
       // transformed, so do not claim pixel identity without raster comparison.
-      pixelIdentical: format !== 'svg' && options.keepIccProfile !== false && (format === 'gif' || options.keepOrientation !== false),
+      pixelIdentical: format === 'gif' || (format !== 'svg' && options.keepIccProfile === true && options.keepOrientation === true),
       cleanedBuffer,
       mimeType: formatInfo.mimeType,
     };

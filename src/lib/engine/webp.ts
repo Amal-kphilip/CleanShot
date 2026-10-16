@@ -3,15 +3,15 @@ import { createOrientationOnlyExifPayload } from './orientation';
 
 /**
  * Lossless WebP RIFF container stripper.
- * Strips EXIF and XMP metadata chunks, adjusts VP8X extended header feature flags,
- * and updates RIFF container payload length without decoding or altering VP8/VP8L/ALPH bitstreams.
+ * Removes EXIF, XMP, ICC and unknown optional chunks by default, adjusts VP8X feature flags,
+ * and updates RIFF payload length without decoding/re-encoding VP8/VP8L/ALPH raster bitstreams.
  */
 export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
 } {
-  const keepIcc = options.keepIccProfile !== false; // Default true
+  const keepIcc = options.keepIccProfile === true; // Strict removal by default.
   const removedSegments: string[] = [];
 
   // Check RIFF header: "RIFF" (0-3) and "WEBP" (8-11)
@@ -38,7 +38,6 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
   let offset = 12;
   const len = riffEnd;
 
-  let keptExifOrientation = false;
 
   while (offset < len) {
     if (offset + 8 > len) throw new Error('Malformed WebP: truncated chunk header');
@@ -71,7 +70,7 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
         vp8xFlags: flags,
       });
     } else if (fourCC === 'EXIF') {
-      const orientationPayload = options.keepOrientation !== false
+      const orientationPayload = options.keepOrientation === true
         ? createOrientationOnlyExifPayload(buffer.slice(chunkDataStart, chunkDataStart + chunkSize))
         : undefined;
       if (orientationPayload) {
@@ -81,7 +80,6 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
         new DataView(orientationChunk.buffer).setUint32(4, orientationPayload.length, true);
         orientationChunk.set(orientationPayload, 8);
         keptChunks.push({ fourCC: 'EXIF', rawHeaderAndData: orientationChunk });
-        keptExifOrientation = true;
         removedSegments.push('EXIF metadata removed; orientation tag preserved');
       } else {
         removedSegments.push('EXIF Metadata chunk');
@@ -103,9 +101,9 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
         rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
       });
     } else {
-      // Unknown chunks can contain private data or alter rendering. Avoid leaking
-      // them or silently changing file semantics by refusing this variant.
-      throw new Error(`WebP contains an unrecognized ${fourCC} chunk; safe cleaning is not available for this variant.`);
+      // Per the RIFF/WebP container model, unknown chunks are optional extensions.
+      // Drop them instead of failing open or leaving custom metadata behind.
+      removedSegments.push(`Unrecognized WebP chunk (${fourCC}) removed`);
     }
 
     offset += totalChunkBytes;

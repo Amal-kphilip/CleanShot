@@ -29,8 +29,8 @@ export default function HomePage() {
   const [isServerMode, setIsServerMode] = useState(false);
   const [batchError, setBatchError] = useState('');
   const [options, setOptions] = useState<StripOptions>({
-    keepIccProfile: true,
-    keepOrientation: true,
+    keepIccProfile: false,
+    keepOrientation: false,
     stripAll: true,
     filenameSuffix: '_clean',
     preserveFolderStructure: false,

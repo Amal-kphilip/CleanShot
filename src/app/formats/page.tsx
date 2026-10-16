@@ -9,25 +9,25 @@ export default function FormatsPage() {
     {
       name: 'JPEG / JPG', ext: '.jpg, .jpeg, .jfif', supported: true,
       method: 'JPEG marker parser',
-      tagsStripped: 'EXIF/XMP APP1 content (only orientation may be retained when enabled), comments, selected APPn vendor metadata, and trailing payload after EOI.',
+      tagsStripped: 'EXIF/XMP/C2PA and APPn metadata, comments, JFIF/JFXX density/thumbnail data, ICC/color metadata by default, and trailing payload after EOI. Adobe color-transform metadata is retained only when color/rendering preservation is explicitly enabled.',
       guarantee: 'Removes selected metadata segments without re-encoding the compressed image scan.',
     },
     {
       name: 'PNG', ext: '.png', supported: true,
       method: 'PNG chunk filter',
-      tagsStripped: 'Text chunks, timestamps, digital-signature/C2PA chunks, and known metadata blocks. Only EXIF orientation may be retained when enabled. Unknown chunks cause a safe error rather than being passed through.',
+      tagsStripped: 'Text/XMP, EXIF, timestamps, C2PA (including caBX), digital signatures, physical-size/resolution metadata, unknown ancillary chunks, and color/rendering metadata by default. Unknown critical chunks fail closed; orientation preservation is opt-in.',
       guarantee: 'Preserves supported image-data and required structural chunks. Malformed streams are reported as errors.',
     },
     {
       name: 'WebP', ext: '.webp', supported: true,
       method: 'RIFF container parser',
-      tagsStripped: 'EXIF and XMP chunks, with container size and feature flags updated by the parser. Only EXIF orientation may be retained when enabled; unknown chunks cause a safe error.',
+      tagsStripped: 'EXIF, XMP, ICC profiles, and unknown optional RIFF chunks by default. Container size and VP8X flags are updated; orientation preservation is opt-in.',
       guarantee: 'Does not decode or re-encode the VP8/VP8L image bitstream.',
     },
     {
       name: 'GIF', ext: '.gif', supported: true,
       method: 'GIF block parser',
-      tagsStripped: 'Comment blocks and known XMP/C2PA application metadata. Unknown application extensions cause a safe error.',
+      tagsStripped: 'Comment blocks, known XMP/C2PA application metadata, unknown application extensions, and unrecognized extension metadata.',
       guarantee: 'Keeps image data blocks and animation timing structures in supported files.',
     },
     {

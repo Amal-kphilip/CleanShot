@@ -91,15 +91,15 @@ export function SettingsModal({
                 <Palette className="w-4 h-4 text-text-ter mt-0.5 shrink-0" />
                 <div>
                   <span className="text-[14px] font-medium text-foreground block">
-                    Keep ICC Color Profile
+                    Preserve Color/Rendering Metadata
                   </span>
                   <span className="text-[12px] text-text-ter block mt-0.5">
-                    Preserve sRGB, P3, and Adobe RGB profiles. Recommended.
+                    Keeps ICC and color-interpretation chunks. This retains metadata and may affect colors; off by default for stricter cleaning.
                   </span>
                 </div>
               </div>
               <Toggle
-                checked={options.keepIccProfile !== false}
+                checked={options.keepIccProfile === true}
                 onChange={(v) => updateOpt('keepIccProfile', v)}
               />
             </label>
@@ -112,12 +112,12 @@ export function SettingsModal({
                     Preserve Image Orientation
                   </span>
                   <span className="text-[12px] text-text-ter block mt-0.5">
-                    Retains only EXIF orientation where supported (JPEG, PNG, and WebP).
+                    Retains the EXIF orientation tag where supported. This is metadata; off by default. Removing it can change how some portrait photos are displayed.
                   </span>
                 </div>
               </div>
               <Toggle
-                checked={options.keepOrientation !== false}
+                checked={options.keepOrientation === true}
                 onChange={(v) => updateOpt('keepOrientation', v)}
               />
             </label>

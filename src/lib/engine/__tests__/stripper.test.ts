@@ -56,11 +56,12 @@ describe('Lossless JPEG Stripping Engine', () => {
     const result = await stripImageMetadata(originalJpeg, 'test_camera.jpg');
 
     expect(result.format).toBe('jpeg');
-    expect(result.pixelIdentical).toBe(true);
+    expect(result.pixelIdentical).toBe(false);
     expect(result.cleanedSize).toBeLessThan(result.originalSize);
     expect(result.bytesSaved).toBeGreaterThan(0);
     expect(result.removedSegments.some((s) => s.includes('APP1'))).toBe(true);
     expect(result.removedSegments.some((s) => s.includes('COM'))).toBe(true);
+    expect(result.removedSegments.some((s) => s.includes('APP0'))).toBe(true);
 
     // Verify cleaned buffer starts with SOI (FF D8) and ends with EOI (FF D9)
     const cleaned = result.cleanedBuffer;
@@ -94,7 +95,7 @@ describe('Lossless JPEG Stripping Engine', () => {
     ]);
 
     const result = await stripImageMetadata(jpegWithC2pa, 'ai_art.jpg');
-    expect(result.pixelIdentical).toBe(true);
+    expect(result.pixelIdentical).toBe(false);
 
     // Verify APP11 is removed
     const cleaned = result.cleanedBuffer;
@@ -117,7 +118,7 @@ describe('Lossless PNG Stripping Engine', () => {
     const result = await stripImageMetadata(originalPng, 'graphic.png');
 
     expect(result.format).toBe('png');
-    expect(result.pixelIdentical).toBe(true);
+    expect(result.pixelIdentical).toBe(false);
     expect(result.cleanedSize).toBeLessThan(result.originalSize);
     expect(result.removedSegments.some((s) => s.includes('tEXt'))).toBe(true);
 
@@ -155,6 +156,37 @@ describe('Lossless WebP Stripping Engine', () => {
   });
 });
 
+  it('strips unrecognized WebP extension chunks as metadata', async () => {
+    const base = createSampleWebpWithMetadata();
+    const payload = new TextEncoder().encode('private C2PA payload');
+    const extra = new Uint8Array(8 + payload.length + (payload.length % 2));
+    extra.set(new TextEncoder().encode('C2PA'), 0);
+    new DataView(extra.buffer).setUint32(4, payload.length, true);
+    extra.set(payload, 8);
+    const input = new Uint8Array(base.length + extra.length);
+    input.set(base);
+    input.set(extra, base.length);
+    new DataView(input.buffer).setUint32(4, input.length - 8, true);
+    const result = await stripImageMetadata(input, 'vendor-metadata.webp');
+    expect(result.error).toBeUndefined();
+    expect(result.removedSegments.some((part) => part.includes('C2PA'))).toBe(true);
+    expect(new TextDecoder('latin1').decode(result.cleanedBuffer)).not.toContain('private C2PA payload');
+  });
+
+  it('strips unknown GIF application metadata while preserving raster content', async () => {
+    const encode = new TextEncoder();
+    const gif = new Uint8Array([
+      ...encode.encode('GIF89a'), 1, 0, 1, 0, 0x80, 0, 0,
+      0, 0, 0, 255, 255, 255,
+      0x21, 0xff, 0x0b, ...encode.encode('UNKNOWNAPP1'), 0x05, ...encode.encode('C2PA!'), 0,
+      0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0x02, 0x02, 0x44, 0x01, 0, 0x3b,
+    ]);
+    const result = await stripImageMetadata(gif, 'vendor-metadata.gif');
+    expect(result.error).toBeUndefined();
+    expect(result.removedSegments.some((part) => part.includes('UNKNOWNAPP1'))).toBe(true);
+    expect(new TextDecoder('latin1').decode(result.cleanedBuffer)).not.toContain('UNKNOWNAPP1');
+  });
+
 describe('Lossless SVG Stripping Engine', () => {
   it('removes comments, <metadata>, RDF, and inkscape namespaces', async () => {
     const originalSvg = createSampleSvgWithMetadata();
@@ -188,16 +220,48 @@ describe('Privacy-safe handling of uncommon container data', () => {
     expect(new TextDecoder('latin1').decode(result.cleanedBuffer)).not.toContain('ABCD');
   });
 
-  it('rejects unknown PNG chunks rather than returning them as cleaned output', async () => {
+  it('strips C2PA caBX provenance and unknown ancillary PNG chunks', async () => {
     const base = createSamplePngWithMetadata();
-    const unknownChunk = new Uint8Array([0, 0, 0, 0, 0x76, 0x70, 0x41, 0x67, 0, 0, 0, 0]); // vpAg
-    const withUnknownChunk = new Uint8Array(base.length + unknownChunk.length);
+    const makeChunk = (type: string, data: string) => {
+      const payload = new TextEncoder().encode(data);
+      const chunk = new Uint8Array(12 + payload.length);
+      new DataView(chunk.buffer).setUint32(0, payload.length, false);
+      chunk.set(new TextEncoder().encode(type), 4);
+      chunk.set(payload, 8);
+      return chunk;
+    };
+    const caBX = makeChunk('caBX', 'C2PA private provenance payload');
+    const unknown = makeChunk('vpAg', 'vendor-private-data');
+    const addAfterIhdr = (input: Uint8Array, inserted: Uint8Array) => {
+      const output = new Uint8Array(input.length + inserted.length);
+      output.set(input.slice(0, 33));
+      output.set(inserted, 33);
+      output.set(input.slice(33), 33 + inserted.length);
+      return repairPngCrcs(output);
+    };
+    const withCaBX = addAfterIhdr(base, caBX);
+    const input = addAfterIhdr(withCaBX, unknown);
+    const result = await stripImageMetadata(input, 'c2pa.png');
+    expect(result.error).toBeUndefined();
+    expect(result.removedSegments.some((part) => part.includes('caBX'))).toBe(true);
+    expect(result.removedSegments.some((part) => part.includes('vpAg'))).toBe(true);
+    const text = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(text).not.toContain('caBX');
+    expect(text).not.toContain('C2PA private provenance payload');
+    expect(text).not.toContain('vendor-private-data');
+  });
+
+  it('rejects unknown critical PNG chunks because they may be required to decode pixels', async () => {
+    const base = createSamplePngWithMetadata();
+    const criticalChunk = new Uint8Array([0, 0, 0, 0, 0x56, 0x70, 0x41, 0x67, 0, 0, 0, 0]); // VpAg: uppercase first byte = critical
+    const withUnknownChunk = new Uint8Array(base.length + criticalChunk.length);
     withUnknownChunk.set(base.slice(0, 33));
-    withUnknownChunk.set(unknownChunk, 33);
-    withUnknownChunk.set(base.slice(33), 33 + unknownChunk.length);
-    const result = await stripImageMetadata(repairPngCrcs(withUnknownChunk), 'unknown-chunk.png');
-    expect(result.error).toContain('unrecognized ancillary chunk');
-    expect(result.cleanedBuffer).toEqual(repairPngCrcs(withUnknownChunk));
+    withUnknownChunk.set(criticalChunk, 33);
+    withUnknownChunk.set(base.slice(33), 33 + criticalChunk.length);
+    const input = repairPngCrcs(withUnknownChunk);
+    const result = await stripImageMetadata(input, 'unknown-critical.png');
+    expect(result.error).toContain('unrecognized critical chunk');
+    expect(result.cleanedBuffer).toEqual(input);
   });
 });
 

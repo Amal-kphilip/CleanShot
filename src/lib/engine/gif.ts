@@ -2,10 +2,9 @@ import { StripOptions } from './types';
 
 /**
  * Lossless GIF block stream parser and metadata stripper.
- * Strips Comment Extensions (0x21 0xFE), Plain Text Extensions (0x21 0x01),
- * and XMP Application Extensions, while strictly preserving Graphic Control Extensions (0x21 0xF9),
- * Netscape Animation Loop Extensions (0x21 0xFF NETSCAPE2.0), Global/Local Color Tables,
- * and LZW compressed image raster blocks.
+ * Strips Comment Extensions, unknown application/extension metadata, and known XMP/C2PA blocks,
+ * while preserving Graphic Control Extensions, visible Plain Text Extensions, standard animation-loop
+ * extensions, color tables, and LZW-compressed raster blocks.
  */
 export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
@@ -98,17 +97,24 @@ export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
         } else if (/^(XMP DataXMP|C2PA|C2PA Data)/i.test(appId)) {
           removedSegments.push(`GIF Application Metadata (${appId || 'Vendor'})`);
         } else {
-          throw new Error(`GIF contains an unrecognized application extension (${appId || 'unknown'}); safe cleaning is not available for this variant.`);
+          // Unknown application extensions may contain XMP/C2PA/vendor metadata.
+          // They are not required to decode the GIF raster, so remove rather than retain.
+          removedSegments.push(`Unrecognized GIF application metadata (${appId || 'unknown'})`);
         }
         continue;
       } else {
-        // Graphic-control and other extension blocks can affect display; preserve them.
+        // Preserve only the Graphic Control Extension (delay, transparency, disposal).
+        // Other unrecognized extension labels are removed as non-raster metadata.
         if (offset + 3 > len) throw new Error('Malformed GIF: truncated extension block');
         const fixedBlockLength = buffer[offset + 2];
         const subBlocksStart = offset + 3 + fixedBlockLength;
         if (subBlocksStart > len) throw new Error('Malformed GIF: truncated extension header');
         offset = skipSubBlocks(subBlocksStart);
-        chunks.push(buffer.slice(extStart, offset));
+        if (label === 0xF9) {
+          chunks.push(buffer.slice(extStart, offset));
+        } else {
+          removedSegments.push(`Unrecognized GIF extension 0x${label.toString(16).padStart(2, '0').toUpperCase()} removed`);
+        }
         continue;
       }
     }

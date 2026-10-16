@@ -23,15 +23,15 @@ function createPngChunk(type: string, data: Uint8Array): Uint8Array {
 /**
  * Lossless PNG chunk filter.
  * Drops all textual metadata (tEXt, zTXt, iTXt containing AI prompts/C2PA/XMP),
- * eXIf, tIME, dSIG, c2pa, and any non-critical vendor/AI chunks while strictly preserving
- * critical image raster data and allowlisted rendering chunks. Rejects unknown chunks rather than risk silently retaining private data.
+ * eXIf, tIME, C2PA (including caBX), resolution/physical-size data, and unknown ancillary chunks.
+ * Critical image data and chunks needed for decoding are preserved. Unknown critical chunks fail closed.
  */
 export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
 } {
-  const keepIcc = options.keepIccProfile !== false; // Default true
+  const keepIcc = options.keepIccProfile === true; // Strict removal by default; opt in to preserve color interpretation metadata.
   const removedSegments: string[] = [];
 
   // PNG Signature: 89 50 4E 47 0D 0A 1A 0A
@@ -107,34 +107,40 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
       case 'PLTE':
       case 'IDAT':
       case 'IEND':
-      case 'tRNS':
-      case 'pHYs': // Physical pixel dimensions (dpi)
-      case 'acTL': // APNG Animation Control
-      case 'fcTL': // APNG Frame Control
-      case 'fdAT': // APNG Frame Data
-      case 'bKGD': // Background color used by viewers
-      case 'sBIT': // Significant bits affecting interpretation
-      case 'hIST': // Palette histogram
-      case 'sPLT': // Suggested palette
-      case 'oFFs': // Pixel offset metadata used by image software
-      case 'sCAL': // Physical scale
-      case 'cICP': // Color space / transfer characteristics
-      case 'mDCv': // Mastering display color volume
-      case 'cLLi': // Content light level
+      case 'tRNS': // Transparency is part of the visible raster and must remain.
+      case 'acTL': // APNG animation control
+      case 'fcTL': // APNG frame control
+      case 'fdAT': // APNG frame data
         shouldKeep = true;
         break;
 
-      // Color Profile Chunks (Configurable)
+      // Non-personal rendering/color metadata is opt-in. The default strict
+      // privacy mode removes these chunks along with descriptive metadata.
       case 'iCCP':
       case 'sRGB':
       case 'cHRM':
       case 'gAMA':
+      case 'cICP':
+      case 'mDCv':
+      case 'cLLi':
+      case 'bKGD':
+      case 'sBIT':
         if (keepIcc) {
           shouldKeep = true;
         } else {
           shouldKeep = false;
-          removedSegments.push(`${chunkType} (Color calibration chunk)`);
+          removedSegments.push(`${chunkType} (Color/rendering metadata)`);
         }
+        break;
+
+      // Ancillary metadata that does not belong to the encoded raster.
+      case 'pHYs':
+      case 'oFFs':
+      case 'sCAL':
+      case 'hIST':
+      case 'sPLT':
+        shouldKeep = false;
+        removedSegments.push(`${chunkType} (Ancillary image metadata)`);
         break;
 
       // Metadata & AI Chunks (ALWAYS STRIP)
@@ -154,7 +160,7 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
         removedSegments.push(segName);
         break;
       case 'eXIf': {
-        const orientationPayload = options.keepOrientation !== false
+        const orientationPayload = options.keepOrientation === true
           ? createOrientationOnlyExifPayload(buffer.slice(offset + 8, offset + 8 + dataLength))
           : undefined;
         if (orientationPayload) {
@@ -175,15 +181,26 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
         break;
       case 'dSIG':
       case 'c2pa':
+      case 'caBX':
         shouldKeep = false;
-        segName = 'C2PA / Digital Signature Credential';
+        segName = chunkType === 'caBX'
+          ? 'caBX (C2PA Content Credentials / provenance metadata)'
+          : 'C2PA / Digital Signature Credential';
         removedSegments.push(segName);
         break;
       default: {
-        // Unknown chunks may contain private metadata or affect rendering. Do not
-        // pass them through or silently change the image: refuse to clean safely.
+        // PNG marks optional ancillary chunks with a lowercase first type byte.
+        // Unknown ancillary chunks are removed in strict mode so private/vendor
+        // metadata such as provenance records cannot make the whole file pass through.
+        // Unknown critical chunks may be required to decode pixels, so fail closed.
         const isAncillary = (typeBytes[0] & 0x20) !== 0;
-        throw new Error(`PNG contains an unrecognized ${isAncillary ? 'ancillary' : 'critical'} chunk (${chunkType}); safe cleaning is not available for this variant.`);
+        if (isAncillary) {
+          shouldKeep = false;
+          segName = `${chunkType} (Unrecognized ancillary chunk removed)`;
+          removedSegments.push(segName);
+          break;
+        }
+        throw new Error(`PNG contains an unrecognized critical chunk (${chunkType}); safe cleaning is not available for this variant.`);
       }
     }
 
@@ -194,7 +211,8 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
     offset += totalChunkLength;
 
     if (chunkType === 'IEND') {
-      // Stop strictly at IEND, dropping any trailing payload/watermarks
+      // Stop strictly at IEND; record and drop appended payloads/watermarks.
+      if (offset < len) removedSegments.push(`Trailing data (${len - offset} bytes) after IEND`);
       break;
     }
   }

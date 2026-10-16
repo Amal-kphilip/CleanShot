@@ -12,7 +12,7 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
   removedSegments: string[];
   bytesSaved: number;
 } {
-  const keepIcc = options.keepIccProfile !== false;
+  const keepIcc = options.keepIccProfile === true;
   const removedSegments: string[] = [];
   if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) {
     throw new Error('Invalid JPEG stream: Missing Start of Image (SOI) marker');
@@ -94,7 +94,7 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
       segmentLabel = 'JPEG Comment (COM)';
     } else if (marker === 0xe1) {
       shouldKeep = false;
-      const orientationOnly = options.keepOrientation !== false
+      const orientationOnly = options.keepOrientation === true
         ? createOrientationOnlyJpegSegment(buffer.slice(segmentDataStart, segmentDataStart + segmentDataLength))
         : undefined;
       if (orientationOnly) chunks.push(orientationOnly);
@@ -118,15 +118,14 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
         buffer[segmentDataStart] === 0x41 && buffer[segmentDataStart + 1] === 0x64 &&
         buffer[segmentDataStart + 2] === 0x6f && buffer[segmentDataStart + 3] === 0x62 &&
         buffer[segmentDataStart + 4] === 0x65;
-      shouldKeep = isAdobe;
-      if (!isAdobe) segmentLabel = 'APP14 (unknown auxiliary data)';
+      // Adobe APP14 may carry a color-transform marker for CMYK/YCCK JPEGs.
+      // Retain it only when the user explicitly opts to preserve color metadata.
+      shouldKeep = isAdobe && keepIcc;
+      if (!shouldKeep) segmentLabel = 'APP14 (Adobe/vendor color-transform metadata)';
     } else if (marker === 0xe0) {
-      const isJfif = segmentDataLength >= 5 &&
-        buffer[segmentDataStart] === 0x4a && buffer[segmentDataStart + 1] === 0x46 &&
-        buffer[segmentDataStart + 2] === 0x49 && buffer[segmentDataStart + 3] === 0x46 &&
-        buffer[segmentDataStart + 4] === 0x00;
-      shouldKeep = isJfif;
-      if (!isJfif) segmentLabel = 'APP0 (non-JFIF auxiliary data)';
+      // JFIF/JFXX density data and embedded thumbnails are metadata, so strip APP0.
+      shouldKeep = false;
+      segmentLabel = 'APP0 (JFIF/JFXX density or thumbnail metadata)';
     } else if (marker >= 0xe0 && marker <= 0xef) {
       shouldKeep = false;
       segmentLabel = `APP${marker - 0xe0} (vendor metadata)`;
