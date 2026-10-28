@@ -18,9 +18,12 @@ export interface ProcessOutput {
   thumbnailUrl: string;
 }
 
-/** Creates an object URL for a thumbnail; the owning queue item must revoke it. */
+/** Creates an object URL for an image thumbnail; returns empty string for non-image files. */
 export function createThumbnail(file: File): string {
   try {
+    const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase() : '';
+    const isImage = file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'avif', 'heic'].includes(ext);
+    if (!isImage) return '';
     return URL.createObjectURL(file);
   } catch {
     return '';
@@ -43,7 +46,7 @@ function stripInWorker(
       stripImageMetadata(new Uint8Array(buffer), filename, options).then(async (result) => {
         let cleanedMetadata: ParsedMetadata | undefined;
         if (!result.error) {
-          try { cleanedMetadata = await inspectMetadata(result.cleanedBuffer); } catch { /* best-effort verification */ }
+          try { cleanedMetadata = await inspectMetadata(result.cleanedBuffer, filename); } catch { /* best-effort verification */ }
         }
         resolve({ result, cleanedMetadata });
       }, reject);
@@ -90,7 +93,7 @@ export async function inspectFileInWorker(file: File, id = crypto.randomUUID()):
     try {
       worker = new Worker(new URL('./stripWorker.ts', import.meta.url), { type: 'module' });
     } catch {
-      inspectMetadata(new Uint8Array(buffer)).then(resolve, reject);
+      inspectMetadata(new Uint8Array(buffer), file.name).then(resolve, reject);
       return;
     }
     const dispose = () => { worker.onmessage = null; worker.onerror = null; worker.terminate(); };
@@ -101,7 +104,7 @@ export async function inspectFileInWorker(file: File, id = crypto.randomUUID()):
       else reject(new Error(event.data.error || 'Metadata inspection failed'));
     };
     worker.onerror = (event) => { dispose(); reject(new Error(event.message || 'Metadata inspection worker failed')); };
-    try { worker.postMessage({ id, action: 'inspect', buffer }, [buffer]); }
+    try { worker.postMessage({ id, action: 'inspect', buffer, filename: file.name }, [buffer]); }
     catch (error) { dispose(); reject(error instanceof Error ? error : new Error('Unable to start metadata inspection')); }
   });
 }
@@ -118,7 +121,7 @@ export async function processFileItem(
   let metadata: ParsedMetadata | undefined = task.metadata;
   if (!metadata) {
     try {
-      metadata = await inspectMetadata(bytes);
+      metadata = await inspectMetadata(bytes, task.file.name);
     } catch {
       // Metadata preview is best-effort; stripping still performs its own format validation.
     }

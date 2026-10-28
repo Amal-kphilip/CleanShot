@@ -306,3 +306,234 @@ describe('Unsupported formats and JPEG orientation', () => {
     expect(result.pixelIdentical).toBe(false);
   });
 });
+
+describe('Multi-Format Metadata Stripping (Documents, Video, Audio)', () => {
+  it('strips PDF Document Info, Catalog Metadata, and Trailer ID while preserving PDF header', async () => {
+    const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>
+endobj
+4 0 obj
+<< /Type /Metadata /Subtype /XML >>
+stream
+<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta>SecretXMPAuthor</x:xmpmeta><?xpacket end="w"?>
+endstream
+endobj
+5 0 obj
+<< /Author (John Doe) /Title (Confidential Doc) /Creator (LibreOffice) >>
+endobj
+trailer
+<< /Size 6 /Root 1 0 R /Info 5 0 R /ID [ <1122334455667788> <1122334455667788> ] >>
+%%EOF`;
+    const input = new TextEncoder().encode(pdfContent);
+    const result = await stripImageMetadata(input, 'report.pdf');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('pdf');
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('John Doe');
+    expect(cleanedStr).not.toContain('Confidential Doc');
+    expect(cleanedStr).not.toContain('SecretXMPAuthor');
+    expect(cleanedStr).not.toContain('1122334455667788');
+    expect(cleanedStr).not.toContain('/Info 5 0 R');
+  });
+
+  it('strips DOCX docProps folder and sanitizes WordprocessingML author/rsid attributes', async () => {
+    const { zipSync } = await import('fflate');
+    const enc = new TextEncoder();
+    const docxBytes = zipSync({
+      '[Content_Types].xml': enc.encode('<?xml version="1.0"?><Types></Types>'),
+      'docProps/core.xml': enc.encode('<cp:coreProperties><dc:creator>Alice Secret</dc:creator></cp:coreProperties>'),
+      'docProps/app.xml': enc.encode('<Properties><Company>SecretCorp</Company></Properties>'),
+      'word/document.xml': enc.encode(
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:ins w:id="1" w:author="Alice Secret" w:date="2025-01-01T00:00:00Z" w:rsidR="00A1B2C3"><w:t>Hello World</w:t></w:ins></w:body></w:document>'
+      ),
+      'word/settings.xml': enc.encode('<w:settings><w:rsids><w:rsidRoot w:val="00A1B2C3"/></w:rsids></w:settings>'),
+    });
+
+    const result = await stripImageMetadata(new Uint8Array(docxBytes), 'contract.docx');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('docx');
+
+    const { unzipSync } = await import('fflate');
+    const unzipped = unzipSync(result.cleanedBuffer);
+    expect(unzipped['docProps/core.xml']).toBeUndefined();
+    expect(unzipped['docProps/app.xml']).toBeUndefined();
+    const docXml = new TextDecoder().decode(unzipped['word/document.xml']);
+    expect(docXml).toContain('Hello World');
+    expect(docXml).not.toContain('Alice Secret');
+    expect(docXml).not.toContain('00A1B2C3');
+    expect(docXml).not.toContain('2025-01-01T00:00:00Z');
+  });
+
+  it('strips MP4/MOV udta/meta boxes and zeroes creation timestamps in mvhd', async () => {
+    const enc = new TextEncoder();
+    const makeBox = (type: string, payload: Uint8Array) => {
+      const box = new Uint8Array(8 + payload.length);
+      new DataView(box.buffer).setUint32(0, box.length, false);
+      box.set(enc.encode(type), 4);
+      box.set(payload, 8);
+      return box;
+    };
+
+    const ftyp = makeBox('ftyp', enc.encode('isom\x00\x00\x02\x00isomiso2mp41'));
+    // mvhd version 0: 4-byte version/flags + 4-byte creation + 4-byte modification + 16 bytes rest
+    const mvhdPayload = new Uint8Array(28);
+    new DataView(mvhdPayload.buffer).setUint32(4, 0xDEADBEEF, false); // creation_time
+    new DataView(mvhdPayload.buffer).setUint32(8, 0xCAFEBABE, false); // modification_time
+    const mvhd = makeBox('mvhd', mvhdPayload);
+    const udta = makeBox('udta', enc.encode('+37.7749-122.4194/ Secret GPS Tag'));
+    const moovPayload = new Uint8Array(mvhd.length + udta.length);
+    moovPayload.set(mvhd, 0);
+    moovPayload.set(udta, mvhd.length);
+    const moov = makeBox('moov', moovPayload);
+    const mdat = makeBox('mdat', new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+
+    const mp4 = new Uint8Array(ftyp.length + moov.length + mdat.length);
+    mp4.set(ftyp, 0);
+    mp4.set(moov, ftyp.length);
+    mp4.set(mdat, ftyp.length + moov.length);
+
+    const result = await stripImageMetadata(mp4, 'clip.mp4');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('mp4');
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('Secret GPS Tag');
+    expect(cleanedStr).not.toContain('udta');
+    // Check that mvhd creation/modification timestamps were zeroed
+    const mvhdStart = ftyp.length + 8 + 8;
+    const view = new DataView(result.cleanedBuffer.buffer, result.cleanedBuffer.byteOffset + mvhdStart, 12);
+    expect(view.getUint32(4, false)).toBe(0);
+    expect(view.getUint32(8, false)).toBe(0);
+  });
+
+  it('strips MP3 leading ID3v2 and trailing ID3v1 tags while preserving MPEG audio frames', async () => {
+    const enc = new TextEncoder();
+    const id3v2Payload = enc.encode('TIT2\x00\x00\x00\x0b\x00\x00\x00SecretSong');
+    const id3v2 = new Uint8Array(10 + id3v2Payload.length);
+    id3v2.set([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, id3v2Payload.length]);
+    id3v2.set(id3v2Payload, 10);
+
+    const audioFrames = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 0x00, 0x01, 0x02, 0x03]);
+    const id3v1 = new Uint8Array(128);
+    id3v1.set(enc.encode('TAGSecretTitle                  SecretArtist'), 0);
+
+    const mp3 = new Uint8Array(id3v2.length + audioFrames.length + id3v1.length);
+    mp3.set(id3v2, 0);
+    mp3.set(audioFrames, id3v2.length);
+    mp3.set(id3v1, id3v2.length + audioFrames.length);
+
+    const result = await stripImageMetadata(mp3, 'voice.mp3');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('mp3');
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('SecretSong');
+    expect(cleanedStr).not.toContain('SecretArtist');
+  });
+
+  it('strips FLAC Vorbis comments and Picture blocks while keeping STREAMINFO and updating last-block flag', async () => {
+    const enc = new TextEncoder();
+    // fLaC + STREAMINFO (type 0, not last, len 34) + VORBIS_COMMENT (type 4, last=true 0x84, len 12) + audio
+    const streamInfo = new Uint8Array(4 + 34);
+    streamInfo[0] = 0x00; // not last, type 0 (STREAMINFO)
+    streamInfo[3] = 34;
+
+    const vorbisPayload = enc.encode('ARTIST=Alice');
+    const vorbisBlock = new Uint8Array(4 + vorbisPayload.length);
+    vorbisBlock[0] = 0x84; // last=1, type=4 (VORBIS_COMMENT)
+    vorbisBlock[3] = vorbisPayload.length;
+    vorbisBlock.set(vorbisPayload, 4);
+
+    const audioFrames = new Uint8Array([0xff, 0xf8, 0x69, 0x18, 0x00]);
+    const flac = new Uint8Array(4 + streamInfo.length + vorbisBlock.length + audioFrames.length);
+    flac.set(enc.encode('fLaC'), 0);
+    flac.set(streamInfo, 4);
+    flac.set(vorbisBlock, 4 + streamInfo.length);
+    flac.set(audioFrames, 4 + streamInfo.length + vorbisBlock.length);
+
+    const result = await stripImageMetadata(flac, 'track.flac');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('flac');
+    expect(result.cleanedBuffer[4] & 0x80).toBe(0x80); // STREAMINFO now marked as last metadata block
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('ARTIST=Alice');
+  });
+
+  it('strips WAV LIST/INFO, bext, and id3 chunks while preserving fmt and data chunks', async () => {
+    const enc = new TextEncoder();
+    const makeChunk = (id: string, payload: Uint8Array) => {
+      const pad = payload.length % 2;
+      const chunk = new Uint8Array(8 + payload.length + pad);
+      chunk.set(enc.encode(id), 0);
+      new DataView(chunk.buffer).setUint32(4, payload.length, true);
+      chunk.set(payload, 8);
+      return chunk;
+    };
+
+    const fmt = makeChunk('fmt ', new Uint8Array(16));
+    const listInfo = makeChunk('LIST', enc.encode('INFOIART\x06\x00\x00\x00Alice\x00'));
+    const data = makeChunk('data', new Uint8Array([0x10, 0x20, 0x30, 0x40]));
+
+    const bodyLen = 4 + fmt.length + listInfo.length + data.length;
+    const wav = new Uint8Array(8 + bodyLen);
+    wav.set(enc.encode('RIFF'), 0);
+    new DataView(wav.buffer).setUint32(4, bodyLen, true);
+    wav.set(enc.encode('WAVE'), 8);
+    wav.set(fmt, 12);
+    wav.set(listInfo, 12 + fmt.length);
+    wav.set(data, 12 + fmt.length + listInfo.length);
+
+    const result = await stripImageMetadata(wav, 'sample.wav');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('wav');
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('Alice');
+    expect(cleanedStr).toContain('fmt ');
+    expect(cleanedStr).toContain('data');
+  });
+
+  it('strips Matroska / WebM EBML Tags, Chapters, Attachments, WritingApp, MuxingApp, and TrackName', async () => {
+    const enc = new TextEncoder();
+    const writingApp = enc.encode('SecretMuxerApp');
+    const muxingApp = enc.encode('SecretLibav');
+    const trackName = enc.encode('CameraMicTrack');
+    const tagPayload = enc.encode('CLEANSHOT_TEST_TAG');
+
+    // EBML Header (0x1A45DFA3, size 4 -> 0x84, payload 'webm')
+    const ebmlHeader = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x84, ...enc.encode('webm')]);
+
+    // Info (0x1549A966): WritingApp (0x5741) + MuxingApp (0x4D80)
+    const infoBody = new Uint8Array([
+      0x57, 0x41, 0x80 | writingApp.length, ...writingApp,
+      0x4d, 0x80, 0x80 | muxingApp.length, ...muxingApp,
+    ]);
+    const infoEl = new Uint8Array([0x15, 0x49, 0xa9, 0x66, 0x80 | infoBody.length, ...infoBody]);
+
+    // Tracks (0x1654AE6B) -> TrackEntry (0xAE) -> TrackName (0x536E)
+    const trackEntryBody = new Uint8Array([0x53, 0x6e, 0x80 | trackName.length, ...trackName]);
+    const trackEntry = new Uint8Array([0xae, 0x80 | trackEntryBody.length, ...trackEntryBody]);
+    const tracksEl = new Uint8Array([0x16, 0x54, 0xae, 0x6b, 0x80 | trackEntry.length, ...trackEntry]);
+
+    // Tags (0x1254C367)
+    const tagsEl = new Uint8Array([0x12, 0x54, 0xc3, 0x67, 0x80 | tagPayload.length, ...tagPayload]);
+
+    const segBody = new Uint8Array(infoEl.length + tracksEl.length + tagsEl.length);
+    segBody.set(infoEl, 0);
+    segBody.set(tracksEl, infoEl.length);
+    segBody.set(tagsEl, infoEl.length + tracksEl.length);
+
+    // Segment (0x18538067)
+    const segment = new Uint8Array([0x18, 0x53, 0x80, 0x67, 0x80 | segBody.length, ...segBody]);
+    const webm = new Uint8Array(ebmlHeader.length + segment.length);
+    webm.set(ebmlHeader, 0);
+    webm.set(segment, ebmlHeader.length);
+
+    const result = await stripImageMetadata(webm, 'recording.webm');
+    expect(result.error).toBeUndefined();
+    expect(result.format).toBe('webm');
+    const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(cleanedStr).not.toContain('SecretMuxerApp');
+    expect(cleanedStr).not.toContain('SecretLibav');
+    expect(cleanedStr).not.toContain('CameraMicTrack');
+    expect(cleanedStr).not.toContain('CLEANSHOT_TEST_TAG');
+  });
+});

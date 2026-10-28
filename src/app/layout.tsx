@@ -1,10 +1,29 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+const avenirNext = localFont({
+  variable: '--font-avenir',
+  display: 'swap',
+  src: [
+    {
+      path: '../../public/fonts/avenir-next-regular.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../../public/fonts/avenir-next-medium.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../../public/fonts/avenir-next-demibold.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+  ],
+});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -13,28 +32,31 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'CleanShot — Photo Metadata Cleaner & EXIF Inspector',
+  title: 'CleanShot — Free & Private Metadata Remover',
   description:
-    'Inspect and remove selected EXIF, GPS, and other metadata from supported images. CleanShot processes in your browser by default and reports unsupported files instead of marking them as cleaned.',
+    'Remove targeted metadata from supported images, videos, audio, PDFs, and documents. Free, no account, no file uploads by default.',
   keywords: [
     'EXIF metadata cleaner',
     'remove metadata from photos',
+    'remove metadata from pdf',
+    'remove metadata from video',
+    'remove metadata from audio',
     'photo privacy tool',
-    'bulk photo metadata remover',
+    'bulk metadata remover',
     'remove GPS metadata from photos',
     'image metadata inspector',
   ],
-  authors: [{ name: 'CleanShot Privacy Team' }],
+  authors: [{ name: 'CleanShot' }],
   openGraph: {
-    title: 'CleanShot — Photo Metadata Cleaner',
+    title: 'CleanShot — Free & Private Metadata Remover',
     description:
-      'Inspect and remove selected metadata from supported image formats. Browser processing is the default; server uploads only occur when server mode is explicitly selected.',
+      'Remove targeted metadata from photos, videos, audio, PDFs, and documents directly in your browser.',
     type: 'website',
   },
   twitter: {
     card: 'summary',
-    title: 'CleanShot — Photo Metadata Cleaner',
-    description: 'Inspect and remove selected metadata from supported images, with browser processing by default.',
+    title: 'CleanShot — Free & Private Metadata Remover',
+    description: 'Remove targeted metadata from supported files directly in your browser.',
   },
   icons: {
     icon: [
@@ -56,20 +78,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className="antialiased min-h-dvh bg-background text-foreground transition-colors duration-200 relative selection:bg-accent/20 selection:text-accent">
+      <body
+        suppressHydrationWarning
+        className={`antialiased min-h-dvh flex flex-col bg-background text-foreground ${avenirNext.variable}`}
+      >
         <ThemeProvider>
-          {/* Static decorative glow: avoids a continuously animated filter layer. */}
-          <div className="aurora-mesh" aria-hidden="true" />
-
-          {/* Main Content */}
-          <div className="relative z-10 flex flex-col min-h-dvh">
-            {children}
+          <div className="flex flex-col flex-1 items-center w-full">
+            <div className="w-full max-w-[1040px] flex flex-col flex-1 px-6 sm:px-8">
+              {children}
+            </div>
           </div>
         </ThemeProvider>
       </body>

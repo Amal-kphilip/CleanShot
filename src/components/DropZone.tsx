@@ -1,33 +1,81 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { UploadCloud, FolderPlus, ImagePlus } from 'lucide-react';
+import {
+  File as FileIcon,
+  X,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Download,
+} from 'lucide-react';
+import type { FileItemState } from './FileList';
 
 interface DropZoneProps {
   onFilesSelected: (files: File[]) => void;
   isProcessing: boolean;
   disabled?: boolean;
+  files?: FileItemState[];
+  onRemoveFile?: (id: string) => void;
+  onInspectFile?: (file: FileItemState) => void;
+  onDownloadFile?: (file: FileItemState) => void;
+  maxFiles?: number;
+  maxTotalSizeMb?: number;
 }
 
-export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZoneProps) {
+const ACCEPTED_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.svg',
+  '.pdf',
+  '.docx',
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.mkv',
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.aac',
+  '.m4a',
+];
+
+const ACCEPTED_EXTENSIONS_LABEL = ACCEPTED_EXTENSIONS.map((ext) =>
+  ext.replace(/^\./, '').toUpperCase()
+).join(' · ');
+
+export function DropZone({
+  onFilesSelected,
+  isProcessing,
+  disabled,
+  files = [],
+  onRemoveFile,
+  onInspectFile,
+  onDownloadFile,
+  maxFiles = 150,
+  maxTotalSizeMb = 100,
+}: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  // Global clipboard paste support (Ctrl+V)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       if (disabled || isProcessing) return;
       if (!e.clipboardData) return;
       const items = Array.from(e.clipboardData.items);
-      const imageFiles: File[] = [];
+      const pastedFiles: File[] = [];
       for (const item of items) {
-        if (item.type.startsWith('image/')) {
+        if (item.kind === 'file') {
           const file = item.getAsFile();
-          if (file) imageFiles.push(file);
+          if (file) pastedFiles.push(file);
         }
       }
-      if (imageFiles.length > 0) onFilesSelected(imageFiles);
+      if (pastedFiles.length > 0) onFilesSelected(pastedFiles);
     };
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
@@ -56,52 +104,56 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled || isProcessing) { e.target.value = ''; return; }
+    if (disabled || isProcessing) {
+      e.target.value = '';
+      return;
+    }
     if (e.target.files?.length) {
       onFilesSelected(Array.from(e.target.files));
       e.target.value = '';
     }
   };
 
-  const supportedFormats = ['JPEG', 'PNG', 'WebP', 'GIF', 'SVG'];
+  const queuedSizeMb =
+    files.reduce((sum, item) => sum + item.file.size, 0) / (1024 * 1024);
 
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col gap-2">
+      <p className="text-[11px] font-medium text-text-sec tracking-wide hidden sm:block">
+        {ACCEPTED_EXTENSIONS_LABEL}
+      </p>
+
       <div
+        role="button"
+        tabIndex={isProcessing || disabled ? -1 : 0}
+        aria-label="Add files: drag and drop, or activate to browse"
+        aria-disabled={isProcessing || disabled}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isProcessing && !disabled && fileInputRef.current?.click()}
-        onKeyDown={(event) => {
-          if ((event.key === 'Enter' || event.key === ' ') && !isProcessing && !disabled && event.target === event.currentTarget) {
-            event.preventDefault();
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if ((e.key === 'Enter' || e.key === ' ') && !isProcessing && !disabled) {
+            e.preventDefault();
             fileInputRef.current?.click();
           }
         }}
-        role="button"
-        tabIndex={isProcessing || disabled ? -1 : 0}
-        aria-label="Add images by choosing files, dropping them here, or pasting from the clipboard"
-        aria-disabled={isProcessing || disabled}
-        className={`dropzone-panel relative group cursor-pointer rounded-dropzone transition-all duration-apple ease-apple overflow-hidden p-8 sm:p-14 text-center flex flex-col items-center justify-center ${
+        className={`relative flex flex-col items-center justify-center w-full min-h-72 sm:min-h-80 md:min-h-96 p-8 sm:p-12 pb-12 gap-6 border-[3px] border-dashed rounded-sm transition-colors ${
           isDragOver
-            ? 'scale-[1.01] border-2 border-accent bg-accent-light ring-4 ring-accent-glow shadow-floating'
-            : 'liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.16]'
+            ? 'border-[var(--accent-primary)] bg-[var(--accent-secondary)]'
+            : 'border-foreground'
+        } ${
+          isProcessing || disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'cursor-pointer'
         }`}
-        style={{
-          boxShadow: isDragOver
-            ? 'var(--shadow-floating), 0 0 30px var(--accent-glow)'
-            : 'var(--shadow-glass)',
-        }}
       >
-        {/* Subtle top inner light highlight */}
-        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 dark:via-white/20 to-transparent pointer-events-none" />
-
-        {/* Hidden File Inputs */}
         <input
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".jpg,.jpeg,.png,.webp,.gif,.svg"
+          accept={ACCEPTED_EXTENSIONS.join(',')}
           onChange={handleFileInputChange}
           disabled={isProcessing || disabled}
           className="hidden"
@@ -118,85 +170,124 @@ export function DropZone({ onFilesSelected, isProcessing, disabled }: DropZonePr
           className="hidden"
         />
 
-        {/* Upload Icon inside Glass Rounded Square with Glow */}
-        <div className="relative mb-5">
-          <div
-            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all duration-apple ease-apple ${
-              isDragOver
-                ? 'bg-accent text-white scale-110 shadow-lg shadow-accent/30'
-                : 'liquid-glass text-text-sec group-hover:text-foreground group-hover:scale-105'
-            }`}
-            style={{
-              boxShadow: isDragOver
-                ? '0 10px 25px -5px var(--accent-glow)'
-                : '0 8px 20px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-            }}
-          >
-            <UploadCloud className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={1.8} />
-          </div>
-        </div>
-
-        {/* Headline */}
-        <h3 className="text-[19px] sm:text-[22px] font-semibold tracking-tight text-foreground mb-2 leading-snug">
-          {isDragOver ? (
-            <span className="text-accent font-semibold">Drop to add photos</span>
-          ) : (
-            <>
-              Drop photos here, or{' '}
-              <span className="text-accent hover:underline decoration-1 underline-offset-4">
-                browse files
+        <div className="flex flex-col items-center gap-2 text-foreground">
+          <div className="flex flex-col items-center text-center leading-snug text-[15px] sm:text-[16px] font-medium">
+            <p>Drag &amp; drop files</p>
+            <p>
+              or{' '}
+              <span className="font-semibold hover:underline text-[var(--accent-primary)]">
+                click to add
               </span>
-            </>
-          )}
-        </h3>
-
-        {/* Subtitle with physical keycap */}
-        <p className="text-[14px] text-text-sec max-w-sm mb-7 leading-relaxed">
-          Batch process supported images. Paste <kbd className="keycap mx-1">Ctrl+V</kbd> or upload a folder.
-        </p>
-
-        {/* Action Buttons */}
-        <div
-          className="dropzone-actions flex flex-row items-center gap-3 mb-7 w-full max-w-[280px] sm:max-w-none sm:w-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Primary Select Photos Button */}
+            </p>
+          </div>
           <button
             type="button"
-            onClick={() => !isProcessing && !disabled && fileInputRef.current?.click()}
             disabled={isProcessing || disabled}
-            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white text-[13px] font-semibold flex items-center justify-center gap-2 shadow-accent-button apple-spring relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              boxShadow: '0 4px 16px 0 rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isProcessing && !disabled) folderInputRef.current?.click();
             }}
+            className="text-[12px] text-text-sec hover:text-foreground underline underline-offset-4 mt-1"
           >
-            <ImagePlus className="w-4 h-4 shrink-0" />
-            <span>Select Photos</span>
-          </button>
-
-          {/* Secondary Folder Button */}
-          <button
-            type="button"
-            onClick={() => !isProcessing && !disabled && folderInputRef.current?.click()}
-            disabled={isProcessing || disabled}
-            className="flex-1 sm:flex-initial px-5 py-2.5 rounded-pill liquid-glass hover:bg-glass-hover active:scale-[0.97] text-foreground text-[13px] font-medium flex items-center justify-center gap-2 apple-spring disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <FolderPlus className="w-4 h-4 shrink-0 text-text-sec" />
-            <span>Folder</span>
+            or select a folder
           </button>
         </div>
 
-        {/* Format Tags (Quiet Metadata) */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-lg">
-          {supportedFormats.map((fmt) => (
-            <span
-              key={fmt}
-              className="text-[12px] font-medium px-2.5 py-0.5 rounded-pill bg-black/[0.03] dark:bg-white/[0.04] text-text-ter border border-border-subtle tracking-wide"
-            >
-              {fmt}
-            </span>
-          ))}
-        </div>
+        {files.length > 0 && (
+          <ul
+            className="w-full max-w-xl flex flex-col gap-1.5 text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {files.map((item) => {
+              const isProcessingItem =
+                item.status === 'processing' || item.status === 'inspecting';
+              const isDone = item.status === 'completed';
+              const isFailed = item.status === 'error';
+
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 py-1.5 px-2.5 rounded-[4px] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors"
+                >
+                  <FileIcon
+                    className="shrink-0 text-text-sec"
+                    size={18}
+                    strokeWidth={2}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] sm:text-[14px] font-medium text-text-sec truncate">
+                      {item.result ? item.result.cleanedFilename : item.file.name}
+                    </p>
+                    {isFailed && item.error && (
+                      <p className="text-[11px] text-red-500 truncate">
+                        {item.error}
+                      </p>
+                    )}
+                  </div>
+
+                  {onInspectFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInspectFile(item);
+                      }}
+                      className="px-2 py-1 rounded-[4px] text-[11px] font-medium text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-1 transition-colors"
+                      title="Inspect metadata"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Inspect</span>
+                    </button>
+                  )}
+
+                  {isDone && item.result && onDownloadFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownloadFile(item);
+                      }}
+                      className="px-2 py-1 rounded-[4px] text-[11px] font-medium text-[var(--accent-primary)] hover:underline inline-flex items-center gap-1"
+                      title="Download cleaned file"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Save</span>
+                    </button>
+                  )}
+
+                  {isProcessingItem && (
+                    <Loader2 className="shrink-0 w-4 h-4 animate-spin text-text-sec" />
+                  )}
+                  {isDone && (
+                    <CheckCircle2 className="shrink-0 w-4 h-4 text-green-500" />
+                  )}
+                  {isFailed && (
+                    <XCircle className="shrink-0 w-4 h-4 text-red-500" />
+                  )}
+
+                  {onRemoveFile && (
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveFile(item.id);
+                      }}
+                      aria-label={`Remove ${item.file.name}`}
+                      className="p-1 rounded-[4px] text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <p className="text-[12px] font-medium text-text-sec absolute right-4 sm:right-6 bottom-2.5">
+          {`${files.length}/${maxFiles} files · ${queuedSizeMb.toFixed(1)}/${maxTotalSizeMb} MB`}
+        </p>
       </div>
     </div>
   );

@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
 
       let cleanedMetadata;
       if (!stripResult.error) {
-        try { cleanedMetadata = await inspectMetadata(stripResult.cleanedBuffer); } catch { /* post-clean inspection is best-effort */ }
+        try { cleanedMetadata = await inspectMetadata(stripResult.cleanedBuffer, safeOriginalName); } catch { /* post-clean inspection is best-effort */ }
       }
 
       const storedFile = {

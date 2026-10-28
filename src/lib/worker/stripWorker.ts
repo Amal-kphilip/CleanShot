@@ -3,7 +3,7 @@ import { inspectMetadata } from '../engine/inspector';
 import { StripOptions } from '../engine/types';
 
 type WorkerRequest =
-  | { id: string; action: 'inspect'; buffer: ArrayBuffer }
+  | { id: string; action: 'inspect'; buffer: ArrayBuffer; filename?: string }
   | { id: string; action: 'strip'; buffer: ArrayBuffer; filename: string; options: StripOptions };
 
 const workerScope = self as unknown as {
@@ -15,7 +15,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
   try {
     if (message.action === 'inspect') {
-      const metadata = await inspectMetadata(new Uint8Array(message.buffer));
+      const metadata = await inspectMetadata(new Uint8Array(message.buffer), message.filename || '');
       workerScope.postMessage({ id: message.id, metadata });
       return;
     }
@@ -24,7 +24,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     let cleanedMetadata;
     if (!result.error) {
       try {
-        cleanedMetadata = await inspectMetadata(result.cleanedBuffer);
+        cleanedMetadata = await inspectMetadata(result.cleanedBuffer, message.filename);
       } catch {
         // Cleaning may succeed even if the best-effort post-clean inspection cannot parse the output.
       }

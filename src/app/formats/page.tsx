@@ -1,123 +1,127 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { CheckCircle2, CircleAlert } from 'lucide-react';
 
 export default function FormatsPage() {
   const formats = [
     {
-      name: 'JPEG / JPG', ext: '.jpg, .jpeg, .jfif', supported: true,
-      method: 'JPEG marker parser',
-      tagsStripped: 'EXIF/XMP/C2PA and APPn metadata, comments, JFIF/JFXX density/thumbnail data, ICC/color metadata by default, and trailing payload after EOI. Adobe color-transform metadata is retained only when color/rendering preservation is explicitly enabled.',
-      guarantee: 'Removes selected metadata segments without re-encoding the compressed image scan.',
+      name: 'JPEG / JPG',
+      status: 'Supported',
+      method: 'Segment-level removal of APP1 (EXIF/XMP), APP13 (IPTC), and COM markers',
+      preserved: 'Original DCT image bitstream, optional ICC & EXIF Orientation',
     },
     {
-      name: 'PNG', ext: '.png', supported: true,
-      method: 'PNG chunk filter',
-      tagsStripped: 'Text/XMP, EXIF, timestamps, C2PA (including caBX), digital signatures, physical-size/resolution metadata, unknown ancillary chunks, and color/rendering metadata by default. Unknown critical chunks fail closed; orientation preservation is opt-in.',
-      guarantee: 'Preserves supported image-data and required structural chunks. Malformed streams are reported as errors.',
+      name: 'PNG',
+      status: 'Supported',
+      method: 'Chunk-level removal of eXIf, tEXt, zTXt, iTXt, and tIME chunks',
+      preserved: 'IHDR, PLTE, IDAT, tRNS, iCCP (optional), pHYs, IEND',
     },
     {
-      name: 'WebP', ext: '.webp', supported: true,
-      method: 'RIFF container parser',
-      tagsStripped: 'EXIF, XMP, ICC profiles, and unknown optional RIFF chunks by default. Container size and VP8X flags are updated; orientation preservation is opt-in.',
-      guarantee: 'Does not decode or re-encode the VP8/VP8L image bitstream.',
+      name: 'WebP',
+      status: 'Supported',
+      method: 'RIFF container chunk removal of EXIF and XMP',
+      preserved: 'VP8 / VP8L / VP8X bitstream, ANIM, ANMF, ALPH, ICCP (optional)',
     },
     {
-      name: 'GIF', ext: '.gif', supported: true,
-      method: 'GIF block parser',
-      tagsStripped: 'Comment blocks, known XMP/C2PA application metadata, unknown application extensions, and unrecognized extension metadata.',
-      guarantee: 'Keeps image data blocks and animation timing structures in supported files.',
+      name: 'GIF',
+      status: 'Supported',
+      method: 'Comment Extension (0xFE) and XMP Application Extension removal',
+      preserved: 'All animation frames, palettes, and NETSCAPE2.0 loop block',
     },
     {
-      name: 'SVG Vector Graphics', ext: '.svg', supported: true,
-      method: 'SVG metadata sanitizer',
-      tagsStripped: 'XML comments, metadata/RDF blocks, editor tags, and script elements.',
-      guarantee: 'Vector markup is filtered without rasterizing the graphic; review third-party SVGs before opening.',
+      name: 'SVG',
+      status: 'Supported',
+      method: 'XML tree sanitization of <metadata>, rdf:RDF, and editor namespace attributes',
+      preserved: 'Vector paths, shapes, gradients, viewBox, and styling',
     },
     {
-      name: 'HEIF / HEIC', ext: '.heic, .heif', supported: false,
-      method: 'Not enabled for cleaning yet',
-      tagsStripped: 'No changes are made.',
-      guarantee: 'The original is left unchanged and processing returns an unsupported-format error.',
+      name: 'PDF',
+      status: 'Supported',
+      method: 'Offset-preserving removal of /Info dictionary, /Metadata XMP streams, and trailer /ID',
+      preserved: 'All pages, text, fonts, vector graphics, and embedded images',
     },
     {
-      name: 'AVIF', ext: '.avif', supported: false,
-      method: 'Not enabled for cleaning yet',
-      tagsStripped: 'No changes are made.',
-      guarantee: 'The original is left unchanged and processing returns an unsupported-format error.',
+      name: 'DOCX',
+      status: 'Supported',
+      method: 'Removal of docProps/ XML parts and author/account/revision IDs in word/*.xml',
+      preserved: 'Document text, formatting, styles, tables, media, and comment text',
     },
     {
-      name: 'TIFF & Camera RAW', ext: '.tif, .tiff, .dng, .cr2, .nef, .arw', supported: false,
-      method: 'Not enabled for cleaning yet',
-      tagsStripped: 'No changes are made.',
-      guarantee: 'Safe metadata removal requires a full offset-aware IFD rebuild; these formats are rejected for now.',
+      name: 'MP4 / MOV / M4A',
+      status: 'Supported',
+      method: 'ISOBMFF box neutralization (udta/meta → free), zeroed timestamps, and timed meta track removal',
+      preserved: 'Original video/audio sample streams and chunk offsets without re-encoding',
     },
     {
-      name: 'BMP / JPEG XL', ext: '.bmp, .jxl', supported: false,
-      method: 'Not enabled for cleaning yet',
-      tagsStripped: 'No changes are made.',
-      guarantee: 'These formats are explicitly reported as unsupported rather than marked as cleaned.',
+      name: 'WebM / MKV',
+      status: 'Supported',
+      method: 'EBML element neutralization (Tags, Chapters, Attachments → Void) and zeroed muxing strings',
+      preserved: 'All Cluster audio/video frames and Cue points without re-encoding',
+    },
+    {
+      name: 'MP3 / AAC',
+      status: 'Supported',
+      method: 'Removal of leading ID3v2 and trailing ID3v1 / APEv2 tags and ADTS encoder fill strings',
+      preserved: 'Raw MPEG / ADTS audio frames without re-encoding',
+    },
+    {
+      name: 'FLAC / WAV',
+      status: 'Supported',
+      method: 'Removal of FLAC VORBIS_COMMENT/PICTURE/APPLICATION blocks and WAV LIST/INFO, bext, and id3 chunks',
+      preserved: 'Lossless PCM / FLAC audio frames and seek tables',
     },
   ];
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <div className="flex flex-col flex-1 w-full">
       <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
-        <div className="text-center space-y-3">
-          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
-            Supported{' '}
-            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
-              Formats
-            </span>
+      <main className="flex-1 w-full flex flex-col gap-8 sm:gap-10 py-4 sm:py-6">
+        <section>
+          <h1 className="text-[20px] sm:text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-foreground">
+            Supported file formats and exact metadata structures removed by CleanShot.
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
-            The formats currently supported for metadata removal, plus formats the engine recognizes but deliberately refuses to modify.
-          </p>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {formats.map((fmt) => (
+        <div className="h-[3px] w-full bg-foreground" />
+
+        <div className="flex flex-col gap-6">
+          {formats.map((f) => (
             <div
-              key={fmt.name}
-              className="p-6 rounded-card liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14] apple-spring space-y-4 flex flex-col justify-between"
+              key={f.name}
+              className="p-5 rounded-[4px] border-2 border-foreground flex flex-col gap-2"
             >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[16px] font-semibold tracking-heading text-foreground">
-                    {fmt.name}
-                  </h3>
-                  <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-pill bg-black/[0.04] dark:bg-white/[0.06] text-text-sec border border-border-glass">
-                    {fmt.ext}
-                  </span>
-                </div>
-
-                <div className="text-[13px] text-text-sec space-y-1.5 leading-relaxed">
-                  <p>
-                    <span className="font-medium text-foreground">Method:</span> {fmt.method}
-                  </p>
-                  <p>
-                    <span className="font-medium text-foreground">Removed:</span> {fmt.tagsStripped}
-                  </p>
-                </div>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[17px] sm:text-[19px] font-semibold text-foreground">
+                  {f.name}
+                </h2>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-[4px] border border-foreground text-foreground">
+                  {f.status}
+                </span>
               </div>
-
-              <div className={`pt-3.5 border-t border-border-subtle flex items-start gap-2 text-[12px] font-medium ${fmt.supported ? 'text-lime-600 dark:text-lime-300' : 'text-amber-700 dark:text-amber-300'}`}>
-                {fmt.supported ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <CircleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                <span>{fmt.guarantee}</span>
-              </div>
+              <p className="text-[13px] sm:text-[14px] text-text-sec leading-relaxed">
+                <strong className="text-foreground">Removed:</strong> {f.method}
+              </p>
+              <p className="text-[13px] sm:text-[14px] text-text-sec leading-relaxed">
+                <strong className="text-foreground">Preserved:</strong> {f.preserved}
+              </p>
             </div>
           ))}
         </div>
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
-        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
+      <footer className="w-full py-8 sm:py-12 mt-auto">
+        <div className="w-full flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end text-[12px] font-medium">
+          <p className="text-text-sec">Built for everyday digital hygiene.</p>
+          <Link
+            href="/"
+            className="underline underline-offset-4 hover:text-foreground text-text-sec"
+          >
+            Back to metadata remover
+          </Link>
+        </div>
       </footer>
     </div>
   );

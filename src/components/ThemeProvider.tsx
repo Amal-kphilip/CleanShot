@@ -1,19 +1,63 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-/** StripMeta uses a single dark theme so colors stay consistent across devices. */
+type Theme = 'light' | 'dark';
+
+interface ThemeContextValue {
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeContext = createContext<ThemeContextValue>({
+  theme: 'light',
+  toggleTheme: () => {},
+  setTheme: () => {},
+});
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>('light');
+
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-    document.documentElement.style.colorScheme = 'dark';
-    // Remove a theme preference saved by older versions; it must not reactivate light mode.
+    let initial: Theme = 'light';
     try {
-      localStorage.removeItem('cleanshot_theme');
+      const saved = localStorage.getItem('cleanshot_theme');
+      if (saved === 'dark' || saved === 'light') {
+        initial = saved;
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        initial = 'dark';
+      }
     } catch {
-      // Storage may be blocked; the app remains dark regardless.
+      // Ignore storage errors
     }
+    setThemeState(initial);
+    document.documentElement.classList.toggle('dark', initial === 'dark');
+    document.documentElement.style.colorScheme = initial;
   }, []);
 
-  return <div className="dark">{children}</div>;
+  const setTheme = (next: Theme) => {
+    setThemeState(next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
+    document.documentElement.style.colorScheme = next;
+    try {
+      localStorage.setItem('cleanshot_theme', next);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }

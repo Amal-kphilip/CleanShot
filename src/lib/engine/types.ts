@@ -10,6 +10,17 @@ export type ImageFormat =
   | 'avif'
   | 'jxl'
   | 'raw'
+  | 'pdf'
+  | 'docx'
+  | 'mp4'
+  | 'mov'
+  | 'm4a'
+  | 'webm'
+  | 'mkv'
+  | 'mp3'
+  | 'aac'
+  | 'flac'
+  | 'wav'
   | 'unknown';
 
 export type RiskLevel = 'high' | 'medium' | 'low';

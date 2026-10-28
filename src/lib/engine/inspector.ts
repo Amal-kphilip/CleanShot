@@ -1,4 +1,5 @@
 import * as exifr from 'exifr';
+import { unzipSync } from 'fflate';
 import { ParsedMetadata, MetadataField, GpsLocation, ImageFormat } from './types';
 import { detectImageFormat } from './magic';
 
@@ -7,8 +8,8 @@ import { detectImageFormat } from './magic';
  * Extracts every discoverable metadata field, classifies into categories,
  * detects GPS location, and calculates privacy risk ratings.
  */
-export async function inspectMetadata(buffer: Uint8Array): Promise<ParsedMetadata> {
-  const formatInfo = detectImageFormat(buffer);
+export async function inspectMetadata(buffer: Uint8Array, filename: string = ''): Promise<ParsedMetadata> {
+  const formatInfo = detectImageFormat(buffer, filename);
   const format = formatInfo.format;
   const fields: MetadataField[] = [];
   let gps: GpsLocation | undefined = undefined;
@@ -91,6 +92,26 @@ export async function inspectMetadata(buffer: Uint8Array): Promise<ParsedMetadat
   // If SVG, extract XML comments and metadata tags
   if (format === 'svg') {
     extractSvgMetadata(buffer, fields, categoriesCount);
+  }
+
+  // If PDF, extract Document Info dictionary and Trailer ID
+  if (format === 'pdf') {
+    extractPdfMetadata(buffer, fields, categoriesCount);
+  }
+
+  // If DOCX, extract docProps core.xml & app.xml fields
+  if (format === 'docx') {
+    extractDocxMetadata(buffer, fields, categoriesCount);
+  }
+
+  // If MP3 / AAC / WAV, extract ID3v2 / ID3v1 / RIFF INFO tags
+  if (format === 'mp3' || format === 'aac' || format === 'wav') {
+    extractAudioMetadata(buffer, fields, categoriesCount);
+  }
+
+  // If FLAC, extract Vorbis comments
+  if (format === 'flac') {
+    extractFlacMetadata(buffer, fields, categoriesCount);
   }
 
   const hasHighRiskFields = fields.some((f) => f.riskLevel === 'high');
@@ -364,5 +385,183 @@ function extractSvgMetadata(
         description: 'Embedded XML comment in vector file',
       });
     }
+  }
+}
+
+function extractPdfMetadata(
+  buffer: Uint8Array,
+  fields: MetadataField[],
+  categoriesCount: Record<string, number>
+) {
+  const text = new TextDecoder('latin1').decode(buffer);
+  const infoKeyRegex = /\/(Author|Title|Subject|Keywords|Creator|Producer|CreationDate|ModDate)\s*(\((?:\\.|[^\\)])*\)|<[0-9A-Fa-f\s]*>)/g;
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = infoKeyRegex.exec(text)) !== null) {
+    const key = match[1];
+    let rawVal = match[2];
+    if (rawVal.startsWith('(') && rawVal.endsWith(')')) {
+      rawVal = rawVal.slice(1, -1).replace(/\\([()\\])/g, '$1');
+    } else if (rawVal.startsWith('<') && rawVal.endsWith('>')) {
+      const hex = rawVal.slice(1, -1).replace(/\s+/g, '');
+      const bytes: number[] = [];
+      for (let i = 0; i + 1 < hex.length; i += 2) {
+        bytes.push(parseInt(hex.slice(i, i + 2), 16));
+      }
+      if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+        rawVal = new TextDecoder('utf-16be').decode(new Uint8Array(bytes.slice(2)));
+      } else {
+        rawVal = new TextDecoder('latin1').decode(new Uint8Array(bytes));
+      }
+    }
+    const cleanVal = rawVal.trim();
+    if (!cleanVal || seen.has(`${key}:${cleanVal}`)) continue;
+    seen.add(`${key}:${cleanVal}`);
+    const { category, riskLevel, description } = classifyTag(key, cleanVal);
+    categoriesCount[category]++;
+    fields.push({
+      id: `pdf-${key}-${fields.length}`,
+      name: `PDF ${formatTagName(key)}`,
+      category,
+      value: cleanVal,
+      formattedValue: cleanVal,
+      riskLevel,
+      description,
+    });
+  }
+
+  const idMatch = text.match(/\/ID\s*\[\s*<([0-9A-Fa-f\s]+)>\s*<([0-9A-Fa-f\s]+)>\s*\]/);
+  if (idMatch) {
+    const idVal = idMatch[1].replace(/\s+/g, '');
+    if (idVal) {
+      categoriesCount.author++;
+      fields.push({
+        id: 'pdf-trailer-id',
+        name: 'PDF Trailer Document ID',
+        category: 'author',
+        value: idVal,
+        formattedValue: idVal,
+        riskLevel: 'high',
+        description: 'Persistent document fingerprint linking edited copies back to the original',
+      });
+    }
+  }
+}
+
+function extractDocxMetadata(
+  buffer: Uint8Array,
+  fields: MetadataField[],
+  categoriesCount: Record<string, number>
+) {
+  try {
+    const entries = unzipSync(buffer);
+    const decoder = new TextDecoder('utf-8');
+    const xmlFiles = ['docProps/core.xml', 'docProps/app.xml', 'docProps/custom.xml'];
+    for (const path of xmlFiles) {
+      const data = entries[path];
+      if (!data) continue;
+      const xml = decoder.decode(data);
+      const tagRegex = /<([A-Za-z0-9_:-]+)>([^<]+)<\/\1>/g;
+      let match: RegExpExecArray | null;
+      while ((match = tagRegex.exec(xml)) !== null) {
+        const rawTag = match[1].includes(':') ? match[1].split(':')[1] : match[1];
+        const val = match[2].trim();
+        if (!val) continue;
+        const { category, riskLevel, description } = classifyTag(rawTag, val);
+        categoriesCount[category]++;
+        fields.push({
+          id: `docx-${rawTag}-${fields.length}`,
+          name: `DOCX ${formatTagName(rawTag)}`,
+          category,
+          value: val,
+          formattedValue: val,
+          riskLevel,
+          description,
+        });
+      }
+    }
+  } catch {
+    // Ignore malformed zip during quick preview
+  }
+}
+
+function extractAudioMetadata(
+  buffer: Uint8Array,
+  fields: MetadataField[],
+  categoriesCount: Record<string, number>
+) {
+  // Check leading ID3v2 header
+  if (buffer.length >= 10 && buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) {
+    const version = `ID3v2.${buffer[3]}.${buffer[4]}`;
+    const size = ((buffer[6] & 0x7f) << 21) | ((buffer[7] & 0x7f) << 14) | ((buffer[8] & 0x7f) << 7) | (buffer[9] & 0x7f);
+    if (size > 0) {
+      categoriesCount.author++;
+      fields.push({
+        id: 'audio-id3v2',
+        name: 'ID3v2 Metadata Container',
+        category: 'author',
+        value: `${version} (${size} bytes)`,
+        formattedValue: `${version} (${size} bytes)`,
+        riskLevel: 'medium',
+        description: 'Embedded ID3v2 tag container in audio stream',
+      });
+    }
+  }
+  // Check trailing ID3v1 ("TAG" at length - 128)
+  if (buffer.length >= 128) {
+    const start = buffer.length - 128;
+    if (buffer[start] === 0x54 && buffer[start + 1] === 0x41 && buffer[start + 2] === 0x47) {
+      const dec = new TextDecoder('latin1');
+      const title = dec.decode(buffer.subarray(start + 3, start + 33)).replace(/\0+$/, '').trim();
+      const artist = dec.decode(buffer.subarray(start + 33, start + 63)).replace(/\0+$/, '').trim();
+      if (title) {
+        categoriesCount.other++;
+        fields.push({ id: 'id3v1-title', name: 'ID3v1 Title', category: 'other', value: title, riskLevel: 'low' });
+      }
+      if (artist) {
+        categoriesCount.author++;
+        fields.push({ id: 'id3v1-artist', name: 'ID3v1 Artist', category: 'author', value: artist, riskLevel: 'high' });
+      }
+    }
+  }
+}
+
+function extractFlacMetadata(
+  buffer: Uint8Array,
+  fields: MetadataField[],
+  categoriesCount: Record<string, number>
+) {
+  if (buffer.length < 8 || String.fromCharCode(buffer[0], buffer[1], buffer[2], buffer[3]) !== 'fLaC') return;
+  let offset = 4;
+  while (offset + 4 <= buffer.length) {
+    const header = buffer[offset];
+    const isLast = (header & 0x80) !== 0;
+    const type = header & 0x7f;
+    const length = (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | buffer[offset + 3];
+    const end = offset + 4 + length;
+    if (end > buffer.length) break;
+    if (type === 4) {
+      categoriesCount.author++;
+      fields.push({
+        id: `flac-vorbis-${offset}`,
+        name: 'FLAC Vorbis Comments',
+        category: 'author',
+        value: `${length} bytes`,
+        riskLevel: 'high',
+        description: 'Vorbis comment metadata block in FLAC container',
+      });
+    } else if (type === 6) {
+      categoriesCount.other++;
+      fields.push({
+        id: `flac-picture-${offset}`,
+        name: 'FLAC Embedded Picture',
+        category: 'other',
+        value: `${length} bytes`,
+        riskLevel: 'medium',
+        description: 'Embedded cover art / picture metadata block',
+      });
+    }
+    offset = end;
+    if (isLast) break;
   }
 }

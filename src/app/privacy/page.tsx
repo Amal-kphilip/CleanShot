@@ -1,74 +1,71 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { Lock, EyeOff, Server } from 'lucide-react';
 
 export default function PrivacyPage() {
   const principles = [
     {
-      icon: Lock,
-      title: '1. Local Processing by Default',
-      desc: 'Client-Side mode processes supported images in your browser using Web Workers where available. The local queue is limited to 50 MB per file and 100 MB total to reduce memory pressure. In this mode, the image file is not uploaded for processing. The site itself still requires a network connection to load unless it has been cached; fully offline behavior depends on the browser cache.',
+      num: '01',
+      title: 'Local processing by default.',
+      desc: 'Client-Side mode processes supported files directly in your browser using Web Workers. In this mode, your files are never uploaded to a server. The local queue is limited to 50 MB per file and 100 MB total to protect browser memory.',
     },
     {
-      icon: EyeOff,
-      title: '2. File Contents Are Not Sent in Client-Side Mode',
-      desc: 'The client-side workflow reads files locally to inspect and clean them. The app does not need to transmit their bytes to perform this processing. Browser extensions, developer tools, or your network environment may affect what you observe, so you can verify the behavior in the browser Network panel.',
+      num: '02',
+      title: 'File contents stay on your device.',
+      desc: 'The client-side workflow reads files locally to inspect and clean them without transmitting their bytes over the network. You can verify this at any time in your browser Network panel.',
     },
     {
-      icon: Server,
-      title: '3. Optional Server-Side Mode',
-      desc: 'If you explicitly select Server-Side mode in Settings, original files are uploaded and buffered in application memory while processing. Only successful cleaned outputs are retained in the in-memory job store for download, with a nominal 15-minute expiry or earlier deletion when cleared. This is not a secure-erasure guarantee; restarts and multi-instance/serverless hosting can affect job availability. Do not use this mode for confidential images you do not want to upload.',
+      num: '03',
+      title: 'Optional Server-Side mode.',
+      desc: 'If you explicitly select Server-Side mode in Settings, files are uploaded and buffered in application memory for processing and expire after 15 minutes or when cleared. Do not enable Server-Side mode for confidential files you do not want to upload.',
     },
   ];
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <div className="flex flex-col flex-1 w-full">
       <Header />
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
-        <div className="text-center space-y-3">
-          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
-            Privacy by{' '}
-            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
-              Design
-            </span>
+      <main className="flex-1 w-full flex flex-col gap-8 sm:gap-10 py-4 sm:py-6">
+        <section>
+          <h1 className="text-[20px] sm:text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-foreground">
+            Local processing is the default. Your files stay in your browser unless
+            you explicitly enable Server-Side mode in Settings.
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
-            Local processing is the default. Server-Side mode is optional and uploads files; choose the mode that matches your privacy needs.
-          </p>
-        </div>
+        </section>
 
-        <div className="space-y-4">
-          {principles.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="p-6 sm:p-7 rounded-card liquid-glass hover:shadow-floating hover:border-black/[0.12] dark:hover:border-white/[0.14] apple-spring space-y-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-small liquid-glass text-foreground flex items-center justify-center shrink-0 shadow-xs">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-[16px] font-semibold tracking-heading text-foreground">
-                    {item.title}
-                  </h3>
-                </div>
-                <p className="text-[13px] text-text-sec leading-relaxed font-normal pl-11">
+        <div className="h-[3px] w-full bg-foreground" />
+
+        <section className="flex flex-col gap-8">
+          {principles.map((item) => (
+            <div key={item.num} className="flex gap-6">
+              <span className="text-[13px] sm:text-[14px] font-medium text-text-sec shrink-0 w-8">
+                {item.num}
+              </span>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[18px] sm:text-[20px] font-semibold text-foreground leading-snug">
+                  {item.title}
+                </h2>
+                <p className="text-[14px] sm:text-[16px] text-text-sec leading-relaxed">
                   {item.desc}
                 </p>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          ))}
+        </section>
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
-        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
+      <footer className="w-full py-8 sm:py-12 mt-auto">
+        <div className="w-full flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end text-[12px] font-medium">
+          <p className="text-text-sec">Built for everyday digital hygiene.</p>
+          <Link
+            href="/"
+            className="underline underline-offset-4 hover:text-foreground text-text-sec"
+          >
+            Back to metadata remover
+          </Link>
+        </div>
       </footer>
     </div>
   );

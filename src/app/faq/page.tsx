@@ -1,110 +1,70 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { ChevronDown } from 'lucide-react';
 
 export default function FaqPage() {
   const faqs = [
     {
-      q: 'What is EXIF metadata and why should I strip it?',
-      a: 'EXIF (Exchangeable Image File Format) is metadata automatically written inside your photos by digital cameras and smartphones. It frequently includes exact GPS coordinates of your home, device serial numbers, lens specifications, owner names, and timestamps. When uploaded to marketplaces, social media, or shared with third parties, this information exposes your private location and equipment fingerprints.',
+      q: 'How does client-side metadata removal work?',
+      a: 'All file processing happens directly in your web browser using JavaScript and Web Workers. When you add files, they are read locally and processed using specialized metadata stripping algorithms without uploading your files.',
     },
     {
-      q: 'Does stripping metadata reduce or degrade photo quality?',
-      a: 'For supported formats, CleanShot removes selected metadata/container structures without re-encoding the image data. Unsupported or malformed files are reported as errors rather than advertised as cleaned. Results should be checked for the formats and metadata you rely on.',
+      q: 'What types of metadata does CleanShot remove?',
+      a: 'CleanShot targets documented structures for each format: image EXIF/XMP/IPTC, standard PDF properties, DOCX package and author identities, common audio tags (ID3, Vorbis, RIFF INFO/bext), and MP4/MOV or Matroska/WebM container metadata.',
     },
     {
-      q: 'Why are color and orientation preservation off by default?',
-      a: 'Color profiles and EXIF orientation are metadata. StripMeta removes them by default for stricter metadata removal, but this can change color interpretation or the displayed orientation of some photos. You can opt in to preserve them in Settings; doing so intentionally retains rendering-related metadata.',
+      q: 'Does stripping metadata reduce photo, video, or audio quality?',
+      a: 'No. CleanShot operates at the container and metadata block level without re-encoding image, audio, or video streams.',
     },
     {
-      q: 'Can CleanShot process 100+ photos at once?',
-      a: 'The local processor uses a bounded Web Worker pool on supported browsers. Throughput depends on your device, file sizes, and format. Large batches can use substantial memory, so process in manageable groups.',
+      q: 'Is there a private way to clean PDF and Word document metadata?',
+      a: 'Yes. CleanShot processes PDFs and DOCX files directly in your browser. It removes standard PDF Info/XMP properties and DOCX document properties and author/revision identities while preserving visible document content.',
     },
     {
-      q: 'Do my photos get uploaded to a remote server?',
-      a: 'In Client-Side mode, image processing stays in your browser. If you explicitly switch to Server-Side in Settings, selected files are uploaded for processing and held in memory on that server instance until deleted or expired. Do not use server mode for files you do not want to upload.',
+      q: 'Does a successful clean guarantee that a file is anonymous?',
+      a: 'No. Visible images, text, voices, filenames and unknown application-specific structures can still identify someone. CleanShot removes the metadata structures it targets; you should still review sensitive content before sharing.',
     },
   ];
 
-  const [openIndexes, setOpenIndexes] = useState<number[]>([0]);
-
-  const toggleIndex = (idx: number) => {
-    setOpenIndexes((prev) =>
-      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
-    );
-  };
-
   return (
-    <div className="flex flex-col min-h-dvh">
+    <div className="flex flex-col flex-1 w-full">
       <Header />
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 space-y-12 sm:space-y-16">
-        <div className="text-center space-y-3">
-          <h1 className="display-serif text-[38px] sm:text-[56px] font-normal tracking-[-0.045em] text-foreground leading-[0.98]">
-            Frequently Asked{' '}
-            <span className="bg-gradient-to-r from-lime-400 via-lime-300 to-lime-500 dark:from-lime-300 dark:via-lime-200 dark:to-lime-400 bg-clip-text text-transparent">
-              Questions
-            </span>
+      <main className="flex-1 w-full flex flex-col gap-8 sm:gap-10 py-4 sm:py-6">
+        <section>
+          <h1 className="text-[20px] sm:text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-foreground">
+            Frequently asked questions about metadata privacy and local file cleaning.
           </h1>
-          <p className="text-[15px] sm:text-[17px] text-text-sec max-w-lg mx-auto font-normal leading-relaxed">
-            Everything you need to know about photo metadata privacy and lossless processing.
-          </p>
-        </div>
+        </section>
 
-        {/* Clean Accordion with Hairline Dividers and Smooth Height Animation */}
-        <div className="rounded-card liquid-glass overflow-hidden divide-y divide-border-subtle shadow-glass">
-          {faqs.map((item, idx) => {
-            const isOpen = openIndexes.includes(idx);
+        <div className="h-[3px] w-full bg-foreground" />
 
-            return (
-              <div key={idx} className="transition-colors duration-200">
-                <button
-                  type="button"
-                  onClick={() => toggleIndex(idx)}
-                  className="w-full py-5 px-6 sm:px-8 text-left flex items-center justify-between gap-4 select-none group"
-                  aria-expanded={isOpen}
-                >
-                  <span className="text-[15px] sm:text-[16px] font-semibold tracking-heading text-foreground group-hover:text-accent transition-colors">
-                    {item.q}
-                  </span>
-                  <motion.div
-                    animate={{ rotate: isOpen ? 180 : 0 }}
-                    transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-                    className="shrink-0 text-text-ter group-hover:text-foreground transition-colors"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </motion.div>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {isOpen && (
-                    <motion.div
-                      key="content"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 sm:px-8 pb-5 text-[14px] text-text-sec leading-relaxed font-normal">
-                        {item.a}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
+        <section className="flex flex-col gap-8">
+          {faqs.map((item) => (
+            <div key={item.q} className="flex flex-col gap-1.5">
+              <h2 className="text-[18px] sm:text-[20px] font-semibold text-foreground leading-snug">
+                {item.q}
+              </h2>
+              <p className="text-[14px] sm:text-[16px] text-text-sec leading-relaxed">
+                {item.a}
+              </p>
+            </div>
+          ))}
+        </section>
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="mt-auto border-t border-border-subtle py-8 px-4 text-center text-[12px] text-text-ter space-y-1">
-        <p>CleanShot · Photo Metadata Privacy · Local processing by default</p>
-        <p className="text-[11px]">Server mode uploads only when explicitly enabled in Settings</p>
+      <footer className="w-full py-8 sm:py-12 mt-auto">
+        <div className="w-full flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end text-[12px] font-medium">
+          <p className="text-text-sec">Built for everyday digital hygiene.</p>
+          <Link
+            href="/"
+            className="underline underline-offset-4 hover:text-foreground text-text-sec"
+          >
+            Back to metadata remover
+          </Link>
+        </div>
       </footer>
     </div>
   );

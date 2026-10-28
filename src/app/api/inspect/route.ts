@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Metadata inspection files are limited to 20 MB.' }, { status: 413 });
     }
 
-    const metadata = await inspectMetadata(new Uint8Array(await entry.arrayBuffer()));
+    const metadata = await inspectMetadata(new Uint8Array(await entry.arrayBuffer()), entry.name);
     return NextResponse.json(metadata, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return NextResponse.json(
