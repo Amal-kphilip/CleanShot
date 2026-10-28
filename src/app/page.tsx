@@ -35,6 +35,7 @@ export default function HomePage() {
     preserveFolderStructure: false,
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [inspectItem, setInspectItem] = useState<FileItemState | null>(null);
   const objectUrls = useRef(new Set<string>());
 
@@ -594,7 +595,7 @@ export default function HomePage() {
             <button
               type="button"
               disabled={files.length <= 0 || isProcessing}
-              onClick={handleClearAll}
+              onClick={() => setIsClearConfirmOpen(true)}
               className="px-4 py-2.5 text-[13px] font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
             >
               Clear all
@@ -789,6 +790,54 @@ export default function HomePage() {
         isServerMode={isServerMode}
         onToggleServerMode={setIsServerMode}
       />
+
+      {isClearConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsClearConfirmOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-all-dialog-title"
+            className="w-full max-w-md border-2 border-foreground rounded-[4px] bg-background p-6 flex flex-col gap-4"
+          >
+            <div className="flex flex-col gap-1">
+              <h3
+                id="clear-all-dialog-title"
+                className="text-[15px] font-semibold text-foreground leading-none"
+              >
+                Clear all files?
+              </h3>
+              <p className="text-[13px] text-text-sec mt-1">
+                Are you sure you want to clear all files? This can&apos;t be
+                undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsClearConfirmOpen(false)}
+                className="px-4 py-2 text-[12px] font-semibold rounded-[4px] border-2 border-foreground bg-background text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleClearAll();
+                  setIsClearConfirmOpen(false);
+                }}
+                className="px-4 py-2 text-[12px] font-semibold rounded-[4px] border-2 border-foreground bg-red-600 hover:bg-red-700 text-white transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <InspectorModal
         isOpen={Boolean(inspectItem)}
         onClose={() => setInspectItem(null)}

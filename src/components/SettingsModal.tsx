@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { X, Shield, Palette, RotateCw, FolderTree, Cpu, Check } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { StripOptions } from '@/lib/engine/types';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 
@@ -14,20 +14,28 @@ interface SettingsModalProps {
   onToggleServerMode: (val: boolean) => void;
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex w-10 h-6 rounded-full transition-colors duration-apple ease-apple shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-        checked ? 'bg-accent' : 'bg-black/[0.12] dark:bg-white/[0.12]'
+      className={`relative inline-flex w-11 h-6 rounded-full border-2 border-foreground transition-colors shrink-0 ${
+        checked ? 'bg-foreground' : 'bg-background'
       }`}
     >
       <span
-        className={`inline-block w-5 h-5 rounded-full bg-white shadow-sm mt-0.5 transition-transform duration-apple ease-apple ${
-          checked ? 'translate-x-[18px]' : 'translate-x-0.5'
+        className={`inline-block w-4 h-4 rounded-full mt-0.5 transition-transform ${
+          checked
+            ? 'translate-x-[20px] bg-background'
+            : 'translate-x-0.5 bg-foreground'
         }`}
       />
     </button>
@@ -46,57 +54,68 @@ export function SettingsModal({
   useDialogAccessibility(isOpen, onClose, dialogRef);
   if (!isOpen) return null;
 
-  const updateOpt = <K extends keyof StripOptions>(key: K, val: StripOptions[K]) => {
+  const updateOpt = <K extends keyof StripOptions>(
+    key: K,
+    val: StripOptions[K]
+  ) => {
     onChangeOptions({ ...options, [key]: val });
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      {/* Bottom sheet on mobile, centered modal on sm+ */}
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabIndex={-1} className="relative w-full sm:max-w-lg liquid-glass sm:rounded-card rounded-t-card shadow-floating border border-border-subtle overflow-hidden flex flex-col max-h-[90dvh] animate-slide-up">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
+        tabIndex={-1}
+        className="relative w-full max-w-lg border-2 border-foreground rounded-[4px] bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border-subtle">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-small liquid-glass text-foreground flex items-center justify-center shadow-xs">
-              <Shield className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 id="settings-dialog-title" className="text-[15px] font-semibold text-foreground">Settings</h3>
-              <p className="text-[12px] text-text-ter">Stripping &amp; export options</p>
-            </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-foreground">
+          <div>
+            <h3
+              id="settings-dialog-title"
+              className="text-[16px] font-semibold text-foreground leading-none"
+            >
+              Settings
+            </h3>
+            <p className="text-[12px] text-text-sec mt-1">
+              Stripping &amp; export options
+            </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-text-ter hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+            className="p-1.5 rounded-[4px] text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             aria-label="Close settings"
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-6">
-
-          {/* Color & Orientation */}
+        <div className="overflow-y-auto px-6 py-5 space-y-6">
+          {/* Quality Preservation */}
           <section className="space-y-3">
-            <h4 className="text-[11px] font-semibold uppercase tracking-caps text-text-ter">
-              Quality Preservation
+            <h4 className="text-[12px] font-semibold text-text-sec">
+              Quality preservation
             </h4>
 
             <label className="flex items-center justify-between gap-4 py-3 border-b border-border-subtle cursor-pointer select-none">
-              <div className="flex items-start gap-3">
-                <Palette className="w-4 h-4 text-text-ter mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-[14px] font-medium text-foreground block">
-                    Preserve Color/Rendering Metadata
-                  </span>
-                  <span className="text-[12px] text-text-ter block mt-0.5">
-                    Keeps ICC and color-interpretation chunks. This retains metadata and may affect colors; off by default for stricter cleaning.
-                  </span>
-                </div>
+              <div>
+                <span className="text-[14px] font-medium text-foreground block">
+                  Preserve Color/Rendering Metadata
+                </span>
+                <span className="text-[12px] text-text-sec block mt-0.5 leading-relaxed">
+                  Keeps ICC and color-interpretation chunks. Off by default for
+                  stricter cleaning.
+                </span>
               </div>
               <Toggle
                 checked={options.keepIccProfile === true}
@@ -104,17 +123,15 @@ export function SettingsModal({
               />
             </label>
 
-            <label className="flex items-center justify-between gap-4 py-3 cursor-pointer select-none">
-              <div className="flex items-start gap-3">
-                <RotateCw className="w-4 h-4 text-text-ter mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-[14px] font-medium text-foreground block">
-                    Preserve Image Orientation
-                  </span>
-                  <span className="text-[12px] text-text-ter block mt-0.5">
-                    Retains the EXIF orientation tag where supported. This is metadata; off by default. Removing it can change how some portrait photos are displayed.
-                  </span>
-                </div>
+            <label className="flex items-center justify-between gap-4 py-2 cursor-pointer select-none">
+              <div>
+                <span className="text-[14px] font-medium text-foreground block">
+                  Preserve Image Orientation
+                </span>
+                <span className="text-[12px] text-text-sec block mt-0.5 leading-relaxed">
+                  Retains the EXIF orientation tag where supported. Off by
+                  default.
+                </span>
               </div>
               <Toggle
                 checked={options.keepOrientation === true}
@@ -124,9 +141,9 @@ export function SettingsModal({
           </section>
 
           {/* Filename Suffix */}
-          <section className="space-y-3">
-            <h4 className="text-[11px] font-semibold uppercase tracking-caps text-text-ter">
-              Filename Suffix
+          <section className="space-y-2">
+            <h4 className="text-[12px] font-semibold text-text-sec">
+              Filename suffix
             </h4>
             <input
               type="text"
@@ -134,33 +151,29 @@ export function SettingsModal({
               maxLength={40}
               onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
               placeholder='e.g. "_clean" or leave blank'
-              className="w-full px-3.5 py-2.5 text-[13px] rounded-small liquid-glass border border-border-subtle text-foreground placeholder:text-text-ter focus:outline-none focus:ring-2 focus:ring-accent/40 transition"
+              className="w-full px-3 py-2 text-[13px] rounded-[4px] border-2 border-foreground bg-background text-foreground placeholder:text-text-ter focus:outline-none"
             />
-            <p className="text-[12px] text-text-ter">
-              <code className="font-mono text-accent">photo.jpg</code>
-              {' '}→{' '}
-              <code className="font-mono text-accent">
+            <p className="text-[12px] text-text-sec">
+              <code className="font-mono text-foreground">photo.jpg</code> →{' '}
+              <code className="font-mono text-foreground">
                 photo{options.filenameSuffix || ''}.jpg
               </code>
             </p>
           </section>
 
           {/* ZIP Structure */}
-          <section className="space-y-3">
-            <h4 className="text-[11px] font-semibold uppercase tracking-caps text-text-ter">
-              ZIP Archive
+          <section className="space-y-2">
+            <h4 className="text-[12px] font-semibold text-text-sec">
+              ZIP archive
             </h4>
-            <label className="flex items-center justify-between gap-4 py-2 cursor-pointer select-none">
-              <div className="flex items-start gap-3">
-                <FolderTree className="w-4 h-4 text-text-ter mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-[14px] font-medium text-foreground block">
-                    Preserve Folder Structure
-                  </span>
-                  <span className="text-[12px] text-text-ter block mt-0.5">
-                    Keep subfolder tree when uploading nested folders.
-                  </span>
-                </div>
+            <label className="flex items-center justify-between gap-4 py-1 cursor-pointer select-none">
+              <div>
+                <span className="text-[14px] font-medium text-foreground block">
+                  Preserve Folder Structure
+                </span>
+                <span className="text-[12px] text-text-sec block mt-0.5">
+                  Keep subfolder tree when uploading nested folders.
+                </span>
               </div>
               <Toggle
                 checked={options.preserveFolderStructure === true}
@@ -170,53 +183,61 @@ export function SettingsModal({
           </section>
 
           {/* Processing Mode */}
-          <section className="space-y-3">
-            <h4 className="text-[11px] font-semibold uppercase tracking-caps text-text-ter">
-              Processing Mode
+          <section className="space-y-2">
+            <h4 className="text-[12px] font-semibold text-text-sec">
+              Processing mode
             </h4>
-            <div className="settings-processing-modes grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => onToggleServerMode(false)}
-                className={`p-4 rounded-small border text-left transition-all apple-spring ${
+                className={`p-3.5 rounded-[4px] border-2 text-left transition-colors ${
                   !isServerMode
-                    ? 'border-accent bg-accent-light shadow-xs'
-                    : 'border-border-subtle liquid-glass hover:bg-glass-hover'
+                    ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
+                    : 'border-border-subtle bg-background hover:border-foreground'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <Cpu className="w-4 h-4 text-text-ter" />
-                  {!isServerMode && <Check className="w-4 h-4 text-accent" />}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[13px] font-semibold text-foreground">
+                    Client-Side
+                  </span>
+                  {!isServerMode && <Check className="w-4 h-4 text-foreground" />}
                 </div>
-                <div className="text-[13px] font-semibold text-foreground">Client-Side</div>
-                <p className="text-[11px] text-text-ter mt-0.5">File bytes stay in your browser for processing.</p>
+                <p className="text-[11px] text-text-sec leading-relaxed">
+                  File bytes stay in your browser for processing.
+                </p>
               </button>
 
               <button
                 type="button"
                 onClick={() => onToggleServerMode(true)}
-                className={`p-4 rounded-small border text-left transition-all apple-spring ${
+                className={`p-3.5 rounded-[4px] border-2 text-left transition-colors ${
                   isServerMode
-                    ? 'border-accent bg-accent-light shadow-xs'
-                    : 'border-border-subtle liquid-glass hover:bg-glass-hover'
+                    ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
+                    : 'border-border-subtle bg-background hover:border-foreground'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <Cpu className="w-4 h-4 text-text-ter" />
-                  {isServerMode && <Check className="w-4 h-4 text-accent" />}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[13px] font-semibold text-foreground">
+                    Server-Side
+                  </span>
+                  {isServerMode && <Check className="w-4 h-4 text-foreground" />}
                 </div>
-                <div className="text-[13px] font-semibold text-foreground">Server-Side</div>
-                <p className="text-[11px] text-text-ter mt-0.5">Uploads selected files (max 20 MB each, 50 MB and 40 files per batch). Cleaned outputs are held in server memory for up to about 15 minutes; serverless or multi-instance hosting may lose jobs. Do not use for sensitive photos you do not want to upload.</p>
+                <p className="text-[11px] text-text-sec leading-relaxed">
+                  Uploads selected files (max 20 MB each, 40 files per batch)
+                  for server processing.
+                </p>
               </button>
             </div>
           </section>
         </div>
 
         {/* Footer */}
-        <div className="px-5 sm:px-6 py-4 border-t border-border-subtle flex justify-end" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="px-6 py-4 border-t-2 border-foreground flex justify-end">
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-[13px] font-semibold rounded-pill bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 active:scale-[0.97] text-white shadow-accent-button apple-spring"
+            className="px-5 py-2 text-[13px] font-semibold rounded-[4px] bg-foreground text-background hover:opacity-90 transition-opacity"
           >
             Done
           </button>
