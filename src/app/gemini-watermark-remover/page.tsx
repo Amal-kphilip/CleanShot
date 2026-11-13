@@ -93,6 +93,9 @@ export default function GeminiWatermarkRemoverPage() {
   const [zipBusy, setZipBusy] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const shouldScrollToWorkspaceRef = useRef(false);
+  const prevActiveStatusRef = useRef<{ id: string; status: QueueItem['status'] } | null>(null);
   const activeUrlsRef = useRef(new Set<string>());
   const abortControllersRef = useRef(new Map<string, AbortController>());
 
@@ -260,8 +263,27 @@ export default function GeminiWatermarkRemoverPage() {
       }
       if (valid.length === 0) return;
 
+      shouldScrollToWorkspaceRef.current = true;
       setItems((prev) => [...prev, ...valid]);
-      setActiveId((prev) => prev ?? valid[0].id);
+
+      const firstKind = valid[0].kind;
+      if (valid.every((entry) => entry.kind === firstKind) && firstKind !== mediaTab) {
+        setMediaTab(firstKind);
+        setActiveId(valid[0].id);
+      } else {
+        const firstForTab = valid.find((entry) => entry.kind === mediaTab) ?? valid[0];
+        if (firstForTab.kind !== mediaTab) {
+          setMediaTab(firstForTab.kind);
+          setActiveId(firstForTab.id);
+        } else {
+          setActiveId((prev) => {
+            const currentMatchesTab = prev
+              ? items.some((item) => item.id === prev && item.kind === mediaTab)
+              : false;
+            return currentMatchesTab ? prev : firstForTab.id;
+          });
+        }
+      }
 
       for (const entry of valid) {
         if (entry.kind === 'video') {
@@ -271,22 +293,54 @@ export default function GeminiWatermarkRemoverPage() {
         }
       }
     },
-    [adaptiveMode, outputFormat, preserveAudio, processImageItem, processVideoItem, videoDenoiseMode]
+    [adaptiveMode, items, mediaTab, outputFormat, preserveAudio, processImageItem, processVideoItem, videoDenoiseMode]
   );
+
+  const visibleItems = items.filter((item) => item.kind === mediaTab);
+  const activeItem = visibleItems.find((item) => item.id === activeId) ?? visibleItems[0] ?? null;
+  const readyItems = visibleItems.filter(
+    (item) => item.status === 'done' && (item.imageResult || item.videoResult)
+  );
+
+  useEffect(() => {
+    if (!activeItem) {
+      prevActiveStatusRef.current = null;
+      return;
+    }
+
+    const prev = prevActiveStatusRef.current;
+    const transitionedFromProcessing =
+      prev !== null &&
+      prev.id === activeItem.id &&
+      prev.status === 'processing' &&
+      activeItem.status !== 'processing';
+
+    prevActiveStatusRef.current = { id: activeItem.id, status: activeItem.status };
+
+    if ((shouldScrollToWorkspaceRef.current || transitionedFromProcessing) && workspaceRef.current) {
+      shouldScrollToWorkspaceRef.current = false;
+      workspaceRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [activeItem]);
 
   const cancelItem = (id: string) => {
     abortControllersRef.current.get(id)?.abort();
   };
 
   const reprocessAll = () => {
-    if (items.length === 0) return;
+    if (visibleItems.length === 0) return;
     setGlobalError('');
-    abortControllersRef.current.forEach((ctrl) => ctrl.abort());
-    abortControllersRef.current.clear();
+    const targetIds = new Set(visibleItems.map((item) => item.id));
+    for (const id of targetIds) {
+      abortControllersRef.current.get(id)?.abort();
+      abortControllersRef.current.delete(id);
+    }
 
-    const snapshot = items;
+    const snapshot = visibleItems;
+    shouldScrollToWorkspaceRef.current = true;
     setItems((prev) =>
       prev.map((item) => {
+        if (!targetIds.has(item.id)) return item;
         releaseItemUrls(item);
         return {
           ...item,
@@ -316,23 +370,29 @@ export default function GeminiWatermarkRemoverPage() {
       if (target) releaseItemUrls(target);
       const next = prev.filter((item) => item.id !== id);
       if (activeId === id) {
-        setActiveId(next[0]?.id ?? null);
+        const nextVisible = next.filter((item) => item.kind === mediaTab);
+        setActiveId(nextVisible[0]?.id ?? null);
       }
       return next;
     });
   };
 
   const clearAll = () => {
-    abortControllersRef.current.forEach((ctrl) => ctrl.abort());
-    abortControllersRef.current.clear();
-    items.forEach((item) => releaseItemUrls(item));
-    setItems([]);
+    setItems((prev) => {
+      const toRemove = prev.filter((item) => item.kind === mediaTab);
+      for (const item of toRemove) {
+        abortControllersRef.current.get(item.id)?.abort();
+        abortControllersRef.current.delete(item.id);
+        releaseItemUrls(item);
+      }
+      return prev.filter((item) => item.kind !== mediaTab);
+    });
     setActiveId(null);
     setGlobalError('');
   };
 
   const downloadAllZip = async () => {
-    const ready = items.filter(
+    const ready = visibleItems.filter(
       (item) => item.status === 'done' && (item.imageResult || item.videoResult)
     );
     if (ready.length === 0) return;
@@ -348,7 +408,12 @@ export default function GeminiWatermarkRemoverPage() {
         })
       );
       const zipBlob = createZipArchive(entries, false);
-      triggerDownload(zipBlob, 'gemini-watermark-removed.zip');
+      triggerDownload(
+        zipBlob,
+        mediaTab === 'video'
+          ? 'gemini-video-watermark-removed.zip'
+          : 'gemini-watermark-removed.zip'
+      );
     } catch (caught) {
       setGlobalError(
         caught instanceof Error ? caught.message : 'Failed to create ZIP archive.'
@@ -357,11 +422,6 @@ export default function GeminiWatermarkRemoverPage() {
       setZipBusy(false);
     }
   };
-
-  const activeItem = items.find((item) => item.id === activeId) ?? items[0] ?? null;
-  const readyItems = items.filter(
-    (item) => item.status === 'done' && (item.imageResult || item.videoResult)
-  );
 
   return (
     <ToolShell
@@ -398,7 +458,7 @@ export default function GeminiWatermarkRemoverPage() {
             type="button"
             onClick={() => setMediaTab('video')}
             aria-current={mediaTab === 'video' ? 'true' : undefined}
-            className={`inline-flex h-10 min-w-[120px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[140px] ${
+            className={`inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[130px] ${
               mediaTab === 'video'
                 ? 'bg-glass-card font-semibold text-foreground shadow-sm'
                 : 'font-medium text-text-sec hover:text-foreground'
@@ -406,9 +466,6 @@ export default function GeminiWatermarkRemoverPage() {
           >
             <Film className="h-4 w-4 text-[#145BF5]" />
             <span>Videos</span>
-            <span className="rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-[#145BF5] dark:text-[#60A5FA]">
-              Beta
-            </span>
           </button>
         </div>
       </div>
@@ -436,7 +493,7 @@ export default function GeminiWatermarkRemoverPage() {
             if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
           }}
           className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
-            items.length > 0
+            visibleItems.length > 0
               ? 'min-h-[180px] gap-4'
               : 'min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] gap-5'
           } ${
@@ -452,7 +509,7 @@ export default function GeminiWatermarkRemoverPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept={mediaTab === 'video' ? 'video/*,image/*' : 'image/*,video/*'}
+            accept={mediaTab === 'video' ? 'video/*' : 'image/*'}
             multiple
             className="hidden"
             onChange={(e) => {
@@ -463,21 +520,23 @@ export default function GeminiWatermarkRemoverPage() {
           <span className="relative z-10 flex flex-col items-center gap-3 sm:gap-4 pt-1">
             <span
               className={`flex items-center gap-2 sm:gap-3 rounded-[12px] sm:rounded-[14px] bg-[#145BF5] font-semibold text-white transition-colors duration-200 group-hover:bg-[#0F4AD4] shadow-lg shadow-blue-600/20 ${
-                items.length > 0
+                visibleItems.length > 0
                   ? 'min-h-[44px] px-6 py-2.5 text-[14px]'
                   : 'min-h-[52px] px-8 py-3.5 text-[16px] sm:min-h-[64px] sm:px-[52px] sm:py-[18px] sm:text-[20px]'
               }`}
             >
               <Plus className="h-5 w-5 opacity-85 stroke-[2.5px]" />
               <span>
-                {items.length > 0
-                  ? 'Add more files'
+                {visibleItems.length > 0
+                  ? mediaTab === 'video'
+                    ? 'Add more videos'
+                    : 'Add more photos'
                   : mediaTab === 'video'
                     ? 'Start with videos'
                     : 'Start with photos'}
               </span>
             </span>
-            {items.length === 0 && (
+            {visibleItems.length === 0 && (
               <>
                 <span className="text-base sm:text-[20px] font-extrabold text-foreground tracking-tight">
                   {mediaTab === 'video'
@@ -494,12 +553,12 @@ export default function GeminiWatermarkRemoverPage() {
           </span>
 
           {/* Uploaded files list inside dropzone */}
-          {items.length > 0 && (
+          {visibleItems.length > 0 && (
             <ul
               className="relative z-10 w-full max-w-2xl flex flex-col gap-1.5 text-left"
               onClick={(e) => e.stopPropagation()}
             >
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const selected = activeItem?.id === item.id;
                 const readyOutput = item.imageResult ?? item.videoResult;
                 return (
@@ -638,7 +697,7 @@ export default function GeminiWatermarkRemoverPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {items.length > 0 && (
+          {visibleItems.length > 0 && (
             <>
               <button
                 type="button"
@@ -667,12 +726,12 @@ export default function GeminiWatermarkRemoverPage() {
       )}
 
       {/* Batch summary + file switcher */}
-      {items.length > 0 && (
+      {visibleItems.length > 0 && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-[13px] font-medium text-text-sec">
-              <span className="font-semibold text-foreground">{items.length}</span>{' '}
-              {items.length === 1 ? 'file' : 'files'} loaded ·{' '}
+              <span className="font-semibold text-foreground">{visibleItems.length}</span>{' '}
+              {visibleItems.length === 1 ? 'file' : 'files'} loaded ·{' '}
               <span className="font-semibold text-foreground">{readyItems.length}</span>{' '}
               ready
             </div>
@@ -694,9 +753,9 @@ export default function GeminiWatermarkRemoverPage() {
             )}
           </div>
 
-          {items.length > 1 && (
+          {visibleItems.length > 1 && (
             <div className="flex flex-wrap gap-2">
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const selected = activeItem?.id === item.id;
                 return (
                   <div
@@ -746,7 +805,7 @@ export default function GeminiWatermarkRemoverPage() {
 
       {/* Active item workspace */}
       {activeItem && (
-        <section className="space-y-6">
+        <section ref={workspaceRef} className="space-y-6 scroll-mt-24">
           {activeItem.status === 'processing' && (
             <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
