@@ -6,10 +6,13 @@ import {
   Archive,
   CheckCircle2,
   Download,
+  Film,
+  Image as ImageIcon,
   Info,
   LoaderCircle,
   RefreshCw,
   Sparkles,
+  Square,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -20,22 +23,49 @@ import {
   type OutputFormat,
   type ProcessedWatermarkResult,
 } from '@/lib/tools/geminiWatermark';
+import type {
+  ProcessedVideoResult,
+  VideoDenoiseMode,
+  VideoProgressUpdate,
+} from '@/lib/tools/geminiVideoWatermark';
 import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+
+type MediaKind = 'image' | 'video';
 
 type QueueItem = {
   id: string;
   file: File;
-  status: 'processing' | 'done' | 'error';
-  result?: ProcessedWatermarkResult;
+  kind: MediaKind;
+  status: 'processing' | 'done' | 'error' | 'canceled';
+  progress?: VideoProgressUpdate;
+  imageResult?: ProcessedWatermarkResult;
+  videoResult?: ProcessedVideoResult;
   error?: string;
 };
+
+function detectMediaKind(file: File): MediaKind | null {
+  if (file.type.startsWith('image/')) return 'image';
+  if (file.type.startsWith('video/')) return 'video';
+  if (/\.(png|jpe?g|webp|bmp|gif|avif)$/i.test(file.name)) return 'image';
+  if (/\.(mp4|webm|mov|m4v|mkv)$/i.test(file.name)) return 'video';
+  return null;
+}
 
 function formatBytes(size: number): string {
   return size < 1024 * 1024
     ? `${(size / 1024).toFixed(1)} KB`
     : `${(size / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function formatDuration(seconds: number | undefined): string {
+  if (!Number.isFinite(seconds) || seconds == null) return '—';
+  const total = Math.max(0, seconds);
+  const mins = Math.floor(total / 60);
+  const secs = (total % 60).toFixed(1);
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 }
 
 function formatSkipReason(reason: string | null | undefined): string {
@@ -50,45 +80,50 @@ export default function GeminiWatermarkRemoverPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adaptiveMode, setAdaptiveMode] = useState<AdaptiveMode>('auto');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('auto');
+  const [videoDenoiseMode, setVideoDenoiseMode] = useState<VideoDenoiseMode>('auto');
+  const [preserveAudio, setPreserveAudio] = useState(true);
   const [split, setSplit] = useState(50);
+  const [videoView, setVideoView] = useState<'cleaned' | 'original'>('cleaned');
   const [isDragging, setIsDragging] = useState(false);
   const [globalError, setGlobalError] = useState('');
   const [zipBusy, setZipBusy] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeUrlsRef = useRef(new Set<string>());
+  const abortControllersRef = useRef(new Map<string, AbortController>());
 
   const trackUrl = (url: string) => {
     activeUrlsRef.current.add(url);
   };
 
-  const releaseResultUrls = (result?: ProcessedWatermarkResult) => {
-    if (!result) return;
-    if (activeUrlsRef.current.has(result.originalUrl)) {
-      URL.revokeObjectURL(result.originalUrl);
-      activeUrlsRef.current.delete(result.originalUrl);
-    }
-    if (activeUrlsRef.current.has(result.previewUrl)) {
-      URL.revokeObjectURL(result.previewUrl);
-      activeUrlsRef.current.delete(result.previewUrl);
+  const releaseItemUrls = (item: QueueItem) => {
+    const urls = [
+      item.imageResult?.originalUrl,
+      item.imageResult?.previewUrl,
+      item.videoResult?.originalUrl,
+      item.videoResult?.previewUrl,
+    ];
+    for (const url of urls) {
+      if (url && activeUrlsRef.current.has(url)) {
+        URL.revokeObjectURL(url);
+        activeUrlsRef.current.delete(url);
+      }
     }
   };
 
   useEffect(() => {
     const urls = activeUrlsRef.current;
+    const controllers = abortControllersRef.current;
     return () => {
+      controllers.forEach((ctrl) => ctrl.abort());
+      controllers.clear();
       urls.forEach((url) => URL.revokeObjectURL(url));
       urls.clear();
     };
   }, []);
 
-  const processSingleItem = useCallback(
-    async (
-      id: string,
-      file: File,
-      mode: AdaptiveMode,
-      format: OutputFormat
-    ) => {
+  const processImageItem = useCallback(
+    async (id: string, file: File, mode: AdaptiveMode, format: OutputFormat) => {
       try {
         const result = await removeGeminiWatermarkFromFile(file, {
           adaptiveMode: mode,
@@ -100,20 +135,87 @@ export default function GeminiWatermarkRemoverPage() {
         setItems((prev) =>
           prev.map((item) => {
             if (item.id !== id) return item;
-            releaseResultUrls(item.result);
-            return { ...item, status: 'done', result, error: undefined };
+            releaseItemUrls(item);
+            return { ...item, status: 'done', imageResult: result, error: undefined };
           })
         );
       } catch (caught) {
         const message =
-          caught instanceof Error
-            ? caught.message
-            : 'Failed to process this image.';
+          caught instanceof Error ? caught.message : 'Failed to process this image.';
         setItems((prev) =>
           prev.map((item) =>
             item.id === id ? { ...item, status: 'error', error: message } : item
           )
         );
+      }
+    },
+    []
+  );
+
+  const processVideoItem = useCallback(
+    async (
+      id: string,
+      file: File,
+      denoiseMode: VideoDenoiseMode,
+      keepAudio: boolean
+    ) => {
+      const controller = new AbortController();
+      abortControllersRef.current.set(id, controller);
+
+      try {
+        const { removeGeminiWatermarkFromVideo } = await import(
+          '@/lib/tools/geminiVideoWatermark'
+        );
+        const result = await removeGeminiWatermarkFromVideo(file, {
+          denoiseMode,
+          preserveAudio: keepAudio,
+          signal: controller.signal,
+          onProgress: (progress) => {
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === id ? { ...item, progress } : item
+              )
+            );
+          },
+        });
+        trackUrl(result.originalUrl);
+        trackUrl(result.previewUrl);
+
+        setItems((prev) =>
+          prev.map((item) => {
+            if (item.id !== id) return item;
+            releaseItemUrls(item);
+            return {
+              ...item,
+              status: 'done',
+              videoResult: result,
+              progress: undefined,
+              error: undefined,
+            };
+          })
+        );
+      } catch (caught) {
+        if (controller.signal.aborted) {
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+                : item
+            )
+          );
+          return;
+        }
+        const message =
+          caught instanceof Error ? caught.message : 'Failed to process this video.';
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? { ...item, status: 'error', progress: undefined, error: message }
+              : item
+          )
+        );
+      } finally {
+        abortControllersRef.current.delete(id);
       }
     },
     []
@@ -129,17 +231,22 @@ export default function GeminiWatermarkRemoverPage() {
       const rejected: string[] = [];
 
       for (const file of incoming) {
-        if (!file.type.startsWith('image/')) {
-          rejected.push(`${file.name} is not a browser-supported image.`);
+        const kind = detectMediaKind(file);
+        if (!kind) {
+          rejected.push(`${file.name} is not a supported image or video file.`);
           continue;
         }
-        if (file.size > MAX_FILE_SIZE) {
-          rejected.push(`${file.name} exceeds the 50 MB limit.`);
+        const limit = kind === 'video' ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+        if (file.size > limit) {
+          rejected.push(
+            `${file.name} exceeds the ${kind === 'video' ? '500 MB' : '50 MB'} limit.`
+          );
           continue;
         }
         valid.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           file,
+          kind,
           status: 'processing',
         });
       }
@@ -153,31 +260,56 @@ export default function GeminiWatermarkRemoverPage() {
       setActiveId((prev) => prev ?? valid[0].id);
 
       for (const entry of valid) {
-        void processSingleItem(entry.id, entry.file, adaptiveMode, outputFormat);
+        if (entry.kind === 'video') {
+          void processVideoItem(entry.id, entry.file, videoDenoiseMode, preserveAudio);
+        } else {
+          void processImageItem(entry.id, entry.file, adaptiveMode, outputFormat);
+        }
       }
     },
-    [adaptiveMode, outputFormat, processSingleItem]
+    [adaptiveMode, outputFormat, preserveAudio, processImageItem, processVideoItem, videoDenoiseMode]
   );
+
+  const cancelItem = (id: string) => {
+    abortControllersRef.current.get(id)?.abort();
+  };
 
   const reprocessAll = () => {
     if (items.length === 0) return;
     setGlobalError('');
+    abortControllersRef.current.forEach((ctrl) => ctrl.abort());
+    abortControllersRef.current.clear();
+
     const snapshot = items;
     setItems((prev) =>
       prev.map((item) => {
-        releaseResultUrls(item.result);
-        return { ...item, status: 'processing', result: undefined, error: undefined };
+        releaseItemUrls(item);
+        return {
+          ...item,
+          status: 'processing',
+          imageResult: undefined,
+          videoResult: undefined,
+          progress: undefined,
+          error: undefined,
+        };
       })
     );
+
     for (const item of snapshot) {
-      void processSingleItem(item.id, item.file, adaptiveMode, outputFormat);
+      if (item.kind === 'video') {
+        void processVideoItem(item.id, item.file, videoDenoiseMode, preserveAudio);
+      } else {
+        void processImageItem(item.id, item.file, adaptiveMode, outputFormat);
+      }
     }
   };
 
   const removeItem = (id: string) => {
+    abortControllersRef.current.get(id)?.abort();
+    abortControllersRef.current.delete(id);
     setItems((prev) => {
       const target = prev.find((item) => item.id === id);
-      if (target) releaseResultUrls(target.result);
+      if (target) releaseItemUrls(target);
       const next = prev.filter((item) => item.id !== id);
       if (activeId === id) {
         setActiveId(next[0]?.id ?? null);
@@ -187,22 +319,29 @@ export default function GeminiWatermarkRemoverPage() {
   };
 
   const clearAll = () => {
-    items.forEach((item) => releaseResultUrls(item.result));
+    abortControllersRef.current.forEach((ctrl) => ctrl.abort());
+    abortControllersRef.current.clear();
+    items.forEach((item) => releaseItemUrls(item));
     setItems([]);
     setActiveId(null);
     setGlobalError('');
   };
 
   const downloadAllZip = async () => {
-    const ready = items.filter((item) => item.status === 'done' && item.result);
+    const ready = items.filter(
+      (item) => item.status === 'done' && (item.imageResult || item.videoResult)
+    );
     if (ready.length === 0) return;
     setZipBusy(true);
     try {
       const entries = await Promise.all(
-        ready.map(async (item) => ({
-          name: item.result!.outputName,
-          data: new Uint8Array(await item.result!.blob.arrayBuffer()),
-        }))
+        ready.map(async (item) => {
+          const res = item.imageResult ?? item.videoResult!;
+          return {
+            name: res.outputName,
+            data: new Uint8Array(await res.blob.arrayBuffer()),
+          };
+        })
       );
       const zipBlob = createZipArchive(entries, false);
       triggerDownload(zipBlob, 'gemini-watermark-removed.zip');
@@ -216,22 +355,21 @@ export default function GeminiWatermarkRemoverPage() {
   };
 
   const activeItem = items.find((item) => item.id === activeId) ?? items[0] ?? null;
-  const readyItems = items.filter((item) => item.status === 'done' && item.result);
-  const removedCount = readyItems.filter(
-    (item) => item.result?.meta?.applied
-  ).length;
+  const readyItems = items.filter(
+    (item) => item.status === 'done' && (item.imageResult || item.videoResult)
+  );
 
   return (
     <ToolShell
       title="Gemini Watermark Remover."
-      description="Remove visible Gemini AI watermarks locally in your browser using Reverse Alpha Blending — no uploads, no AI hallucination."
+      description="Remove visible Gemini & Veo AI watermarks from images and videos locally in your browser — no uploads, no server processing."
     >
       {/* Controls bar */}
       <section className="flex flex-wrap items-end justify-between gap-4 rounded-[4px] border-2 border-foreground p-4">
         <div className="flex flex-wrap items-end gap-4">
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-sec">
-              Detection mode
+              Image detection
             </span>
             <select
               value={adaptiveMode}
@@ -246,7 +384,7 @@ export default function GeminiWatermarkRemoverPage() {
 
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-sec">
-              Output format
+              Image output
             </span>
             <select
               value={outputFormat}
@@ -258,6 +396,32 @@ export default function GeminiWatermarkRemoverPage() {
               <option value="jpeg">JPEG (95%)</option>
               <option value="webp">WebP (95%)</option>
             </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-sec">
+              Video cleanup
+            </span>
+            <select
+              value={videoDenoiseMode}
+              onChange={(e) => setVideoDenoiseMode(e.target.value as VideoDenoiseMode)}
+              className="rounded-[4px] border-2 border-foreground bg-background px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+            >
+              <option value="auto">Auto (AI ONNX + Fallback)</option>
+              <option value="ai">AI FDnCNN Denoise</option>
+              <option value="fast">Fast Canvas Polish</option>
+              <option value="none">Reverse Alpha Only</option>
+            </select>
+          </label>
+
+          <label className="inline-flex items-center gap-2 pb-2 text-[13px] font-medium text-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={preserveAudio}
+              onChange={(e) => setPreserveAudio(e.target.checked)}
+              className="h-4 w-4 accent-foreground"
+            />
+            Keep video audio
           </label>
         </div>
 
@@ -313,7 +477,7 @@ export default function GeminiWatermarkRemoverPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -325,10 +489,10 @@ export default function GeminiWatermarkRemoverPage() {
           <Upload className="h-5 w-5" />
         </span>
         <p className="text-[15px] font-semibold text-foreground">
-          Drop Gemini images here or click to select
+          Drop Gemini images or videos here, or click to select
         </p>
         <p className="mt-1 text-[12px] text-text-sec">
-          Supports PNG, JPEG, WebP up to 50 MB each · Processed 100% locally in your browser
+          Images (PNG, JPEG, WebP up to 50 MB) · Videos (MP4, WebM, MOV up to 500 MB) · 100% local
         </p>
       </div>
 
@@ -345,9 +509,9 @@ export default function GeminiWatermarkRemoverPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-[13px] font-medium text-text-sec">
               <span className="font-semibold text-foreground">{items.length}</span>{' '}
-              {items.length === 1 ? 'image' : 'images'} loaded ·{' '}
-              <span className="font-semibold text-foreground">{removedCount}</span>{' '}
-              watermark{removedCount === 1 ? '' : 's'} removed
+              {items.length === 1 ? 'file' : 'files'} loaded ·{' '}
+              <span className="font-semibold text-foreground">{readyItems.length}</span>{' '}
+              ready
             </div>
 
             {readyItems.length > 1 && (
@@ -391,8 +555,13 @@ export default function GeminiWatermarkRemoverPage() {
                       {item.status === 'done' && (
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       )}
-                      {item.status === 'error' && (
+                      {(item.status === 'error' || item.status === 'canceled') && (
                         <AlertTriangle className="h-3.5 w-3.5" />
+                      )}
+                      {item.kind === 'video' ? (
+                        <Film className="h-3.5 w-3.5 opacity-80" />
+                      ) : (
+                        <ImageIcon className="h-3.5 w-3.5 opacity-80" />
                       )}
                       <span className="max-w-[160px] truncate">{item.file.name}</span>
                     </button>
@@ -412,29 +581,65 @@ export default function GeminiWatermarkRemoverPage() {
         </section>
       )}
 
-      {/* Active image workspace */}
+      {/* Active item workspace */}
       {activeItem && (
         <section className="space-y-6">
           {activeItem.status === 'processing' && (
-            <div className="flex items-center gap-3 rounded-[4px] border-2 border-foreground p-6 text-[14px] font-medium text-foreground">
-              <LoaderCircle className="h-5 w-5 animate-spin" />
-              Removing Gemini watermark from {activeItem.file.name}…
+            <div className="space-y-3 rounded-[4px] border-2 border-foreground p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 text-[14px] font-medium text-foreground">
+                  <LoaderCircle className="h-5 w-5 animate-spin shrink-0" />
+                  <span>
+                    {activeItem.progress?.message ??
+                      `Removing Gemini watermark from ${activeItem.file.name}…`}
+                  </span>
+                </div>
+                {activeItem.kind === 'video' && (
+                  <button
+                    type="button"
+                    onClick={() => cancelItem(activeItem.id)}
+                    className="inline-flex items-center gap-1.5 rounded-[4px] border-2 border-foreground px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <Square className="h-3.5 w-3.5" /> Cancel
+                  </button>
+                )}
+              </div>
+
+              {activeItem.kind === 'video' && (
+                <div className="space-y-1.5">
+                  <div className="h-2.5 w-full overflow-hidden rounded-[2px] border border-foreground bg-background">
+                    <div
+                      className="h-full bg-foreground transition-all duration-150"
+                      style={{
+                        width: `${Math.round((activeItem.progress?.progress ?? 0) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-right text-[11px] font-semibold text-text-sec">
+                    {Math.round((activeItem.progress?.progress ?? 0) * 100)}%
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {activeItem.status === 'error' && (
+          {(activeItem.status === 'error' || activeItem.status === 'canceled') && (
             <div className="flex items-start gap-3 rounded-[4px] border-2 border-foreground p-6 text-[14px] text-foreground">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent-primary)]" />
               <div>
-                <p className="font-semibold">Could not process {activeItem.file.name}</p>
+                <p className="font-semibold">
+                  {activeItem.status === 'canceled'
+                    ? `Canceled ${activeItem.file.name}`
+                    : `Could not process ${activeItem.file.name}`}
+                </p>
                 <p className="mt-1 text-[13px] text-text-sec">{activeItem.error}</p>
               </div>
             </div>
           )}
 
-          {activeItem.status === 'done' && activeItem.result && (
+          {/* IMAGE RESULT */}
+          {activeItem.status === 'done' && activeItem.imageResult && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-              {/* Before / After interactive slider */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-[12px] font-semibold text-text-sec">
                   <span>Before (Original)</span>
@@ -443,28 +648,25 @@ export default function GeminiWatermarkRemoverPage() {
                 </div>
 
                 <div className="relative w-full overflow-hidden rounded-[4px] border-2 border-foreground bg-[#111] select-none">
-                  {/* Base layer: After (Cleaned) */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={activeItem.result.previewUrl}
+                    src={activeItem.imageResult.previewUrl}
                     alt={`Cleaned ${activeItem.file.name}`}
                     className="block max-h-[560px] w-full object-contain"
                   />
 
-                  {/* Clipped overlay: Before (Original) */}
                   <div
                     className="absolute inset-0 overflow-hidden"
                     style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={activeItem.result.originalUrl}
+                      src={activeItem.imageResult.originalUrl}
                       alt={`Original ${activeItem.file.name}`}
                       className="block h-full w-full object-contain"
                     />
                   </div>
 
-                  {/* Divider line */}
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
@@ -483,7 +685,6 @@ export default function GeminiWatermarkRemoverPage() {
                 />
               </div>
 
-              {/* Details & Download sidebar */}
               <aside className="flex flex-col gap-4 rounded-[4px] border-2 border-foreground p-5 h-fit">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -491,57 +692,53 @@ export default function GeminiWatermarkRemoverPage() {
                       {activeItem.file.name}
                     </p>
                     <p className="mt-0.5 text-[12px] text-text-sec">
-                      {activeItem.result.width} × {activeItem.result.height} px ·{' '}
-                      {formatBytes(activeItem.result.blob.size)}
+                      {activeItem.imageResult.width} × {activeItem.imageResult.height} px ·{' '}
+                      {formatBytes(activeItem.imageResult.blob.size)}
                     </p>
                   </div>
                   <span className="shrink-0 rounded-[4px] border border-foreground px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                    {activeItem.result.meta?.applied ? 'Cleaned' : 'Unchanged'}
+                    {activeItem.imageResult.meta?.applied ? 'Cleaned' : 'Unchanged'}
                   </span>
                 </div>
 
                 <div className="h-[2px] w-full bg-foreground/15" />
 
                 <div className="space-y-2.5 text-[12px]">
-                  {activeItem.result.meta?.applied ? (
+                  {activeItem.imageResult.meta?.applied ? (
                     <div className="flex items-start gap-2 text-foreground">
                       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-primary)]" />
-                      <span>
-                        Watermark removed via Reverse Alpha Blending.
-                      </span>
+                      <span>Watermark removed via Reverse Alpha Blending.</span>
                     </div>
                   ) : (
                     <div className="flex items-start gap-2 text-text-sec">
                       <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>
-                        {formatSkipReason(activeItem.result.meta?.skipReason)}
-                      </span>
+                      <span>{formatSkipReason(activeItem.imageResult.meta?.skipReason)}</span>
                     </div>
                   )}
 
                   <dl className="grid grid-cols-2 gap-y-1.5 pt-1 text-[12px]">
                     <dt className="text-text-sec">Watermark size</dt>
                     <dd className="text-right font-medium text-foreground">
-                      {activeItem.result.meta?.size
-                        ? `${activeItem.result.meta.size} × ${activeItem.result.meta.size} px`
+                      {activeItem.imageResult.meta?.size
+                        ? `${activeItem.imageResult.meta.size} × ${activeItem.imageResult.meta.size} px`
                         : '—'}
                     </dd>
 
                     <dt className="text-text-sec">Position</dt>
                     <dd className="text-right font-medium text-foreground">
-                      {activeItem.result.meta?.position
-                        ? `${activeItem.result.meta.position.x}, ${activeItem.result.meta.position.y}`
+                      {activeItem.imageResult.meta?.position
+                        ? `${activeItem.imageResult.meta.position.x}, ${activeItem.imageResult.meta.position.y}`
                         : '—'}
                     </dd>
 
                     <dt className="text-text-sec">Passes</dt>
                     <dd className="text-right font-medium text-foreground">
-                      {activeItem.result.meta?.passCount ?? 0}
+                      {activeItem.imageResult.meta?.passCount ?? 0}
                     </dd>
 
                     <dt className="text-text-sec">Processing time</dt>
                     <dd className="text-right font-medium text-foreground">
-                      {activeItem.result.elapsedMs} ms
+                      {activeItem.imageResult.elapsedMs} ms
                     </dd>
                   </dl>
                 </div>
@@ -550,8 +747,8 @@ export default function GeminiWatermarkRemoverPage() {
                   type="button"
                   onClick={() =>
                     triggerDownload(
-                      activeItem.result!.blob,
-                      activeItem.result!.outputName
+                      activeItem.imageResult!.blob,
+                      activeItem.imageResult!.outputName
                     )
                   }
                   className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-[4px] bg-foreground px-4 py-2.5 text-[13px] font-semibold text-background hover:opacity-90"
@@ -563,6 +760,125 @@ export default function GeminiWatermarkRemoverPage() {
                 <p className="text-[11px] leading-relaxed text-text-sec">
                   Canvas export also strips embedded EXIF, GPS, and XMP metadata from the output file.
                 </p>
+              </aside>
+            </div>
+          )}
+
+          {/* VIDEO RESULT */}
+          {activeItem.status === 'done' && activeItem.videoResult && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="inline-flex rounded-[4px] border-2 border-foreground overflow-hidden text-[12px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setVideoView('cleaned')}
+                      className={`px-3 py-1.5 transition-colors ${
+                        videoView === 'cleaned'
+                          ? 'bg-foreground text-background'
+                          : 'bg-background text-foreground'
+                      }`}
+                    >
+                      Cleaned MP4
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoView('original')}
+                      className={`px-3 py-1.5 transition-colors ${
+                        videoView === 'original'
+                          ? 'bg-foreground text-background'
+                          : 'bg-background text-foreground'
+                      }`}
+                    >
+                      Original
+                    </button>
+                  </div>
+                  <span className="text-[12px] font-medium text-text-sec">
+                    {videoView === 'cleaned' ? 'Watermark removed' : 'Original input'}
+                  </span>
+                </div>
+
+                <div className="overflow-hidden rounded-[4px] border-2 border-foreground bg-[#111]">
+                  <video
+                    key={`${activeItem.id}-${videoView}`}
+                    src={
+                      videoView === 'cleaned'
+                        ? activeItem.videoResult.previewUrl
+                        : activeItem.videoResult.originalUrl
+                    }
+                    controls
+                    playsInline
+                    className="block max-h-[560px] w-full object-contain"
+                  />
+                </div>
+              </div>
+
+              <aside className="flex flex-col gap-4 rounded-[4px] border-2 border-foreground p-5 h-fit">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-foreground">
+                      {activeItem.file.name}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-text-sec">
+                      {activeItem.videoResult.exportResult.metadata.width} ×{' '}
+                      {activeItem.videoResult.exportResult.metadata.height} px ·{' '}
+                      {formatDuration(activeItem.videoResult.exportResult.metadata.duration)} ·{' '}
+                      {formatBytes(activeItem.videoResult.blob.size)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-[4px] border border-foreground px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                    MP4
+                  </span>
+                </div>
+
+                <div className="h-[2px] w-full bg-foreground/15" />
+
+                <div className="space-y-2.5 text-[12px]">
+                  <div className="flex items-start gap-2 text-foreground">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-primary)]" />
+                    <span>
+                      Processed {activeItem.videoResult.exportResult.processedFrames} frames locally via WebCodecs.
+                    </span>
+                  </div>
+
+                  <dl className="grid grid-cols-2 gap-y-1.5 pt-1 text-[12px]">
+                    <dt className="text-text-sec">Watermark</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {activeItem.videoResult.exportResult.detection?.position
+                        ? `${activeItem.videoResult.exportResult.detection.position.width} × ${activeItem.videoResult.exportResult.detection.position.height} px`
+                        : '—'}
+                    </dd>
+
+                    <dt className="text-text-sec">Cleanup backend</dt>
+                    <dd className="text-right font-medium text-foreground truncate max-w-[140px]">
+                      {activeItem.videoResult.exportResult.denoiseBackend}
+                    </dd>
+
+                    <dt className="text-text-sec">Audio track</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {activeItem.videoResult.exportResult.audioCopied ? 'Preserved' : 'None / Muted'}
+                    </dd>
+
+                    <dt className="text-text-sec">Processing time</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {(activeItem.videoResult.elapsedMs / 1000).toFixed(1)} s
+                    </dd>
+                  </dl>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    triggerDownload(
+                      activeItem.videoResult!.blob,
+                      activeItem.videoResult!.outputName
+                    )
+                  }
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-[4px] bg-foreground px-4 py-2.5 text-[13px] font-semibold text-background hover:opacity-90"
+                >
+                  <Download className="h-4 w-4" />
+                  Download cleaned MP4
+                </button>
               </aside>
             </div>
           )}

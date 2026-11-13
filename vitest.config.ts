@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@gwr-core': path.resolve(
+        __dirname,
+        './node_modules/@pilio/gemini-watermark-remover/src/core'
+      ),
     },
   },
 });

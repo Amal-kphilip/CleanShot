@@ -8,6 +8,13 @@ const nextConfig = {
     },
   },
   webpack: (config, { isServer, webpack }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@gwr-core': path.resolve(
+        process.cwd(),
+        'node_modules/@pilio/gemini-watermark-remover/src/core'
+      ),
+    };
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,

@@ -4,6 +4,9 @@ import {
   buildCleanFilename,
   resolveOutputMimeType,
 } from '../geminiWatermark';
+import { buildCleanVideoFilename } from '../geminiVideoWatermark';
+import { getAutomaticVideoPresetConfig } from '@/lib/gwr-video/videoPresetPolicy.js';
+import { resolveAllenkFdncnnRuntimeProfile } from '@/lib/gwr-video/videoDenoiseRuntimePolicy.js';
 
 describe('geminiWatermark helpers', () => {
   it('resolves output mime types and extensions correctly', () => {
@@ -55,5 +58,16 @@ describe('geminiWatermark helpers', () => {
     expect(result.imageData.height).toBe(height);
     expect(result.meta).toBeDefined();
     expect(result.meta.applied).toBe(false);
+  });
+
+  it('builds clean video filenames and resolves video preset + ONNX model paths', () => {
+    expect(buildCleanVideoFilename('veo_clip.mov')).toBe('veo_clip-clean.mp4');
+    expect(buildCleanVideoFilename('gemini-video.mp4')).toBe('gemini-video-clean.mp4');
+
+    const preset = getAutomaticVideoPresetConfig(null, { width: 1280, height: 720, duration: 5 });
+    expect(preset.denoiseBackend).toBeTruthy();
+
+    const profile = resolveAllenkFdncnnRuntimeProfile({ x: 100, y: 100, width: 48, height: 48 });
+    expect(profile.modelUrl).toMatch(/^\/gemini-video\/models\/allenk-fdncnn\//);
   });
 });

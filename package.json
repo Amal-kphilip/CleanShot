@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "node scripts/copy-exiftool-wasm.mjs"
+    "postinstall": "node scripts/copy-exiftool-wasm.mjs && node scripts/copy-gwr-video-assets.mjs"
   },
   "dependencies": {
     "@lilohuang/exiftool": "1.0.10",
@@ -22,6 +22,7 @@
     "framer-motion": "^11.11.9",
     "lucide-react": "^0.453.0",
     "next": "16.4.0",
+    "onnxruntime-web": "^1.31.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^2.5.4"

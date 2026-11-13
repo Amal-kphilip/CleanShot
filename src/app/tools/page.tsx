@@ -59,8 +59,8 @@ export default function ToolsPage() {
           href="/gemini-watermark-remover"
           icon={<Sparkles size={18} />}
           title="Gemini Watermark Remover"
-          description="Remove visible Gemini AI watermarks from images locally in your browser using Reverse Alpha Blending."
-          status="Local · Images"
+          description="Remove visible Gemini & Veo AI watermarks from images and videos locally in your browser."
+          status="Local · Image & Video"
         />
       </div>
     </ToolShell>
