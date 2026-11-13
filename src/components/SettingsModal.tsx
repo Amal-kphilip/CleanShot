@@ -237,7 +237,7 @@ export function SettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-[13px] font-semibold rounded-xl bg-emerald-600 text-white hover:opacity-90 transition-opacity"
+            className="px-5 py-2 text-[13px] font-semibold rounded-xl bg-[#145BF5] text-white hover:opacity-90 transition-opacity"
           >
             Done
           </button>

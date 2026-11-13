@@ -184,7 +184,7 @@ export function InspectorModal({
             aria-pressed={activeTab === 'before'}
             className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
               activeTab === 'before'
-                ? 'border-foreground bg-emerald-600 text-white font-semibold'
+                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -196,7 +196,7 @@ export function InspectorModal({
             aria-pressed={activeTab === 'exiftool'}
             className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
               activeTab === 'exiftool'
-                ? 'border-foreground bg-emerald-600 text-white font-semibold'
+                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -209,7 +209,7 @@ export function InspectorModal({
             aria-pressed={showingAfter}
             className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               showingAfter
-                ? 'border-foreground bg-emerald-600 text-white font-semibold'
+                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -274,7 +274,7 @@ export function InspectorModal({
                       aria-pressed={selected}
                       className={`flex-shrink-0 sm:flex-shrink flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium transition-colors w-auto sm:w-full text-left justify-between ${
                         selected
-                          ? 'bg-emerald-600 text-white font-semibold'
+                          ? 'bg-[#145BF5] text-white font-semibold'
                           : 'text-text-sec hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground'
                       }`}
                     >

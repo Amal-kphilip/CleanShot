@@ -263,7 +263,7 @@ export default function EditMetadataPage() {
               type="button"
               disabled={!file}
               onClick={() => void process()}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+              className="px-5 py-2.5 rounded-xl bg-[#145BF5] text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span>Update XMP</span>
               <FilePenLine className="h-4 w-4" />

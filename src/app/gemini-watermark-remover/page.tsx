@@ -10,11 +10,11 @@ import {
   Image as ImageIcon,
   Info,
   LoaderCircle,
+  Plus,
   RefreshCw,
   Sparkles,
   Square,
   Trash2,
-  Upload,
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
 import {
@@ -83,6 +83,7 @@ export default function GeminiWatermarkRemoverPage() {
   const [videoDenoiseMode, setVideoDenoiseMode] = useState<VideoDenoiseMode>('auto');
   const [preserveAudio, setPreserveAudio] = useState(true);
   const [split, setSplit] = useState(50);
+  const [mediaTab, setMediaTab] = useState<'image' | 'video'>('image');
   const [videoView, setVideoView] = useState<'cleaned' | 'original'>('cleaned');
   const [isDragging, setIsDragging] = useState(false);
   const [globalError, setGlobalError] = useState('');
@@ -361,11 +362,113 @@ export default function GeminiWatermarkRemoverPage() {
 
   return (
     <ToolShell
-      title="Gemini Watermark Remover."
-      description="Remove visible Gemini & Veo AI watermarks from images and videos locally in your browser — no uploads, no server processing."
+      title="Gemini Watermark Remover"
+      description="Remove visible Gemini & Veo AI watermarks from images and videos locally in your browser — no uploads, no sign-up."
     >
+      {/* Segmented Pill Switcher matching geminiwatermarkremover.io */}
+      <div className="flex justify-center">
+        <div
+          className="inline-flex rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]"
+          aria-label="Gemini watermark remover tools"
+        >
+          <button
+            type="button"
+            onClick={() => setMediaTab('image')}
+            aria-current={mediaTab === 'image' ? 'true' : undefined}
+            className={`inline-flex h-10 min-w-[120px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[135px] ${
+              mediaTab === 'image'
+                ? 'bg-glass-card font-semibold text-foreground shadow-sm'
+                : 'font-medium text-text-sec hover:text-foreground'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span>Images</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMediaTab('video')}
+            aria-current={mediaTab === 'video' ? 'true' : undefined}
+            className={`inline-flex h-10 min-w-[125px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[145px] ${
+              mediaTab === 'video'
+                ? 'bg-glass-card font-semibold text-foreground shadow-sm'
+                : 'font-medium text-text-sec hover:text-foreground'
+            }`}
+          >
+            <Film className="h-4 w-4" />
+            <span>Videos</span>
+            <span className="rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-[#145BF5] dark:text-[#60A5FA]">
+              Beta
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Signature Checkerboard Drop Zone */}
+      <div className="mx-auto w-full max-w-3xl">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+          }}
+          className={`gwr-checkerboard group relative flex min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+            isDragging
+              ? 'border-[#145BF5] ring-4 ring-[#145BF5]/20'
+              : 'border-white dark:border-white/10'
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 bg-white/40 dark:bg-[#141720]/70 backdrop-blur-[2px] transition-opacity group-hover:bg-white/25 dark:group-hover:bg-[#141720]/55"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={mediaTab === 'video' ? 'video/*,image/*' : 'image/*,video/*'}
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <span className="relative z-10 flex flex-col items-center gap-4 sm:gap-5 pt-2">
+            <span className="flex min-h-[52px] items-center gap-2 sm:gap-3 rounded-[12px] sm:rounded-[14px] bg-[#145BF5] px-8 py-3.5 text-[16px] sm:min-h-[64px] sm:px-[52px] sm:py-[18px] sm:text-[20px] font-semibold text-white transition-colors duration-200 group-hover:bg-[#0F4AD4] shadow-lg shadow-blue-600/20">
+              <Plus className="h-5 w-5 sm:h-6 sm:w-6 opacity-85 stroke-[2.5px]" />
+              <span>
+                {mediaTab === 'video' ? 'Start with videos' : 'Start with photos'}
+              </span>
+            </span>
+            <span className="text-base sm:text-[20px] font-extrabold text-foreground tracking-tight">
+              {mediaTab === 'video'
+                ? 'or drag videos here'
+                : 'or drag images here'}
+            </span>
+            <span className="text-[12px] font-medium text-text-sec">
+              {mediaTab === 'video'
+                ? 'Supports MP4, WebM, MOV up to 500 MB · 100% browser-local'
+                : 'Supports PNG, JPEG, WebP up to 50 MB (or drop videos too) · 100% browser-local'}
+            </span>
+          </span>
+        </div>
+      </div>
+
       {/* Controls bar */}
-      <section className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-[var(--border-subtle)] bg-glass-card p-4 sm:p-5 shadow-sm">
+      <section className="mx-auto w-full max-w-3xl flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-[var(--border-subtle)] bg-glass-card p-4 sm:p-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-ter">
@@ -374,7 +477,7 @@ export default function GeminiWatermarkRemoverPage() {
             <select
               value={adaptiveMode}
               onChange={(e) => setAdaptiveMode(e.target.value as AdaptiveMode)}
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Auto (Recommended)</option>
               <option value="always">Always adaptive</option>
@@ -389,7 +492,7 @@ export default function GeminiWatermarkRemoverPage() {
             <select
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Match original (PNG fallback)</option>
               <option value="png">Lossless PNG</option>
@@ -405,7 +508,7 @@ export default function GeminiWatermarkRemoverPage() {
             <select
               value={videoDenoiseMode}
               onChange={(e) => setVideoDenoiseMode(e.target.value as VideoDenoiseMode)}
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Auto (AI ONNX + Fallback)</option>
               <option value="ai">AI FDnCNN Denoise</option>
@@ -419,7 +522,7 @@ export default function GeminiWatermarkRemoverPage() {
               type="checkbox"
               checked={preserveAudio}
               onChange={(e) => setPreserveAudio(e.target.checked)}
-              className="h-4 w-4 accent-emerald-600 rounded"
+              className="h-4 w-4 accent-[#145BF5] rounded"
             />
             Keep video audio
           </label>
@@ -431,14 +534,14 @@ export default function GeminiWatermarkRemoverPage() {
               <button
                 type="button"
                 onClick={reprocessAll}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-foreground hover:border-emerald-500/40 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-foreground hover:border-[#145BF5]/40 transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Reprocess
               </button>
               <button
                 type="button"
                 onClick={clearAll}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-text-sec hover:text-foreground hover:border-red-500/40 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-text-sec hover:text-foreground hover:border-red-500/40 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Clear all
               </button>
@@ -446,66 +549,6 @@ export default function GeminiWatermarkRemoverPage() {
           )}
         </div>
       </section>
-
-      {/* Drop zone */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            fileInputRef.current?.click();
-          }
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
-        }}
-        className={`group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-glass-card p-8 sm:p-12 text-center shadow-sm transition-all ${
-          isDragging
-            ? 'border-emerald-500 bg-emerald-500/[0.04]'
-            : 'hover:border-emerald-500/40'
-        }`}
-      >
-        <div
-          aria-hidden="true"
-          className={`pointer-events-none absolute inset-3.5 rounded-xl border-2 border-dashed transition-colors ${
-            isDragging
-              ? 'border-emerald-500'
-              : 'border-[var(--border-subtle)] group-hover:border-emerald-500/40'
-          }`}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) handleFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        <span className="relative z-10 mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-          <Upload className="h-5 w-5" />
-        </span>
-        <p className="relative z-10 text-[15px] font-semibold text-foreground">
-          Drop Gemini images or videos here, or{' '}
-          <span className="text-emerald-600 dark:text-emerald-400 hover:underline">
-            click to select
-          </span>
-        </p>
-        <p className="relative z-10 mt-1 text-[12px] text-text-sec">
-          Images (PNG, JPEG, WebP up to 50 MB) · Videos (MP4, WebM, MOV up to 500 MB) · 100% local
-        </p>
-      </div>
 
       {globalError && (
         <div className="flex items-start gap-2.5 rounded-xl border border-[var(--border-subtle)] bg-black/[0.03] dark:bg-white/[0.04] p-4 text-[13px] text-foreground">
@@ -530,7 +573,7 @@ export default function GeminiWatermarkRemoverPage() {
                 type="button"
                 disabled={zipBusy}
                 onClick={downloadAllZip}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-40"
               >
                 {zipBusy ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -551,8 +594,8 @@ export default function GeminiWatermarkRemoverPage() {
                     key={item.id}
                     className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
                       selected
-                        ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
-                        : 'border-[var(--border-subtle)] bg-glass-card text-foreground hover:border-emerald-500/40'
+                        ? 'border-[#145BF5] bg-[#145BF5] text-white shadow-sm'
+                        : 'border-[var(--border-subtle)] bg-glass-card text-foreground hover:border-[#145BF5]/40'
                     }`}
                   >
                     <button
@@ -599,7 +642,7 @@ export default function GeminiWatermarkRemoverPage() {
             <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-[14px] font-medium text-foreground">
-                  <LoaderCircle className="h-5 w-5 animate-spin shrink-0 text-emerald-500" />
+                  <LoaderCircle className="h-5 w-5 animate-spin shrink-0 text-[#145BF5]" />
                   <span>
                     {activeItem.progress?.message ??
                       `Removing Gemini watermark from ${activeItem.file.name}…`}
@@ -620,7 +663,7 @@ export default function GeminiWatermarkRemoverPage() {
                 <div className="space-y-1.5">
                   <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-elevated)]">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-150"
+                      className="h-full bg-[#145BF5] transition-all duration-150"
                       style={{
                         width: `${Math.round((activeItem.progress?.progress ?? 0) * 100)}%`,
                       }}
@@ -762,7 +805,7 @@ export default function GeminiWatermarkRemoverPage() {
                       activeItem.imageResult!.outputName
                     )
                   }
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
                 >
                   <Download className="h-4 w-4" />
                   Download cleaned image
@@ -786,7 +829,7 @@ export default function GeminiWatermarkRemoverPage() {
                       onClick={() => setVideoView('cleaned')}
                       className={`px-3 py-1.5 transition-colors ${
                         videoView === 'cleaned'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-[#145BF5] text-white'
                           : 'text-text-sec hover:text-foreground'
                       }`}
                     >
@@ -797,7 +840,7 @@ export default function GeminiWatermarkRemoverPage() {
                       onClick={() => setVideoView('original')}
                       className={`px-3 py-1.5 transition-colors ${
                         videoView === 'original'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-[#145BF5] text-white'
                           : 'text-text-sec hover:text-foreground'
                       }`}
                     >
@@ -885,7 +928,7 @@ export default function GeminiWatermarkRemoverPage() {
                       activeItem.videoResult!.outputName
                     )
                   }
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
+                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
                 >
                   <Download className="h-4 w-4" />
                   Download cleaned MP4

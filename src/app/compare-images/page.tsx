@@ -378,7 +378,7 @@ export default function CompareImagesPage() {
                 type="button"
                 onClick={() => void compare()}
                 disabled={busy}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
+                className="px-5 py-2.5 rounded-xl bg-[#145BF5] text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 {busy ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />

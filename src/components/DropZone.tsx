@@ -9,7 +9,7 @@ import {
   XCircle,
   Eye,
   Download,
-  Upload,
+  Plus,
 } from 'lucide-react';
 import type { FileItemState } from './FileList';
 
@@ -119,7 +119,7 @@ export function DropZone({
     files.reduce((sum, item) => sum + item.file.size, 0) / (1024 * 1024);
 
   return (
-    <div className="w-full flex flex-col gap-2.5">
+    <div className="mx-auto w-full max-w-3xl flex flex-col gap-3">
       <div
         role="button"
         tabIndex={isProcessing || disabled ? -1 : 0}
@@ -136,23 +136,19 @@ export function DropZone({
             fileInputRef.current?.click();
           }
         }}
-        className={`group relative flex flex-col items-center justify-center w-full min-h-64 sm:min-h-72 p-8 sm:p-12 pb-12 gap-5 rounded-2xl border border-[var(--border-subtle)] bg-glass-card shadow-sm transition-all ${
+        className={`gwr-checkerboard group relative flex min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] w-full flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 pb-12 gap-5 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
           isDragOver
-            ? 'border-emerald-500 bg-emerald-500/[0.04]'
-            : 'hover:border-emerald-500/40'
+            ? 'border-[#145BF5] ring-4 ring-[#145BF5]/20'
+            : 'border-white dark:border-white/10'
         } ${
           isProcessing || disabled
             ? 'opacity-60 cursor-not-allowed'
             : 'cursor-pointer'
         }`}
       >
-        <div
+        <span
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-3.5 rounded-xl border-2 border-dashed transition-colors ${
-            isDragOver
-              ? 'border-emerald-500'
-              : 'border-[var(--border-subtle)] group-hover:border-emerald-500/40'
-          }`}
+          className="absolute inset-0 bg-white/40 dark:bg-[#141720]/70 backdrop-blur-[2px] transition-opacity group-hover:bg-white/25 dark:group-hover:bg-[#141720]/55"
         />
 
         <input
@@ -167,7 +163,7 @@ export function DropZone({
         <input
           ref={folderInputRef}
           type="file"
-          // @ts-ignore
+          // @ts-expect-error webkitdirectory is supported in Chromium/WebKit
           webkitdirectory=""
           directory=""
           multiple
@@ -176,32 +172,30 @@ export function DropZone({
           className="hidden"
         />
 
-        <div className="relative z-10 flex flex-col items-center gap-2 text-foreground">
-          <div className="w-12 h-12 rounded-full bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
-            <Upload className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col items-center text-center leading-snug text-[15px] sm:text-[16px] font-semibold">
-            <p>
-              Drag &amp; drop files, or{' '}
-              <span className="text-emerald-600 dark:text-emerald-400 hover:underline">
-                click to browse
-              </span>
+        <div className="relative z-10 flex flex-col items-center gap-3.5 sm:gap-5 pt-2">
+          <span className="flex min-h-[52px] items-center gap-2 sm:gap-3 rounded-[12px] sm:rounded-[14px] bg-[#145BF5] px-8 py-3.5 text-[16px] sm:min-h-[64px] sm:px-[52px] sm:py-[18px] sm:text-[20px] font-semibold text-white transition-colors duration-200 group-hover:bg-[#0F4AD4] shadow-lg shadow-blue-600/20">
+            <Plus className="h-5 w-5 sm:h-6 sm:w-6 opacity-85 stroke-[2.5px]" />
+            <span>Start with files</span>
+          </span>
+          <span className="text-base sm:text-[20px] font-extrabold text-foreground tracking-tight">
+            or drag files here
+          </span>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-[11px] font-medium text-text-sec max-w-lg hidden sm:block">
+              {ACCEPTED_EXTENSIONS_LABEL}
             </p>
+            <button
+              type="button"
+              disabled={isProcessing || disabled}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isProcessing && !disabled) folderInputRef.current?.click();
+              }}
+              className="text-[12px] font-semibold text-text-sec hover:text-[#145BF5] underline underline-offset-4"
+            >
+              or select a folder
+            </button>
           </div>
-          <p className="text-[12px] text-text-ter max-w-xl text-center hidden sm:block">
-            {ACCEPTED_EXTENSIONS_LABEL}
-          </p>
-          <button
-            type="button"
-            disabled={isProcessing || disabled}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isProcessing && !disabled) folderInputRef.current?.click();
-            }}
-            className="text-[12px] font-medium text-text-sec hover:text-foreground underline underline-offset-4 mt-0.5"
-          >
-            or select a folder
-          </button>
         </div>
 
         {files.length > 0 && (
@@ -218,7 +212,7 @@ export function DropZone({
               return (
                 <li
                   key={item.id}
-                  className="flex items-center gap-3 py-2 px-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/60 hover:bg-glass-hover transition-colors"
+                  className="flex items-center gap-3 py-2 px-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card/95 shadow-sm transition-colors"
                 >
                   <FileIcon
                     className="shrink-0 text-text-sec"
@@ -243,7 +237,7 @@ export function DropZone({
                         e.stopPropagation();
                         onInspectFile(item);
                       }}
-                      className="px-2.5 py-1 rounded-md text-[11px] font-medium text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-1 transition-colors"
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-1 transition-colors"
                       title="Inspect metadata"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -258,7 +252,7 @@ export function DropZone({
                         e.stopPropagation();
                         onDownloadFile(item);
                       }}
-                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
                       title="Download cleaned file"
                     >
                       <Download className="w-3.5 h-3.5" />
@@ -267,10 +261,10 @@ export function DropZone({
                   )}
 
                   {isProcessingItem && (
-                    <Loader2 className="shrink-0 w-4 h-4 animate-spin text-emerald-500" />
+                    <Loader2 className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
                   )}
                   {isDone && (
-                    <CheckCircle2 className="shrink-0 w-4 h-4 text-emerald-500" />
+                    <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />
                   )}
                   {isFailed && (
                     <XCircle className="shrink-0 w-4 h-4 text-red-500" />
@@ -285,7 +279,7 @@ export function DropZone({
                         onRemoveFile(item.id);
                       }}
                       aria-label={`Remove ${item.file.name}`}
-                      className="p-1 rounded-md text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+                      className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -296,7 +290,7 @@ export function DropZone({
           </ul>
         )}
 
-        <p className="text-[11px] font-medium text-text-ter absolute right-5 bottom-3.5 z-10">
+        <p className="text-[11px] font-semibold text-text-ter absolute right-6 bottom-3.5 z-10">
           {`${files.length}/${maxFiles} files · ${queuedSizeMb.toFixed(1)}/${maxTotalSizeMb} MB`}
         </p>
       </div>

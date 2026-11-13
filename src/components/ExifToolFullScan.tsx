@@ -269,7 +269,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
           type="button"
           onClick={scan}
           disabled={status === 'running' || jsonLoading}
-          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white hover:opacity-90 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold transition-opacity"
+          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-[#145BF5] text-white hover:opacity-90 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold transition-opacity"
         >
           {status === 'running' ? (
             <LoaderCircle className="w-4 h-4 animate-spin" />
@@ -346,7 +346,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                 onClick={() => setMode('text')}
                 className={`px-3 py-1.5 rounded-xl text-[11px] font-medium border-2 ${
                   mode === 'text'
-                    ? 'border-foreground bg-emerald-600 text-white font-semibold'
+                    ? 'border-foreground bg-[#145BF5] text-white font-semibold'
                     : 'border-foreground text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
               >
@@ -371,7 +371,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                   onClick={() => setMode('json')}
                   className={`px-3 py-1.5 rounded-xl text-[11px] font-medium border-2 ${
                     mode === 'json'
-                      ? 'border-foreground bg-emerald-600 text-white font-semibold'
+                      ? 'border-foreground bg-[#145BF5] text-white font-semibold'
                       : 'border-foreground text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                   }`}
                 >
@@ -405,7 +405,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                       : 'text/plain;charset=utf-8'
                   )
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-semibold hover:opacity-90"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#145BF5] text-white text-[11px] font-semibold hover:opacity-90"
               >
                 <Download className="w-3.5 h-3.5" /> Download{' '}
                 {mode === 'json' ? 'JSON' : 'TXT'}

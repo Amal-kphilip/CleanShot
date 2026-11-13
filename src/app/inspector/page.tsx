@@ -94,7 +94,7 @@ export default function InspectorPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[12px] font-semibold flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-[#145BF5] text-white hover:opacity-90 text-[12px] font-semibold flex items-center gap-1.5"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>View Details</span>

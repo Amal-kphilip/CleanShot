@@ -1,28 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
-const avenirNext = localFont({
-  variable: '--font-avenir',
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
   display: 'swap',
-  src: [
-    {
-      path: '../../public/fonts/avenir-next-regular.woff2',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../../public/fonts/avenir-next-medium.woff2',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: '../../public/fonts/avenir-next-demibold.woff2',
-      weight: '600',
-      style: 'normal',
-    },
-  ],
 });
 
 export const viewport: Viewport = {
@@ -86,11 +71,11 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className={`antialiased min-h-dvh flex flex-col bg-background text-foreground ${avenirNext.variable}`}
+        className={`antialiased min-h-dvh flex flex-col bg-background text-foreground ${plusJakarta.variable}`}
       >
         <ThemeProvider>
           <div className="flex flex-col flex-1 items-center w-full">
-            <div className="w-full max-w-6xl flex flex-col flex-1 px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-[1280px] flex flex-col flex-1 px-5 sm:px-6 md:px-8">
               {children}
             </div>
           </div>
