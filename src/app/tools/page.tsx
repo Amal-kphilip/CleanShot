@@ -5,6 +5,7 @@ import {
   SlidersHorizontal,
   ScanLine,
   Images,
+  Sparkles,
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
 import { ToolCard } from '@/components/tools/ToolCard';
@@ -53,6 +54,13 @@ export default function ToolsPage() {
           icon={<Images size={18} />}
           title="Compare Images"
           description="Compare two images side by side with an interactive slider and generate a pixel-difference heatmap."
+        />
+        <ToolCard
+          href="/gemini-watermark-remover"
+          icon={<Sparkles size={18} />}
+          title="Gemini Watermark Remover"
+          description="Remove visible Gemini AI watermarks from images locally in your browser using Reverse Alpha Blending."
+          status="Local · Images"
         />
       </div>
     </ToolShell>
