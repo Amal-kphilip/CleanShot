@@ -25,17 +25,17 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex w-11 h-6 rounded-full border transition-colors shrink-0 ${
+      className={`relative inline-flex items-center w-11 h-6 rounded-full border p-0.5 transition-colors shrink-0 ${
         checked
           ? 'bg-[#145BF5] border-[#145BF5]'
           : 'bg-[var(--surface-elevated)] border-[var(--border-subtle)]'
       }`}
     >
       <span
-        className={`inline-block w-4 h-4 rounded-full mt-0.5 transition-transform shadow-sm ${
+        className={`inline-block w-4 h-4 rounded-full transition-transform shadow-sm ${
           checked
-            ? 'translate-x-[22px] bg-white'
-            : 'translate-x-0.5 bg-foreground/80'
+            ? 'translate-x-5 bg-white'
+            : 'translate-x-0 bg-[var(--text-secondary)]'
         }`}
       />
     </button>
@@ -105,7 +105,7 @@ export function SettingsModal({
               Quality preservation
             </h4>
 
-            <label className="flex items-center justify-between gap-4 py-3 border-b border-border-subtle cursor-pointer select-none">
+            <label className="flex items-center justify-between gap-4 py-3 border-b border-[var(--border-subtle)] cursor-pointer select-none">
               <div>
                 <span className="text-[14px] font-medium text-foreground block">
                   Preserve Color/Rendering Metadata
@@ -182,7 +182,7 @@ export function SettingsModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 flex justify-end">
+        <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] flex justify-end">
           <button
             type="button"
             onClick={onClose}

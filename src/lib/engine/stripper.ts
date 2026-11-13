@@ -1,4 +1,4 @@
-import { ImageFormat, StripOptions, StripResult } from './types';
+import { StripOptions, StripResult } from './types';
 import { detectImageFormat, buildCleanedFilename } from './magic';
 import { stripJpeg } from './jpeg';
 import { stripPng } from './png';

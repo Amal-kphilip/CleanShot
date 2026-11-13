@@ -10,6 +10,7 @@ export function stripSvg(buffer: Uint8Array, options: StripOptions = {}): {
   removedSegments: string[];
   bytesSaved: number;
 } {
+  void options;
   const removedSegments: string[] = [];
   const text = new TextDecoder('utf-8').decode(buffer);
 

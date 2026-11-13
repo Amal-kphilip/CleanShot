@@ -10,6 +10,7 @@ export function stripTiff(
   _buffer: Uint8Array,
   _options: StripOptions = {},
 ): never {
+  void _options;
   throw new Error(
     'Safe lossless metadata removal is not currently supported for TIFF or TIFF-based RAW files. The original file has not been modified.',
   );

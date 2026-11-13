@@ -1,6 +1,6 @@
 import * as exifr from 'exifr';
 import { unzipSync } from 'fflate';
-import { ParsedMetadata, MetadataField, GpsLocation, ImageFormat } from './types';
+import { ParsedMetadata, MetadataField, GpsLocation } from './types';
 import { detectImageFormat } from './magic';
 
 /**
@@ -80,7 +80,7 @@ export async function inspectMetadata(buffer: Uint8Array, filename: string = '')
         });
       }
     }
-  } catch (e) {
+  } catch {
     // Fallback if format does not contain standard EXIF
   }
 

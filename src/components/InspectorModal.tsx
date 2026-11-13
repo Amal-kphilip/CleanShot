@@ -180,7 +180,7 @@ export function InspectorModal({
         </div>
 
         {/* Tab Bar */}
-        <div className="px-6 py-2.5 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)]/40 flex items-center gap-2 flex-wrap">
+        <div className="px-6 py-2.5 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('before')}
@@ -386,7 +386,7 @@ export function InspectorModal({
         )}
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 flex items-center justify-between">
+        <div className="px-6 py-3.5 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] flex items-center justify-between">
           <span className="text-[12px] text-text-sec">
             {activeTab === 'exiftool'
               ? 'Full ExifTool scan'

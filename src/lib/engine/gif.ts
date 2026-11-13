@@ -11,6 +11,7 @@ export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
   removedSegments: string[];
   bytesSaved: number;
 } {
+  void options;
   const removedSegments: string[] = [];
 
   // Check GIF header (GIF87a / GIF89a)
@@ -130,7 +131,6 @@ export function stripGif(buffer: Uint8Array, options: StripOptions = {}): {
       offset += 10 + lctSize; // Image descriptor + LCT
       if (offset >= len) throw new Error('Malformed GIF: missing LZW code size');
 
-      const lzwMinCodeSize = buffer[offset];
       offset++; // LZW min code size byte
 
       // Skip raster data sub-blocks

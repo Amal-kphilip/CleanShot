@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Download, Trash2, Sparkles, Archive, Loader2 } from 'lucide-react';
+import { Download, Sparkles, Archive, Loader2 } from 'lucide-react';
 import { FileItemState } from './FileList';
 
 interface ActionBarProps {

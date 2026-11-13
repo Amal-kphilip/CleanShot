@@ -1,16 +1,17 @@
-# CleanShot
+# CleanShot (StripMeta)
 
-> A privacy-focused file metadata inspector, cleaner, and Gemini watermark remover. All processing runs locally in your browser.
+> A privacy-focused file metadata inspector, cleaner, and Gemini watermark remover. All processing runs locally in your browser with zero server uploads.
 
 ## Features
 
-- **Metadata removal without re-encoding** for the supported JPEG, PNG, WebP, and GIF paths. SVG is sanitized as text markup, so its serialized bytes change and exact pixel equivalence is not claimed.
-- **Bounded browser worker pool** for supported image-processing tasks, with a safe main-thread fallback for small files where module workers are unavailable.
-- **Metadata inspector** for reviewing common image metadata and GPS-related fields before and after cleaning.
-- **Color profile controls** to preserve supported color-profile chunks when opted in.
-- **Batch processing and ZIP download** generated entirely in the browser.
-- **Honest unsupported-format handling** for HEIC/HEIF, AVIF, TIFF/RAW, BMP, and JPEG XL. These are recognized where possible, but are not marked as cleaned.
-- **Client-side only:** Files are read and processed locally in your browser. No files are uploaded to a server.
+- **100% Client-Side Processing:** Files are read, inspected, and cleaned locally in your browser. No files are uploaded to a server.
+- **Lossless Metadata Removal:** Strips privacy-sensitive metadata without re-encoding for supported JPEG, PNG, WebP, and GIF paths. SVG is sanitized as text markup (serialized bytes change; exact pixel equivalence is not claimed).
+- **Browser Web Worker Pool:** Runs supported image-processing tasks in a bounded worker pool, with a safe main-thread fallback when module workers are unavailable.
+- **Metadata Inspector & Full Scan:** Inspect common EXIF/XMP/IPTC and GPS fields before and after cleaning, plus an optional client-side ExifTool scan.
+- **Color Profile & Orientation Controls:** Opt in to preserving supported ICC color-profile chunks or EXIF orientation tags.
+- **Client-Side Batch ZIP Export:** Package cleaned batches into a ZIP archive directly in the browser (`fflate`), with optional folder-structure preservation and filename-collision deduplication.
+- **Additional Browser Tools:** Gemini Watermark Remover (images & WebCodecs video), Image Comparison, Metadata Editor, and Image Analyzer.
+- **Honest Unsupported-Format Handling:** Formats without safe lossless support (TIFF/RAW, HEIC/HEIF, AVIF, BMP, JPEG XL) are recognized where possible and not marked as cleaned.
 
 ## Quick Start
 
@@ -19,15 +20,14 @@ npm ci
 npm run dev
 ```
 
-## Validation
+## Validation & Build
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
+npm run lint
 npm test
 npm run build
 ```
-
-A successful type check is not a substitute for the tests and production build. Run all three validation commands in an environment with the platform-specific Next.js and Rollup optional dependencies installed before deploying.
 
 ## Docker
 

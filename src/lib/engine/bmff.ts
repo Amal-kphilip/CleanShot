@@ -10,6 +10,7 @@ export function stripBmff(buffer: Uint8Array, options: StripOptions = {}): {
   removedSegments: string[];
   bytesSaved: number;
 } {
+  void options;
   const removedSegments: string[] = [];
   const chunks: Uint8Array[] = [];
 
