@@ -22,9 +22,9 @@ export function ToolShell({
   return (
     <div className="flex flex-col flex-1 w-full">
       <Header />
-      <main className="flex-1 w-full flex flex-col gap-7 sm:gap-8 pb-10">
-        <section className="pt-4 sm:pt-8 pb-2 text-center">
-          <div className="mx-auto max-w-4xl space-y-3 sm:space-y-5">
+      <main className="flex-1 w-full flex flex-col gap-5 sm:gap-8 pb-8 sm:pb-10">
+        <section className="pt-2 sm:pt-8 pb-1 sm:pb-2 text-center">
+          <div className="mx-auto max-w-4xl space-y-2.5 sm:space-y-5">
             {showBack && (
               <div>
                 <Link
@@ -35,7 +35,7 @@ export function ToolShell({
                 </Link>
               </div>
             )}
-            <h1 className="text-[32px] sm:text-[42px] md:text-[48px] font-extrabold tracking-tight text-foreground leading-tight">
+            <h1 className="text-[28px] sm:text-[42px] md:text-[48px] font-extrabold tracking-tight text-foreground leading-tight">
               {title}{' '}
               {accent && (
                 <span className="text-[#145BF5] dark:text-[#3B82F6]">
@@ -43,7 +43,7 @@ export function ToolShell({
                 </span>
               )}
             </h1>
-            <p className="mx-auto max-w-[640px] text-[15px] sm:text-[17px] leading-[1.6] text-text-sec font-medium">
+            <p className="mx-auto max-w-[640px] text-[14px] sm:text-[17px] leading-[1.6] text-text-sec font-medium">
               {description}
             </p>
           </div>

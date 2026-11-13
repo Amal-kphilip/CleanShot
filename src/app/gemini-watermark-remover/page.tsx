@@ -431,41 +431,41 @@ export default function GeminiWatermarkRemoverPage() {
       {/* Segmented Pill Switcher matching geminiwatermarkremover.io */}
       <div className="flex justify-center">
         <div
-          className="inline-flex flex-wrap justify-center rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]"
+          className="grid w-full max-w-md grid-cols-3 sm:inline-flex sm:w-auto sm:max-w-none rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]"
           aria-label="CleanShot tools"
         >
           <Link
             href="/"
-            className="inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-medium text-text-sec transition-all hover:text-foreground sm:min-w-[125px]"
+            className="inline-flex h-10 min-w-0 sm:min-w-[125px] items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 text-[12px] sm:text-[14px] font-medium text-text-sec transition-all hover:text-foreground"
           >
-            <ShieldCheck className="h-4 w-4 text-text-ter" />
-            <span>Metadata</span>
+            <ShieldCheck className="h-4 w-4 shrink-0 text-text-ter" />
+            <span className="truncate">Metadata</span>
           </Link>
           <button
             type="button"
             onClick={() => setMediaTab('image')}
             aria-current={mediaTab === 'image' ? 'true' : undefined}
-            className={`inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[130px] ${
+            className={`inline-flex h-10 min-w-0 sm:min-w-[130px] items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 text-[12px] sm:text-[14px] transition-all ${
               mediaTab === 'image'
                 ? 'bg-glass-card font-semibold text-foreground shadow-sm'
                 : 'font-medium text-text-sec hover:text-foreground'
             }`}
           >
-            <ImageIcon className="h-4 w-4 text-[#145BF5]" />
-            <span>Images</span>
+            <ImageIcon className="h-4 w-4 shrink-0 text-[#145BF5]" />
+            <span className="truncate">Images</span>
           </button>
           <button
             type="button"
             onClick={() => setMediaTab('video')}
             aria-current={mediaTab === 'video' ? 'true' : undefined}
-            className={`inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[130px] ${
+            className={`inline-flex h-10 min-w-0 sm:min-w-[130px] items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 text-[12px] sm:text-[14px] transition-all ${
               mediaTab === 'video'
                 ? 'bg-glass-card font-semibold text-foreground shadow-sm'
                 : 'font-medium text-text-sec hover:text-foreground'
             }`}
           >
-            <Film className="h-4 w-4 text-[#145BF5]" />
-            <span>Videos</span>
+            <Film className="h-4 w-4 shrink-0 text-[#145BF5]" />
+            <span className="truncate">Videos</span>
           </button>
         </div>
       </div>
@@ -492,10 +492,10 @@ export default function GeminiWatermarkRemoverPage() {
             setIsDragging(false);
             if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
           }}
-          className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+          className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-4 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
             visibleItems.length > 0
-              ? 'min-h-[180px] gap-4'
-              : 'min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] gap-5'
+              ? 'min-h-[150px] sm:min-h-[180px] gap-3 sm:gap-4'
+              : 'min-h-[230px] sm:min-h-[320px] lg:min-h-[380px] gap-4 sm:gap-5'
           } ${
             isDragging
               ? 'border-[#145BF5] ring-4 ring-[#145BF5]/20'
@@ -636,16 +636,16 @@ export default function GeminiWatermarkRemoverPage() {
       </div>
 
       {/* Controls bar */}
-      <section className="mx-auto w-full max-w-3xl flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-[var(--border-subtle)] bg-glass-card p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-wrap items-end gap-4">
-          <label className="block">
+      <section className="mx-auto w-full max-w-3xl flex flex-col lg:flex-row lg:flex-wrap lg:items-end lg:justify-between gap-4 rounded-2xl border border-[var(--border-subtle)] bg-glass-card p-4 sm:p-5 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 sm:gap-4 w-full lg:w-auto">
+          <label className="block w-full lg:w-auto">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-ter">
               Image detection
             </span>
             <select
               value={adaptiveMode}
               onChange={(e) => setAdaptiveMode(e.target.value as AdaptiveMode)}
-              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="w-full lg:w-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Auto (Recommended)</option>
               <option value="always">Always adaptive</option>
@@ -653,14 +653,14 @@ export default function GeminiWatermarkRemoverPage() {
             </select>
           </label>
 
-          <label className="block">
+          <label className="block w-full lg:w-auto">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-ter">
               Image output
             </span>
             <select
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
-              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="w-full lg:w-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Match original (PNG fallback)</option>
               <option value="png">Lossless PNG</option>
@@ -669,14 +669,14 @@ export default function GeminiWatermarkRemoverPage() {
             </select>
           </label>
 
-          <label className="block">
+          <label className="block w-full lg:w-auto">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-ter">
               Video cleanup
             </span>
             <select
               value={videoDenoiseMode}
               onChange={(e) => setVideoDenoiseMode(e.target.value as VideoDenoiseMode)}
-              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
+              className="w-full lg:w-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none"
             >
               <option value="auto">Auto (AI ONNX + Fallback)</option>
               <option value="ai">AI FDnCNN Denoise</option>
@@ -685,7 +685,7 @@ export default function GeminiWatermarkRemoverPage() {
             </select>
           </label>
 
-          <label className="inline-flex items-center gap-2 pb-2 text-[13px] font-medium text-foreground cursor-pointer select-none">
+          <label className="inline-flex items-center gap-2 py-1 lg:pb-2 text-[13px] font-medium text-foreground cursor-pointer select-none">
             <input
               type="checkbox"
               checked={preserveAudio}
@@ -696,20 +696,20 @@ export default function GeminiWatermarkRemoverPage() {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 lg:flex lg:flex-wrap items-center gap-2 w-full lg:w-auto">
           {visibleItems.length > 0 && (
             <>
               <button
                 type="button"
                 onClick={reprocessAll}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-foreground hover:border-[#145BF5]/40 transition-colors"
+                className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-foreground hover:border-[#145BF5]/40 transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Reprocess
               </button>
               <button
                 type="button"
                 onClick={clearAll}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-text-sec hover:text-foreground hover:border-red-500/40 transition-colors"
+                className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-[12px] font-semibold text-text-sec hover:text-foreground hover:border-red-500/40 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Clear all
               </button>
@@ -805,7 +805,7 @@ export default function GeminiWatermarkRemoverPage() {
 
       {/* Active item workspace */}
       {activeItem && (
-        <section ref={workspaceRef} className="space-y-6 scroll-mt-24">
+        <section ref={workspaceRef} className="space-y-6 scroll-mt-6 sm:scroll-mt-24">
           {activeItem.status === 'processing' && (
             <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -874,7 +874,7 @@ export default function GeminiWatermarkRemoverPage() {
                   <img
                     src={activeItem.imageResult.previewUrl}
                     alt={`Cleaned ${activeItem.file.name}`}
-                    className="block max-h-[560px] w-full object-contain"
+                    className="block max-h-[380px] sm:max-h-[560px] w-full object-contain"
                   />
 
                   <div
@@ -903,7 +903,7 @@ export default function GeminiWatermarkRemoverPage() {
                   value={split}
                   onChange={(e) => setSplit(Number(e.target.value))}
                   aria-label="Before and after comparison split"
-                  className="w-full accent-foreground cursor-ew-resize"
+                  className="w-full h-8 sm:h-auto accent-foreground cursor-ew-resize touch-pan-y"
                 />
               </div>
 
@@ -990,7 +990,7 @@ export default function GeminiWatermarkRemoverPage() {
           {activeItem.status === 'done' && activeItem.videoResult && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-glass-card overflow-hidden text-[12px] font-semibold">
                     <button
                       type="button"
@@ -1030,7 +1030,7 @@ export default function GeminiWatermarkRemoverPage() {
                     }
                     controls
                     playsInline
-                    className="block max-h-[560px] w-full object-contain"
+                    className="block max-h-[380px] sm:max-h-[560px] w-full object-contain"
                   />
                 </div>
               </div>

@@ -136,7 +136,11 @@ export function DropZone({
             fileInputRef.current?.click();
           }
         }}
-        className={`gwr-checkerboard group relative flex min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] w-full flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 pb-12 gap-5 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+        className={`gwr-checkerboard group relative flex w-full flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-4 sm:p-10 gap-4 sm:gap-5 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+          files.length > 0
+            ? 'min-h-[160px] sm:min-h-[180px] pb-6 sm:pb-10'
+            : 'min-h-[230px] sm:min-h-[320px] lg:min-h-[380px] pb-8 sm:pb-12'
+        } ${
           isDragOver
             ? 'border-[#145BF5] ring-4 ring-[#145BF5]/20'
             : 'border-white dark:border-white/10'

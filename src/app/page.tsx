@@ -553,12 +553,12 @@ export default function HomePage() {
 
       <main className="flex-1 w-full flex flex-col gap-7 sm:gap-9 pb-10">
         {/* Hero */}
-        <section className="pt-6 sm:pt-10 lg:pt-12 pb-1 text-center">
+        <section className="pt-4 sm:pt-10 lg:pt-12 pb-1 text-center">
           <div className="mx-auto max-w-4xl">
-            <h1 className="text-[36px] sm:text-[44px] md:text-[48px] lg:text-[54px] font-extrabold tracking-tight text-foreground leading-tight">
+            <h1 className="text-[28px] sm:text-[44px] md:text-[48px] lg:text-[54px] font-extrabold tracking-tight text-foreground leading-tight">
               Lossless Metadata Remover
             </h1>
-            <p className="mx-auto mt-3 sm:mt-5 max-w-[640px] text-[15px] sm:text-[17px] md:text-[18px] leading-[1.6] text-text-sec font-medium">
+            <p className="mx-auto mt-2.5 sm:mt-5 max-w-[640px] text-[14px] sm:text-[17px] md:text-[18px] leading-[1.6] text-text-sec font-medium">
               Free online metadata cleaner for photos, PDFs, documents, audio, and video.
               <br className="hidden sm:block" /> No upload, no sign-up — 100% local, private processing.
             </p>
@@ -567,18 +567,18 @@ export default function HomePage() {
 
         {/* Segmented pill switcher matching geminiwatermarkremover.io */}
         <div className="flex justify-center">
-          <div className="inline-flex rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]">
-            <span className="inline-flex h-10 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-glass-card px-4 text-[14px] font-semibold text-foreground shadow-sm">
-              <ShieldCheck className="h-4 w-4 text-[#145BF5]" />
-              <span>Metadata</span>
+          <div className="grid w-full max-w-sm grid-cols-2 sm:inline-flex sm:w-auto sm:max-w-none rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]">
+            <span className="inline-flex h-10 min-w-0 sm:min-w-[130px] items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-glass-card px-2.5 sm:px-4 text-[13px] sm:text-[14px] font-semibold text-foreground shadow-sm">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-[#145BF5]" />
+              <span className="truncate">Metadata</span>
             </span>
             <Link
               href="/gemini-watermark-remover"
-              className="group inline-flex h-10 min-w-[140px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-medium text-text-sec transition-all hover:text-foreground"
+              className="group inline-flex h-10 min-w-0 sm:min-w-[140px] items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2.5 sm:px-4 text-[13px] sm:text-[14px] font-medium text-text-sec transition-all hover:text-foreground"
             >
-              <Sparkles className="h-4 w-4 text-text-ter group-hover:text-[#145BF5] transition-colors" />
-              <span>Watermark Remover</span>
-              <span className="rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-[#145BF5] dark:text-[#60A5FA]">
+              <Sparkles className="h-4 w-4 shrink-0 text-text-ter group-hover:text-[#145BF5] transition-colors" />
+              <span className="truncate">Watermark</span>
+              <span className="hidden xs:inline sm:inline rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-[#145BF5] dark:text-[#60A5FA]">
                 AI
               </span>
             </Link>
@@ -616,12 +616,12 @@ export default function HomePage() {
             maxTotalSizeMb={100}
           />
 
-          <div className="w-full flex justify-end items-center gap-3">
+          <div className="w-full grid grid-cols-2 sm:flex sm:justify-end items-center gap-2.5 sm:gap-3">
             <button
               type="button"
               disabled={files.length <= 0 || isProcessing}
               onClick={() => setIsClearConfirmOpen(true)}
-              className="px-4 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-glass-card text-[13px] font-semibold text-text-sec hover:text-foreground hover:bg-glass-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-glass-card text-[13px] font-semibold text-text-sec hover:text-foreground hover:bg-glass-hover transition-colors inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Clear all
             </button>
@@ -631,12 +631,12 @@ export default function HomePage() {
                 type="button"
                 disabled={isProcessing}
                 onClick={() => downloadReadyItems(completedFiles)}
-                className="px-6 py-2.5 rounded-xl bg-[#145BF5] hover:bg-[#0F4AD4] text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40"
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 rounded-xl bg-[#145BF5] hover:bg-[#0F4AD4] text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40"
               >
-                <Download className="w-4 h-4" />
-                <span>
+                <Download className="w-4 h-4 shrink-0" />
+                <span className="truncate">
                   {completedFiles.length === 1
-                    ? 'Download cleaned file'
+                    ? 'Download cleaned'
                     : `Download ZIP (${completedFiles.length})`}
                 </span>
               </button>
@@ -645,9 +645,9 @@ export default function HomePage() {
                 type="button"
                 disabled={files.length <= 0 || isProcessing}
                 onClick={handleProcessAll}
-                className="px-6 py-2.5 rounded-xl bg-[#145BF5] hover:bg-[#0F4AD4] text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="min-h-[44px] px-4 sm:px-6 py-2.5 rounded-xl bg-[#145BF5] hover:bg-[#0F4AD4] text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isProcessing && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
                 <span>Remove metadata</span>
               </button>
             )}
@@ -746,7 +746,7 @@ export default function HomePage() {
             <span className="w-44 lg:w-52 font-semibold text-[13px] text-text-sec">
               Come back!
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setBookmarkNote(true)}
