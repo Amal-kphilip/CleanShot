@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
   Archive,
@@ -12,9 +13,11 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
   Square,
   Trash2,
+  X,
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
 import {
@@ -368,33 +371,40 @@ export default function GeminiWatermarkRemoverPage() {
       {/* Segmented Pill Switcher matching geminiwatermarkremover.io */}
       <div className="flex justify-center">
         <div
-          className="inline-flex rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]"
-          aria-label="Gemini watermark remover tools"
+          className="inline-flex flex-wrap justify-center rounded-[1.15rem] bg-slate-900/[0.05] dark:bg-white/[0.07] p-[3px]"
+          aria-label="CleanShot tools"
         >
+          <Link
+            href="/"
+            className="inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-medium text-text-sec transition-all hover:text-foreground sm:min-w-[125px]"
+          >
+            <ShieldCheck className="h-4 w-4 text-text-ter" />
+            <span>Metadata</span>
+          </Link>
           <button
             type="button"
             onClick={() => setMediaTab('image')}
             aria-current={mediaTab === 'image' ? 'true' : undefined}
-            className={`inline-flex h-10 min-w-[120px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[135px] ${
+            className={`inline-flex h-10 min-w-[115px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[130px] ${
               mediaTab === 'image'
                 ? 'bg-glass-card font-semibold text-foreground shadow-sm'
                 : 'font-medium text-text-sec hover:text-foreground'
             }`}
           >
-            <ImageIcon className="h-4 w-4" />
+            <ImageIcon className="h-4 w-4 text-[#145BF5]" />
             <span>Images</span>
           </button>
           <button
             type="button"
             onClick={() => setMediaTab('video')}
             aria-current={mediaTab === 'video' ? 'true' : undefined}
-            className={`inline-flex h-10 min-w-[125px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[145px] ${
+            className={`inline-flex h-10 min-w-[120px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] transition-all sm:min-w-[140px] ${
               mediaTab === 'video'
                 ? 'bg-glass-card font-semibold text-foreground shadow-sm'
                 : 'font-medium text-text-sec hover:text-foreground'
             }`}
           >
-            <Film className="h-4 w-4" />
+            <Film className="h-4 w-4 text-[#145BF5]" />
             <span>Videos</span>
             <span className="rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-[#145BF5] dark:text-[#60A5FA]">
               Beta
@@ -425,7 +435,11 @@ export default function GeminiWatermarkRemoverPage() {
             setIsDragging(false);
             if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
           }}
-          className={`gwr-checkerboard group relative flex min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+          className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-6 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+            items.length > 0
+              ? 'min-h-[180px] gap-4'
+              : 'min-h-[280px] sm:min-h-[320px] lg:min-h-[380px] gap-5'
+          } ${
             isDragging
               ? 'border-[#145BF5] ring-4 ring-[#145BF5]/20'
               : 'border-white dark:border-white/10'
@@ -446,24 +460,119 @@ export default function GeminiWatermarkRemoverPage() {
               e.target.value = '';
             }}
           />
-          <span className="relative z-10 flex flex-col items-center gap-4 sm:gap-5 pt-2">
-            <span className="flex min-h-[52px] items-center gap-2 sm:gap-3 rounded-[12px] sm:rounded-[14px] bg-[#145BF5] px-8 py-3.5 text-[16px] sm:min-h-[64px] sm:px-[52px] sm:py-[18px] sm:text-[20px] font-semibold text-white transition-colors duration-200 group-hover:bg-[#0F4AD4] shadow-lg shadow-blue-600/20">
-              <Plus className="h-5 w-5 sm:h-6 sm:w-6 opacity-85 stroke-[2.5px]" />
+          <span className="relative z-10 flex flex-col items-center gap-3 sm:gap-4 pt-1">
+            <span
+              className={`flex items-center gap-2 sm:gap-3 rounded-[12px] sm:rounded-[14px] bg-[#145BF5] font-semibold text-white transition-colors duration-200 group-hover:bg-[#0F4AD4] shadow-lg shadow-blue-600/20 ${
+                items.length > 0
+                  ? 'min-h-[44px] px-6 py-2.5 text-[14px]'
+                  : 'min-h-[52px] px-8 py-3.5 text-[16px] sm:min-h-[64px] sm:px-[52px] sm:py-[18px] sm:text-[20px]'
+              }`}
+            >
+              <Plus className="h-5 w-5 opacity-85 stroke-[2.5px]" />
               <span>
-                {mediaTab === 'video' ? 'Start with videos' : 'Start with photos'}
+                {items.length > 0
+                  ? 'Add more files'
+                  : mediaTab === 'video'
+                    ? 'Start with videos'
+                    : 'Start with photos'}
               </span>
             </span>
-            <span className="text-base sm:text-[20px] font-extrabold text-foreground tracking-tight">
-              {mediaTab === 'video'
-                ? 'or drag videos here'
-                : 'or drag images here'}
-            </span>
-            <span className="text-[12px] font-medium text-text-sec">
-              {mediaTab === 'video'
-                ? 'Supports MP4, WebM, MOV up to 500 MB · 100% browser-local'
-                : 'Supports PNG, JPEG, WebP up to 50 MB (or drop videos too) · 100% browser-local'}
-            </span>
+            {items.length === 0 && (
+              <>
+                <span className="text-base sm:text-[20px] font-extrabold text-foreground tracking-tight">
+                  {mediaTab === 'video'
+                    ? 'or drag videos here'
+                    : 'or drag images here'}
+                </span>
+                <span className="text-[12px] font-medium text-text-sec">
+                  {mediaTab === 'video'
+                    ? 'Supports MP4, WebM, MOV up to 500 MB · 100% browser-local'
+                    : 'Supports PNG, JPEG, WebP up to 50 MB (or drop videos too) · 100% browser-local'}
+                </span>
+              </>
+            )}
           </span>
+
+          {/* Uploaded files list inside dropzone */}
+          {items.length > 0 && (
+            <ul
+              className="relative z-10 w-full max-w-2xl flex flex-col gap-1.5 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {items.map((item) => {
+                const selected = activeItem?.id === item.id;
+                const readyOutput = item.imageResult ?? item.videoResult;
+                return (
+                  <li
+                    key={item.id}
+                    onClick={() => setActiveId(item.id)}
+                    className={`flex items-center gap-3 py-2 px-3 rounded-xl border bg-glass-card/95 shadow-sm transition-colors cursor-pointer ${
+                      selected
+                        ? 'border-[#145BF5] ring-1 ring-[#145BF5]/30'
+                        : 'border-[var(--border-subtle)] hover:border-[#145BF5]/40'
+                    }`}
+                  >
+                    {item.kind === 'video' ? (
+                      <Film className="shrink-0 w-4 h-4 text-[#145BF5]" />
+                    ) : (
+                      <ImageIcon className="shrink-0 w-4 h-4 text-[#145BF5]" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] sm:text-[14px] font-medium text-foreground truncate">
+                        {item.file.name}
+                      </p>
+                      <p className="text-[11px] text-text-sec truncate">
+                        {item.status === 'processing'
+                          ? item.kind === 'video' && item.progress
+                            ? `${item.progress.message} (${Math.round(item.progress.progress * 100)}%)`
+                            : 'Processing…'
+                          : item.status === 'done'
+                            ? `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Ready`
+                            : item.error ?? 'Failed'}
+                      </p>
+                    </div>
+
+                    {item.status === 'done' && readyOutput && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerDownload(readyOutput.blob, readyOutput.outputName);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
+                        title="Download cleaned file"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Save</span>
+                      </button>
+                    )}
+
+                    {item.status === 'processing' && (
+                      <LoaderCircle className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
+                    )}
+                    {item.status === 'done' && (
+                      <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />
+                    )}
+                    {(item.status === 'error' || item.status === 'canceled') && (
+                      <AlertTriangle className="shrink-0 w-4 h-4 text-red-500" />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeItem(item.id);
+                      }}
+                      aria-label={`Remove ${item.file.name}`}
+                      className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </div>
 

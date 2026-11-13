@@ -28,6 +28,7 @@ const toolDropdownLinks = [
 ];
 
 const topLinks = [
+  { href: '/', label: 'Metadata' },
   { href: '/gemini-watermark-remover', label: 'Watermark Remover' },
   { href: '/inspector', label: 'Inspector' },
   { href: '/formats', label: 'Formats' },
