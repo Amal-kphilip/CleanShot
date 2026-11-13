@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
@@ -8,18 +6,18 @@ export default function PrivacyPage() {
   const principles = [
     {
       num: '01',
-      title: 'Local processing by default.',
-      desc: 'Client-Side mode processes supported files directly in your browser using Web Workers. In this mode, your files are never uploaded to a server. The local queue is limited to 50 MB per file and 100 MB total to protect browser memory.',
+      title: '100% browser-local processing.',
+      desc: 'CleanShot processes supported files directly in your browser using Web Workers. Your files are never uploaded to a server. The local metadata queue is limited to 50 MB per file and 100 MB total to protect browser memory.',
     },
     {
       num: '02',
       title: 'File contents stay on your device.',
-      desc: 'The client-side workflow reads files locally to inspect and clean them without transmitting their bytes over the network. You can verify this at any time in your browser Network panel.',
+      desc: 'All tools read files locally to inspect, clean, and bundle ZIP archives without transmitting file bytes over the network. You can verify this at any time in your browser Network panel.',
     },
     {
       num: '03',
-      title: 'Optional Server-Side mode.',
-      desc: 'If you explicitly select Server-Side mode in Settings, files are uploaded and buffered in application memory for processing and expire after 15 minutes or when cleared. Do not enable Server-Side mode for confidential files you do not want to upload.',
+      title: 'Honest coverage boundaries.',
+      desc: 'CleanShot removes documented metadata structures for each supported format and fails closed rather than guessing on malformed containers. No automated tool can guarantee complete anonymity if unknown vendor fields or visible content remain.',
     },
   ];
 
@@ -30,8 +28,8 @@ export default function PrivacyPage() {
       <main className="flex-1 w-full flex flex-col gap-8 sm:gap-10 py-4 sm:py-6">
         <section>
           <h1 className="text-[20px] sm:text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-foreground">
-            Local processing is the default. Your files stay in your browser unless
-            you explicitly enable Server-Side mode in Settings.
+            Client-side only. Your files stay in your browser and are never
+            uploaded to a processing server.
           </h1>
         </section>
 

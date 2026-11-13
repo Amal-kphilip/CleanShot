@@ -216,7 +216,7 @@ export async function stripImageMetadata(
       ...(provenancePreserved ? { provenancePreserved: true } : {}),
       ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       filename,
       cleanedFilename,
@@ -230,7 +230,7 @@ export async function stripImageMetadata(
       pixelIdentical: false,
       cleanedBuffer: fileBuffer,
       mimeType: formatInfo.mimeType,
-      error: err?.message || 'Failed to strip metadata',
+      error: err instanceof Error ? err.message : 'Failed to strip metadata',
     };
   }
 }

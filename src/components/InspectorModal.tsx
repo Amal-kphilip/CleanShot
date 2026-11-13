@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   MapPin,
@@ -49,22 +49,25 @@ export function InspectorModal({
   const [activeTab, setActiveTab] = useState<'before' | 'after' | 'exiftool'>(
     'before'
   );
+  const [trackedFilename, setTrackedFilename] = useState(filename);
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogAccessibility(isOpen && Boolean(metadata), onClose, dialogRef);
 
-  useEffect(() => {
-    if (!isProcessed || !cleanedMetadata) setActiveTab('before');
-  }, [isProcessed, cleanedMetadata, filename]);
-
-  useEffect(() => {
+  if (filename !== trackedFilename) {
+    setTrackedFilename(filename);
     setSelectedCategory('all');
     setSearchQuery('');
-  }, [filename]);
+    setActiveTab('before');
+  }
 
   if (!isOpen || !metadata) return null;
 
+  const effectiveTab =
+    activeTab === 'after' && (!isProcessed || !cleanedMetadata)
+      ? 'before'
+      : activeTab;
   const showingAfter =
-    activeTab === 'after' && isProcessed && Boolean(cleanedMetadata);
+    effectiveTab === 'after' && isProcessed && Boolean(cleanedMetadata);
   const displayMetadata =
     showingAfter && cleanedMetadata ? cleanedMetadata : metadata;
   const filteredFields = displayMetadata.fields.filter((field) => {
@@ -126,7 +129,7 @@ export function InspectorModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -137,15 +140,15 @@ export function InspectorModal({
         aria-modal="true"
         aria-labelledby="inspector-dialog-title"
         tabIndex={-1}
-        className="relative w-full max-w-4xl border border-[var(--border-subtle)] rounded-xl bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
+        className="relative w-full max-w-4xl border border-[var(--border-subtle)] rounded-2xl bg-[var(--surface-card)] shadow-[var(--shadow-floating)] text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b-2 border-foreground">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[var(--border-subtle)]">
           {thumbnailUrl && (
             <img
               src={thumbnailUrl}
               alt=""
-              className="w-10 h-10 rounded-xl object-cover border border-foreground shrink-0"
+              className="w-10 h-10 rounded-xl object-cover border border-[var(--border-subtle)] shrink-0"
             />
           )}
           <div className="min-w-0 flex-1">
@@ -177,15 +180,15 @@ export function InspectorModal({
         </div>
 
         {/* Tab Bar */}
-        <div className="px-6 py-2.5 border-b border-border-subtle flex items-center gap-2 flex-wrap">
+        <div className="px-6 py-2.5 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)]/40 flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('before')}
             aria-pressed={activeTab === 'before'}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border transition-colors ${
               activeTab === 'before'
-                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
-                : 'border-transparent text-text-sec hover:text-foreground'
+                ? 'border-[#145BF5] bg-[#145BF5] text-white font-semibold shadow-sm'
+                : 'border-transparent text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
             }`}
           >
             Original
@@ -194,10 +197,10 @@ export function InspectorModal({
             type="button"
             onClick={() => setActiveTab('exiftool')}
             aria-pressed={activeTab === 'exiftool'}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border transition-colors ${
               activeTab === 'exiftool'
-                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
-                : 'border-transparent text-text-sec hover:text-foreground'
+                ? 'border-[#145BF5] bg-[#145BF5] text-white font-semibold shadow-sm'
+                : 'border-transparent text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
             }`}
           >
             Full ExifTool Scan
@@ -207,18 +210,21 @@ export function InspectorModal({
             onClick={() => setActiveTab('after')}
             disabled={!isProcessed || !cleanedMetadata}
             aria-pressed={showingAfter}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               showingAfter
-                ? 'border-foreground bg-[#145BF5] text-white font-semibold'
-                : 'border-transparent text-text-sec hover:text-foreground'
+                ? 'border-[#145BF5] bg-[#145BF5] text-white font-semibold shadow-sm'
+                : 'border-transparent text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
             }`}
           >
             After Cleaning
           </button>
         </div>
 
-        {activeTab === 'exiftool' ? (
-          <ExifToolFullScan file={file} />
+        {effectiveTab === 'exiftool' ? (
+          <ExifToolFullScan
+            key={`${filename}-${file?.size ?? 0}`}
+            file={file}
+          />
         ) : (
           <>
             {processingError && !isProcessed && (
@@ -380,7 +386,7 @@ export function InspectorModal({
         )}
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t-2 border-foreground flex items-center justify-between">
+        <div className="px-6 py-3.5 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 flex items-center justify-between">
           <span className="text-[12px] text-text-sec">
             {activeTab === 'exiftool'
               ? 'Full ExifTool scan'
@@ -391,7 +397,7 @@ export function InspectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground transition-colors"
+            className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] hover:bg-black/5 dark:hover:bg-white/10 text-foreground transition-colors"
           >
             Close
           </button>

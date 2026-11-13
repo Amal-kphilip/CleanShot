@@ -2,19 +2,28 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/Header';
 import { DropZone } from '@/components/DropZone';
 import { FileItemState } from '@/components/FileList';
-import { InspectorModal } from '@/components/InspectorModal';
-import { SettingsModal } from '@/components/SettingsModal';
-import { StripOptions, StripResult } from '@/lib/engine/types';
+import { StripOptions } from '@/lib/engine/types';
 import {
   processBatchWithConcurrency,
   createThumbnail,
   inspectFileInWorker,
 } from '@/lib/worker/workerRunner';
 import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
+import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 import { Loader2, Copy, Check, Bookmark, Download, ShieldCheck, Sparkles } from 'lucide-react';
+
+const InspectorModal = dynamic(
+  () => import('@/components/InspectorModal').then((mod) => mod.InspectorModal),
+  { ssr: false }
+);
+const SettingsModal = dynamic(
+  () => import('@/components/SettingsModal').then((mod) => mod.SettingsModal),
+  { ssr: false }
+);
 
 const MAX_CLIENT_FILES = 150;
 const MAX_CLIENT_FILE_BYTES = 50 * 1024 * 1024;
@@ -23,7 +32,6 @@ const MAX_CLIENT_BATCH_BYTES = 100 * 1024 * 1024;
 export default function HomePage() {
   const [files, setFiles] = useState<FileItemState[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isServerMode, setIsServerMode] = useState(false);
   const [batchError, setBatchError] = useState('');
   const [copied, setCopied] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState(false);
@@ -38,6 +46,9 @@ export default function HomePage() {
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [inspectItem, setInspectItem] = useState<FileItemState | null>(null);
   const objectUrls = useRef(new Set<string>());
+  const clearDialogRef = useRef<HTMLDivElement>(null);
+  const closeClearConfirm = useCallback(() => setIsClearConfirmOpen(false), []);
+  useDialogAccessibility(isClearConfirmOpen, closeClearConfirm, clearDialogRef);
 
   useEffect(
     () => () => {
@@ -122,29 +133,9 @@ export default function HomePage() {
     [files, isProcessing]
   );
 
-  const fetchServerFile = async (item: FileItemState): Promise<Blob> => {
-    if (!item.serverJobId || !item.serverFileId)
-      throw new Error('This server result is missing its download reference.');
-    const response = await fetch(
-      `/api/jobs/${encodeURIComponent(item.serverJobId)}/files/${encodeURIComponent(
-        item.serverFileId
-      )}`
-    );
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.error || `Download failed (${response.status}).`);
-    }
-    return response.blob();
-  };
-
-  const handleDownloadSingle = async (item: FileItemState) => {
+  const handleDownloadSingle = useCallback((item: FileItemState) => {
     if (!item.result || item.status !== 'completed') return;
     try {
-      if (item.serverJobId && item.serverFileId) {
-        const blob = await fetchServerFile(item);
-        triggerDownload(blob, item.result.cleanedFilename);
-        return;
-      }
       if (!item.result.cleanedBuffer.length)
         throw new Error(
           'No cleaned file data is available. Please process this file again.'
@@ -167,46 +158,18 @@ export default function HomePage() {
       );
       setBatchError(message);
     }
-  };
+  }, []);
 
-  const downloadReadyItems = async (readyFiles: FileItemState[]) => {
-    if (!readyFiles.length) return;
-    try {
-      if (readyFiles.length === 1) {
-        await handleDownloadSingle(readyFiles[0]);
-        return;
-      }
-      const serverJobs = new Set(
-        readyFiles.map((file) => file.serverJobId).filter(Boolean)
-      );
-      const allServerFiles = readyFiles.every((file) =>
-        Boolean(file.serverJobId && file.serverFileId)
-      );
-      if (allServerFiles && serverJobs.size === 1) {
-        const jobId = readyFiles[0].serverJobId!;
-        const fileIds = readyFiles.map((file) => file.serverFileId!).join(',');
-        const response = await fetch(
-          `/api/jobs/${encodeURIComponent(
-            jobId
-          )}/zip?fileIds=${encodeURIComponent(fileIds)}`
-        );
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(
-            payload.error || `ZIP download failed (${response.status}).`
-          );
+  const downloadReadyItems = useCallback(
+    (readyFiles: FileItemState[]) => {
+      if (!readyFiles.length) return;
+      try {
+        if (readyFiles.length === 1) {
+          handleDownloadSingle(readyFiles[0]);
+          return;
         }
-        triggerDownload(
-          await response.blob(),
-          `cleanshot_cleaned_${Date.now()}.zip`
-        );
-        return;
-      }
-      const zipInputs = await Promise.all(
-        readyFiles.map(async (file) => {
-          const buffer = file.serverJobId
-            ? new Uint8Array(await (await fetchServerFile(file)).arrayBuffer())
-            : file.result!.cleanedBuffer;
+        const zipInputs = readyFiles.map((file) => {
+          const buffer = file.result!.cleanedBuffer;
           if (!buffer.length)
             throw new Error(
               `${file.file.name} has no cleaned data. Please process it again.`
@@ -218,18 +181,19 @@ export default function HomePage() {
               ? file.relativePath
               : undefined,
           };
-        })
-      );
-      triggerDownload(
-        createZipArchive(zipInputs, options.preserveFolderStructure),
-        `cleanshot_cleaned_${Date.now()}.zip`
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not create the download.';
-      setBatchError(message);
-    }
-  };
+        });
+        triggerDownload(
+          createZipArchive(zipInputs, options.preserveFolderStructure),
+          `cleanshot_cleaned_${Date.now()}.zip`
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not create the download.';
+        setBatchError(message);
+      }
+    },
+    [handleDownloadSingle, options.preserveFolderStructure]
+  );
 
   const handleProcessAll = useCallback(async () => {
     if (isProcessing || files.length === 0) return;
@@ -246,37 +210,9 @@ export default function HomePage() {
           file.selected !== false && file.status === 'completed' && file.result
       );
       if (completed.length > 0) {
-        await downloadReadyItems(completed);
+        downloadReadyItems(completed);
       }
       return;
-    }
-
-    if (isServerMode) {
-      const serverOversized = queuedItems.find(
-        (item) => item.file.size > 20 * 1024 * 1024
-      );
-      const serverBatchBytes = queuedItems.reduce(
-        (total, item) => total + item.file.size,
-        0
-      );
-      if (queuedItems.length > 40) {
-        setBatchError(
-          'Server-Side mode supports up to 40 files per batch. Use Client-Side mode for larger batches.'
-        );
-        return;
-      }
-      if (serverOversized) {
-        setBatchError(
-          `“${serverOversized.file.name}” exceeds the 20 MB per-file limit for Server-Side mode.`
-        );
-        return;
-      }
-      if (serverBatchBytes > 50 * 1024 * 1024) {
-        setBatchError(
-          'Server-Side mode is limited to 50 MB total per batch.'
-        );
-        return;
-      }
     }
 
     setBatchError('');
@@ -285,181 +221,79 @@ export default function HomePage() {
     const newlyCompleted: FileItemState[] = [];
 
     try {
-      if (!isServerMode) {
-        const tasks = queuedItems.map((item) => ({
-          id: item.id,
-          file: item.file,
-          relativePath: item.relativePath,
-          options,
-          metadata: item.metadata,
-        }));
-        await processBatchWithConcurrency(
-          tasks,
-          Math.min(
-            3,
-            Math.max(
-              1,
-              typeof navigator !== 'undefined'
-                ? (navigator.hardwareConcurrency || 2) - 1
-                : 2
+      const tasks = queuedItems.map((item) => ({
+        id: item.id,
+        file: item.file,
+        relativePath: item.relativePath,
+        options,
+        metadata: item.metadata,
+      }));
+      await processBatchWithConcurrency(
+        tasks,
+        Math.min(
+          3,
+          Math.max(
+            1,
+            typeof navigator !== 'undefined'
+              ? (navigator.hardwareConcurrency || 2) - 1
+              : 2
+          )
+        ),
+        (id) =>
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.id === id
+                ? { ...file, status: 'processing', progress: 5, error: undefined }
+                : file
             )
           ),
-          (id) =>
-            setFiles((prev) =>
-              prev.map((file) =>
-                file.id === id
-                  ? { ...file, status: 'processing', progress: 5, error: undefined }
-                  : file
-              )
-            ),
-          (output) => {
-            const target = queuedItems.find((f) => f.id === output.id);
-            if (target && !output.result.error) {
-              newlyCompleted.push({
-                ...target,
-                status: 'completed',
-                progress: 100,
-                result: output.result,
-                cleanedMetadata: output.cleanedMetadata,
-              });
-            }
-            setFiles((prev) =>
-              prev.map((file) =>
-                file.id === output.id
-                  ? {
-                      ...file,
-                      status: output.result.error ? 'error' : 'completed',
-                      progress: output.result.error ? 0 : 100,
-                      result: output.result.error ? undefined : output.result,
-                      metadata: output.metadata || file.metadata,
-                      cleanedMetadata: output.result.error
-                        ? undefined
-                        : output.cleanedMetadata,
-                      serverJobId: undefined,
-                      serverFileId: undefined,
-                      error: output.result.error,
-                    }
-                  : file
-              )
-            );
-          },
-          (id, error) =>
-            setFiles((prev) =>
-              prev.map((file) =>
-                file.id === id
-                  ? { ...file, status: 'error', error, progress: 0 }
-                  : file
-              )
-            ),
-          (id, progress) =>
-            setFiles((prev) =>
-              prev.map((file) =>
-                file.id === id ? { ...file, progress } : file
-              )
-            )
-        );
-      } else {
-        setFiles((prev) =>
-          prev.map((file) =>
-            queuedIds.has(file.id)
-              ? { ...file, status: 'processing', progress: 0, error: undefined }
-              : file
-          )
-        );
-        const formData = new FormData();
-        queuedItems.forEach((item) =>
-          formData.append('files', item.file, item.file.name)
-        );
-        formData.append(
-          'clientIds',
-          JSON.stringify(queuedItems.map((item) => item.id))
-        );
-        formData.append('options', JSON.stringify(options));
-
-        const response = await fetch('/api/jobs', {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok)
-          throw new Error(
-            data.error || `Server batch failed (${response.status}).`
-          );
-        if (typeof data.jobId !== 'string' || !Array.isArray(data.files)) {
-          throw new Error('The server returned an invalid processing response.');
-        }
-
-        const serverFiles = new Map<
-          string,
-          {
-            fileId?: string;
-            filename: string;
-            cleanedFilename: string;
-            format: StripResult['format'];
-            originalSize: number;
-            cleanedSize: number;
-            bytesSaved: number;
-            removedFieldsCount: number;
-            pixelIdentical: boolean;
-            mimeType: string;
-            error?: string;
-            cleanedMetadata?: FileItemState['cleanedMetadata'];
+        (output) => {
+          const target = queuedItems.find((f) => f.id === output.id);
+          if (target && !output.result.error) {
+            newlyCompleted.push({
+              ...target,
+              status: 'completed',
+              progress: 100,
+              result: output.result,
+              cleanedMetadata: output.cleanedMetadata,
+            });
           }
-        >();
-        for (const serverFile of data.files) {
-          if (typeof serverFile.clientId === 'string')
-            serverFiles.set(serverFile.clientId, serverFile);
-        }
-
-        setFiles((prev) =>
-          prev.map((file) => {
-            if (!queuedIds.has(file.id)) return file;
-            const match = serverFiles.get(file.id);
-            if (!match)
-              return {
-                ...file,
-                status: 'error',
-                progress: 0,
-                error: 'The server did not return a result for this file.',
-              };
-            const result: StripResult = {
-              filename: match.filename,
-              cleanedFilename: match.cleanedFilename,
-              format: match.format,
-              originalSize: match.originalSize,
-              cleanedSize: match.cleanedSize,
-              bytesSaved: match.bytesSaved,
-              percentSaved:
-                match.originalSize > 0
-                  ? Number(
-                      ((match.bytesSaved / match.originalSize) * 100).toFixed(2)
-                    )
-                  : 0,
-              removedFieldsCount: match.removedFieldsCount,
-              removedSegments: [],
-              pixelIdentical: match.pixelIdentical,
-              cleanedBuffer: new Uint8Array(),
-              mimeType: match.mimeType || 'application/octet-stream',
-              error: match.error,
-            };
-            const updated: FileItemState = {
-              ...file,
-              status: match.error ? 'error' : 'completed',
-              progress: match.error ? 0 : 100,
-              error: match.error,
-              result: match.error ? undefined : result,
-              serverJobId: match.error ? undefined : data.jobId,
-              serverFileId: match.error ? undefined : match.fileId,
-              cleanedMetadata: match.error ? undefined : match.cleanedMetadata,
-            };
-            if (!match.error) newlyCompleted.push(updated);
-            return updated;
-          })
-        );
-      }
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.id === output.id
+                ? {
+                    ...file,
+                    status: output.result.error ? 'error' : 'completed',
+                    progress: output.result.error ? 0 : 100,
+                    result: output.result.error ? undefined : output.result,
+                    metadata: output.metadata || file.metadata,
+                    cleanedMetadata: output.result.error
+                      ? undefined
+                      : output.cleanedMetadata,
+                    error: output.result.error,
+                  }
+                : file
+            )
+          );
+        },
+        (id, error) =>
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.id === id
+                ? { ...file, status: 'error', error, progress: 0 }
+                : file
+            )
+          ),
+        (id, progress) =>
+          setFiles((prev) =>
+            prev.map((file) =>
+              file.id === id ? { ...file, progress } : file
+            )
+          )
+      );
 
       if (newlyCompleted.length > 0) {
-        await downloadReadyItems(newlyCompleted);
+        downloadReadyItems(newlyCompleted);
       }
     } catch (error) {
       const message =
@@ -478,45 +312,17 @@ export default function HomePage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [files, options, isServerMode, isProcessing]);
-
-  const purgeServerJob = (jobId: string) => {
-    void fetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
-      method: 'DELETE',
-    }).catch(() => undefined);
-  };
+  }, [downloadReadyItems, files, options, isProcessing]);
 
   const handleRemoveFile = (id: string) => {
     const item = files.find((file) => file.id === id);
-    if (item) {
-      revokeThumbnail(item);
-      if (item.serverJobId) {
-        const otherFilesFromJob = files.some(
-          (file) => file.id !== id && file.serverJobId === item.serverJobId
-        );
-        if (!otherFilesFromJob) purgeServerJob(item.serverJobId);
-        else if (item.serverFileId) {
-          void fetch(
-            `/api/jobs/${encodeURIComponent(
-              item.serverJobId
-            )}/files/${encodeURIComponent(item.serverFileId)}`,
-            { method: 'DELETE' }
-          ).catch(() => undefined);
-        }
-      }
-    }
+    if (item) revokeThumbnail(item);
     setFiles((prev) => prev.filter((file) => file.id !== id));
     if (inspectItem?.id === id) setInspectItem(null);
   };
 
   const handleClearAll = () => {
     if (isProcessing) return;
-    const jobIds = new Set(
-      files
-        .map((file) => file.serverJobId)
-        .filter((id): id is string => Boolean(id))
-    );
-    jobIds.forEach(purgeServerJob);
     files.forEach(revokeThumbnail);
     setFiles([]);
     setBatchError('');
@@ -815,8 +621,6 @@ export default function HomePage() {
         onClose={() => setIsSettingsOpen(false)}
         options={options}
         onChangeOptions={setOptions}
-        isServerMode={isServerMode}
-        onToggleServerMode={setIsServerMode}
       />
 
       {isClearConfirmOpen && (
@@ -827,9 +631,11 @@ export default function HomePage() {
           }}
         >
           <div
+            ref={clearDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="clear-all-dialog-title"
+            tabIndex={-1}
             className="w-full max-w-md border border-[var(--border-subtle)] rounded-2xl bg-glass-card shadow-floating p-6 flex flex-col gap-4"
           >
             <div className="flex flex-col gap-1">

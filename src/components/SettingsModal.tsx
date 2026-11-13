@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { StripOptions } from '@/lib/engine/types';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 
@@ -10,8 +10,6 @@ interface SettingsModalProps {
   onClose: () => void;
   options: StripOptions;
   onChangeOptions: (opts: StripOptions) => void;
-  isServerMode: boolean;
-  onToggleServerMode: (val: boolean) => void;
 }
 
 function Toggle({
@@ -27,15 +25,17 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex w-11 h-6 rounded-full border border-[var(--border-subtle)] transition-colors shrink-0 ${
-        checked ? 'bg-foreground' : 'bg-background'
+      className={`relative inline-flex w-11 h-6 rounded-full border transition-colors shrink-0 ${
+        checked
+          ? 'bg-[#145BF5] border-[#145BF5]'
+          : 'bg-[var(--surface-elevated)] border-[var(--border-subtle)]'
       }`}
     >
       <span
-        className={`inline-block w-4 h-4 rounded-full mt-0.5 transition-transform ${
+        className={`inline-block w-4 h-4 rounded-full mt-0.5 transition-transform shadow-sm ${
           checked
-            ? 'translate-x-[20px] bg-background'
-            : 'translate-x-0.5 bg-foreground'
+            ? 'translate-x-[22px] bg-white'
+            : 'translate-x-0.5 bg-foreground/80'
         }`}
       />
     </button>
@@ -47,8 +47,6 @@ export function SettingsModal({
   onClose,
   options,
   onChangeOptions,
-  isServerMode,
-  onToggleServerMode,
 }: SettingsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogAccessibility(isOpen, onClose, dialogRef);
@@ -63,7 +61,7 @@ export function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -74,10 +72,10 @@ export function SettingsModal({
         aria-modal="true"
         aria-labelledby="settings-dialog-title"
         tabIndex={-1}
-        className="relative w-full max-w-lg border border-[var(--border-subtle)] rounded-xl bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
+        className="relative w-full max-w-lg border border-[var(--border-subtle)] rounded-2xl bg-[var(--surface-card)] shadow-[var(--shadow-floating)] text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-foreground">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)]">
           <div>
             <h3
               id="settings-dialog-title"
@@ -151,7 +149,7 @@ export function SettingsModal({
               maxLength={40}
               onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
               placeholder='e.g. "_clean" or leave blank'
-              className="w-full px-3 py-2 text-[13px] rounded-xl border border-[var(--border-subtle)] bg-background text-foreground placeholder:text-text-ter focus:outline-none"
+              className="w-full px-3.5 py-2.5 text-[13px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-foreground placeholder:text-text-ter focus:outline-none focus:border-[var(--accent)] transition-colors"
             />
             <p className="text-[12px] text-text-sec">
               <code className="font-mono text-foreground">photo.jpg</code> →{' '}
@@ -181,63 +179,14 @@ export function SettingsModal({
               />
             </label>
           </section>
-
-          {/* Processing Mode */}
-          <section className="space-y-2">
-            <h4 className="text-[12px] font-semibold text-text-sec">
-              Processing mode
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => onToggleServerMode(false)}
-                className={`p-3.5 rounded-xl border-2 text-left transition-colors ${
-                  !isServerMode
-                    ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
-                    : 'border-border-subtle bg-background hover:border-foreground'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-foreground">
-                    Client-Side
-                  </span>
-                  {!isServerMode && <Check className="w-4 h-4 text-foreground" />}
-                </div>
-                <p className="text-[11px] text-text-sec leading-relaxed">
-                  File bytes stay in your browser for processing.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onToggleServerMode(true)}
-                className={`p-3.5 rounded-xl border-2 text-left transition-colors ${
-                  isServerMode
-                    ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
-                    : 'border-border-subtle bg-background hover:border-foreground'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-foreground">
-                    Server-Side
-                  </span>
-                  {isServerMode && <Check className="w-4 h-4 text-foreground" />}
-                </div>
-                <p className="text-[11px] text-text-sec leading-relaxed">
-                  Uploads selected files (max 20 MB each, 40 files per batch)
-                  for server processing.
-                </p>
-              </button>
-            </div>
-          </section>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t-2 border-foreground flex justify-end">
+        <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-[13px] font-semibold rounded-xl bg-[#145BF5] text-white hover:opacity-90 transition-opacity"
+            className="px-5 py-2 text-[13px] font-semibold rounded-xl bg-[#145BF5] hover:bg-[#0F4AD4] text-white shadow-[var(--shadow-button)] transition-colors"
           >
             Done
           </button>

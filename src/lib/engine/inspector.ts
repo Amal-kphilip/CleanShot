@@ -303,7 +303,7 @@ function formatTagName(key: string): string {
     .trim();
 }
 
-function formatValue(key: string, val: any): string {
+function formatValue(key: string, val: unknown): string {
   if (val instanceof Date) {
     return val.toLocaleString();
   }

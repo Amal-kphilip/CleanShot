@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
@@ -10,7 +8,7 @@ export default function HowItWorksPage() {
     {
       num: '01',
       title: 'Drop your files.',
-      desc: 'The app reads them directly in your browser. File bytes are not uploaded or sent to a processing server in local mode.',
+      desc: 'The app reads them directly in your browser. File bytes are never uploaded or sent to a processing server.',
     },
     {
       num: '02',
@@ -31,7 +29,7 @@ export default function HowItWorksPage() {
     },
     {
       q: 'Are my files uploaded?',
-      a: 'No. By default, file bytes are read and cleaned in your browser and are not sent to a server. Server-Side mode only runs if you explicitly turn it on in Settings.',
+      a: 'No. All file bytes are read, cleaned, and packaged into ZIP downloads directly in your browser and are never sent to a server.',
     },
     {
       q: 'What types of metadata does CleanShot remove?',

@@ -1,11 +1,39 @@
 import path from 'node:path';
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
+      "worker-src 'self' blob:",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' blob: data:",
+      "media-src 'self' blob: data:",
+      "font-src 'self' data:",
+      "connect-src 'self' blob: data:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '100mb',
-    },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ];
   },
   webpack: (config, { isServer, webpack }) => {
     config.resolve.alias = {

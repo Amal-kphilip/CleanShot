@@ -150,18 +150,9 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
   const [jsonLoading, setJsonLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
   const currentFileRef = useRef<File | undefined>(file);
-  currentFileRef.current = file;
 
   useEffect(() => {
-    setStatus('idle');
-    setRawOutput('');
-    setJsonOutput('');
-    setMode('text');
-    setQuery('');
-    setError('');
-    setFileDetails(null);
-    setJsonLoading(false);
-    setFeedback('');
+    currentFileRef.current = file;
   }, [file]);
 
   const visibleOutput = mode === 'json' ? jsonOutput : rawOutput;

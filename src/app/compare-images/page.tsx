@@ -28,6 +28,42 @@ const MAX_CANVAS_DIMENSION = 1200;
 const CHANGED_PIXEL_THRESHOLD = 24;
 const CANVAS_BACKGROUND = '#111';
 
+function CompareFilePicker({
+  side,
+  item,
+  onSelect,
+}: {
+  side: 'left' | 'right';
+  item: Picked | null;
+  onSelect: (side: 'left' | 'right', file?: File) => void;
+}) {
+  return (
+    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-foreground bg-background p-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-foreground">
+        <Upload className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold text-foreground">
+          {side === 'left' ? 'Image A · Left' : 'Image B · Right'}
+        </span>
+        <span className="mt-1 block truncate text-[11px] text-text-sec">
+          {item ? item.file.name : 'Select an image · max 50 MB'}
+        </span>
+      </span>
+      <input
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        aria-label={side === 'left' ? 'Select image A' : 'Select image B'}
+        onChange={(event) => {
+          onSelect(side, event.target.files?.[0]);
+          event.currentTarget.value = '';
+        }}
+      />
+    </label>
+  );
+}
+
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -243,46 +279,22 @@ export default function CompareImagesPage() {
     setSplit(50);
   };
 
-  const FilePicker = ({
-    side,
-    item,
-  }: {
-    side: 'left' | 'right';
-    item: Picked | null;
-  }) => (
-    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-foreground bg-background p-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-foreground">
-        <Upload className="h-4 w-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs font-semibold text-foreground">
-          {side === 'left' ? 'Image A · Left' : 'Image B · Right'}
-        </span>
-        <span className="mt-1 block truncate text-[11px] text-text-sec">
-          {item ? item.file.name : 'Select an image · max 50 MB'}
-        </span>
-      </span>
-      <input
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        aria-label={side === 'left' ? 'Select image A' : 'Select image B'}
-        onChange={(event) => {
-          void select(side, event.target.files?.[0]);
-          event.currentTarget.value = '';
-        }}
-      />
-    </label>
-  );
-
   return (
     <ToolShell
       title="Compare images."
       description="Compare two local images side by side, reveal image A on the left and image B on the right, and generate a pixel-difference heatmap."
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <FilePicker side="left" item={left} />
-        <FilePicker side="right" item={right} />
+        <CompareFilePicker
+          side="left"
+          item={left}
+          onSelect={(side, file) => void select(side, file)}
+        />
+        <CompareFilePicker
+          side="right"
+          item={right}
+          onSelect={(side, file) => void select(side, file)}
+        />
       </div>
 
       {error && (

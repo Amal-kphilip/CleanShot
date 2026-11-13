@@ -1,16 +1,16 @@
 # CleanShot
 
-> A privacy-focused photo metadata inspector and remover. Processing is browser-side by default, with an explicitly selectable server mode.
+> A privacy-focused file metadata inspector, cleaner, and Gemini watermark remover. All processing runs locally in your browser.
 
 ## Features
 
 - **Metadata removal without re-encoding** for the supported JPEG, PNG, WebP, and GIF paths. SVG is sanitized as text markup, so its serialized bytes change and exact pixel equivalence is not claimed.
-- **Bounded browser worker pool** for supported image-processing tasks, with a safe main-thread fallback where module workers are unavailable.
+- **Bounded browser worker pool** for supported image-processing tasks, with a safe main-thread fallback for small files where module workers are unavailable.
 - **Metadata inspector** for reviewing common image metadata and GPS-related fields before and after cleaning.
-- **Color profile controls** to preserve supported color-profile chunks by default.
-- **Batch processing and ZIP download** with browser-side output in client mode and API-backed downloads in server mode.
+- **Color profile controls** to preserve supported color-profile chunks when opted in.
+- **Batch processing and ZIP download** generated entirely in the browser.
 - **Honest unsupported-format handling** for HEIC/HEIF, AVIF, TIFF/RAW, BMP, and JPEG XL. These are recognized where possible, but are not marked as cleaned.
-- **Privacy modes:** Client-Side mode processes images in the browser. Server-Side mode uploads selected images to the application server for processing. Server-side job data is held in process memory and is subject to the host's lifecycle; this is not a guarantee of secure erasure or persistence across instances.
+- **Client-side only:** Files are read and processed locally in your browser. No files are uploaded to a server.
 
 ## Quick Start
 

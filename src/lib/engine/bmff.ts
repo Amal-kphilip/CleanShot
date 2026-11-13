@@ -100,7 +100,7 @@ function sanitizeMetaBox(metaBox: Uint8Array, removedSegments: string[]): Uint8A
     if (match) {
       // Found EXIF header inside meta box - clear out EXIF block
       const start = i;
-      let end = Math.min(sanitized.length, start + 2048);
+      const end = Math.min(sanitized.length, start + 2048);
       // Blank out non-structural EXIF bytes
       for (let k = start; k < end; k++) {
         // Stop at box boundaries if any

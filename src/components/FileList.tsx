@@ -27,8 +27,6 @@ export interface FileItemState {
   cleanedMetadata?: ParsedMetadata;
   error?: string;
   selected?: boolean;
-  serverJobId?: string;
-  serverFileId?: string;
 }
 
 interface FileListProps {

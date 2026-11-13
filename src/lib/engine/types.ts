@@ -69,7 +69,7 @@ export interface ParsedMetadata {
     other: number;
   };
   hasHighRiskFields: boolean;
-  rawSummary: Record<string, any>;
+  rawSummary: Record<string, unknown>;
 }
 
 export interface StripOptions {
