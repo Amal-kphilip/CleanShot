@@ -166,8 +166,8 @@ export default function AnalyzeImagePage() {
       description="Measure technical image properties and inspect readable metadata locally in your browser."
     >
       <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-        <section className="rounded-[4px] border-2 border-foreground bg-background p-5 sm:p-6">
-          <label className="flex cursor-pointer flex-col items-center rounded-[4px] border-2 border-dashed border-foreground px-4 py-8 text-center transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-background p-5 sm:p-6">
+          <label className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-foreground px-4 py-8 text-center transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
             {previewUrl ? (
               <img
                 src={previewUrl}
@@ -198,13 +198,13 @@ export default function AnalyzeImagePage() {
           {error && (
             <p
               role="alert"
-              className="mt-4 rounded-[4px] border-2 border-red-500 bg-red-500/10 p-3 text-xs text-foreground"
+              className="mt-4 rounded-xl border-2 border-red-500 bg-red-500/10 p-3 text-xs text-foreground"
             >
               {error}
             </p>
           )}
           {report?.gpsPresent && (
-            <div className="mt-4 flex gap-2 rounded-[4px] border-2 border-amber-500 bg-amber-500/10 p-3 text-xs leading-5 text-foreground">
+            <div className="mt-4 flex gap-2 rounded-xl border-2 border-amber-500 bg-amber-500/10 p-3 text-xs leading-5 text-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
               GPS coordinates were found in readable metadata. Review before
               sharing.
@@ -214,7 +214,7 @@ export default function AnalyzeImagePage() {
             type="button"
             onClick={downloadJson}
             disabled={!report}
-            className="mt-4 w-full px-4 py-2.5 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold disabled:opacity-40"
+            className="mt-4 w-full px-4 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold disabled:opacity-40"
           >
             Export analysis JSON
           </button>
@@ -233,7 +233,7 @@ export default function AnalyzeImagePage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-[4px] border-2 border-foreground bg-background p-4"
+                  className="rounded-xl border border-[var(--border-subtle)] bg-background p-4"
                 >
                   <p className="text-[11px] font-medium text-text-sec">{label}</p>
                   <p className="mt-1.5 break-words text-[18px] font-semibold tabular-nums text-foreground">
@@ -242,7 +242,7 @@ export default function AnalyzeImagePage() {
                 </div>
               ))}
             </div>
-            <div className="rounded-[4px] border-2 border-foreground bg-background p-5">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-background p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Ruler className="h-4 w-4 text-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">
@@ -276,7 +276,7 @@ export default function AnalyzeImagePage() {
                 </p>
               </div>
             </div>
-            <div className="rounded-[4px] border-2 border-foreground bg-background p-5">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-background p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Activity className="h-4 w-4 text-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">
@@ -308,7 +308,7 @@ export default function AnalyzeImagePage() {
             </div>
           </section>
         ) : (
-          <section className="flex min-h-64 items-center justify-center rounded-[4px] border-2 border-dashed border-foreground bg-background p-8 text-center">
+          <section className="flex min-h-64 items-center justify-center rounded-xl border-2 border-dashed border-foreground bg-background p-8 text-center">
             <div>
               <ShieldAlert className="mx-auto h-6 w-6 text-text-sec" />
               <p className="mt-3 text-sm font-semibold text-foreground">

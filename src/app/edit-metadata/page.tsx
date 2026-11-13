@@ -52,7 +52,7 @@ function TextField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full min-w-0 rounded-[4px] border-2 border-foreground bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-text-ter focus:outline-none"
+        className="w-full min-w-0 rounded-xl border border-[var(--border-subtle)] bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-text-ter focus:outline-none"
       />
     </label>
   );
@@ -153,14 +153,14 @@ export default function EditMetadataPage() {
       description="Add or replace common XMP descriptive fields in JPEG images while keeping the compressed image stream unchanged."
     >
       <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-        <section className="rounded-[4px] border-2 border-foreground bg-background p-5 sm:p-6">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-background p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2.5">
             <FileImage className="h-5 w-5 text-foreground" />
             <h2 className="text-sm font-semibold text-foreground">
               1. Select a JPEG
             </h2>
           </div>
-          <label className="flex cursor-pointer flex-col items-center rounded-[4px] border-2 border-dashed border-foreground px-4 py-8 text-center transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
+          <label className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-foreground px-4 py-8 text-center transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
             <FilePenLine className="mb-3 h-6 w-6 text-foreground" />
             <span className="text-sm font-semibold text-foreground">
               Choose a JPEG file
@@ -176,7 +176,7 @@ export default function EditMetadataPage() {
             />
           </label>
           {file && (
-            <div className="mt-4 break-all rounded-[4px] border border-border-subtle p-3 text-xs">
+            <div className="mt-4 break-all rounded-xl border border-border-subtle p-3 text-xs">
               <p className="font-semibold text-foreground">{file.name}</p>
               <p className="mt-1 text-text-sec">
                 {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -186,7 +186,7 @@ export default function EditMetadataPage() {
           {error && (
             <p
               role="alert"
-              className="mt-4 flex gap-2 rounded-[4px] border-2 border-red-500 bg-red-500/10 p-3 text-xs leading-5 text-foreground"
+              className="mt-4 flex gap-2 rounded-xl border-2 border-red-500 bg-red-500/10 p-3 text-xs leading-5 text-foreground"
             >
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
               {error}
@@ -195,7 +195,7 @@ export default function EditMetadataPage() {
           {note && (
             <p
               role="status"
-              className="mt-4 flex gap-2 rounded-[4px] border-2 border-foreground p-3 text-xs leading-5 text-foreground"
+              className="mt-4 flex gap-2 rounded-xl border border-[var(--border-subtle)] p-3 text-xs leading-5 text-foreground"
             >
               <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
               {note}
@@ -203,7 +203,7 @@ export default function EditMetadataPage() {
           )}
         </section>
 
-        <section className="rounded-[4px] border-2 border-foreground bg-background p-5 sm:p-6">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-background p-5 sm:p-6">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-foreground">
               2. Descriptive XMP fields
@@ -254,7 +254,7 @@ export default function EditMetadataPage() {
                 value={fields.description}
                 onChange={(event) => update('description', event.target.value)}
                 placeholder="A short description of the image"
-                className="w-full resize-y rounded-[4px] border-2 border-foreground bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-text-ter focus:outline-none"
+                className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-text-ter focus:outline-none"
               />
             </label>
           </div>
@@ -263,7 +263,7 @@ export default function EditMetadataPage() {
               type="button"
               disabled={!file}
               onClick={() => void process()}
-              className="px-5 py-2.5 rounded-[4px] bg-foreground text-background hover:opacity-90 text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span>Update XMP</span>
               <FilePenLine className="h-4 w-4" />
@@ -272,7 +272,7 @@ export default function EditMetadataPage() {
               type="button"
               disabled={!output}
               onClick={download}
-              className="px-5 py-2.5 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+              className="px-5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[13px] font-semibold inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download className="h-4 w-4" />
               <span>Download JPEG</span>

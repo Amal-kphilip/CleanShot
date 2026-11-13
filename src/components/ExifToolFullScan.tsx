@@ -241,7 +241,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-      <div className="rounded-[4px] border-2 border-foreground p-3.5 flex items-start gap-3">
+      <div className="rounded-xl border border-[var(--border-subtle)] p-3.5 flex items-start gap-3">
         <ShieldCheck className="w-4 h-4 mt-0.5 text-foreground shrink-0" />
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-foreground">
@@ -269,7 +269,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
           type="button"
           onClick={scan}
           disabled={status === 'running' || jsonLoading}
-          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-[4px] bg-foreground text-background hover:opacity-90 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold transition-opacity"
+          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white hover:opacity-90 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold transition-opacity"
         >
           {status === 'running' ? (
             <LoaderCircle className="w-4 h-4 animate-spin" />
@@ -285,7 +285,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
       </div>
 
       {status === 'running' && (
-        <div className="border-2 border-foreground rounded-[4px] p-4 text-[12px] text-text-sec flex items-center gap-2">
+        <div className="border border-[var(--border-subtle)] rounded-xl p-4 text-[12px] text-text-sec flex items-center gap-2">
           <LoaderCircle className="w-4 h-4 animate-spin shrink-0" /> Loading
           ExifTool and reading all available tags…
         </div>
@@ -294,7 +294,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
       {error && (
         <div
           role="alert"
-          className="rounded-[4px] border-2 border-red-500 bg-red-500/10 p-3.5 flex items-start gap-2.5 text-[12px] text-foreground"
+          className="rounded-xl border-2 border-red-500 bg-red-500/10 p-3.5 flex items-start gap-2.5 text-[12px] text-foreground"
         >
           <AlertTriangle className="w-4 h-4 mt-0.5 text-red-500 shrink-0" />
           <div className="min-w-0">
@@ -306,7 +306,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
 
       {status === 'ready' && fileDetails && (
         <>
-          <section className="border-2 border-foreground rounded-[4px] overflow-hidden">
+          <section className="border border-[var(--border-subtle)] rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b-2 border-foreground flex items-center gap-2">
               <FileText className="w-4 h-4 text-text-sec" />
               <h5 className="text-[12px] font-semibold text-foreground">
@@ -344,9 +344,9 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
               <button
                 type="button"
                 onClick={() => setMode('text')}
-                className={`px-3 py-1.5 rounded-[4px] text-[11px] font-medium border-2 ${
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-medium border-2 ${
                   mode === 'text'
-                    ? 'border-foreground bg-foreground text-background font-semibold'
+                    ? 'border-foreground bg-emerald-600 text-white font-semibold'
                     : 'border-foreground text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
               >
@@ -356,7 +356,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                 type="button"
                 onClick={generateJson}
                 disabled={jsonLoading}
-                className="px-3 py-1.5 rounded-[4px] text-[11px] font-medium border-2 border-foreground text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 inline-flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl text-[11px] font-medium border border-[var(--border-subtle)] text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 inline-flex items-center gap-1.5"
               >
                 {jsonLoading ? (
                   <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
@@ -369,9 +369,9 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                 <button
                   type="button"
                   onClick={() => setMode('json')}
-                  className={`px-3 py-1.5 rounded-[4px] text-[11px] font-medium border-2 ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-medium border-2 ${
                     mode === 'json'
-                      ? 'border-foreground bg-foreground text-background font-semibold'
+                      ? 'border-foreground bg-emerald-600 text-white font-semibold'
                       : 'border-foreground text-foreground hover:bg-black/5 dark:hover:bg-white/10'
                   }`}
                 >
@@ -383,7 +383,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
               <button
                 type="button"
                 onClick={copyOutput}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border-2 border-foreground text-[11px] font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-subtle)] text-[11px] font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/10"
               >
                 {feedback === 'Copied to clipboard' ? (
                   <Check className="w-3.5 h-3.5" />
@@ -405,7 +405,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                       : 'text/plain;charset=utf-8'
                   )
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] bg-foreground text-background text-[11px] font-semibold hover:opacity-90"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-semibold hover:opacity-90"
               >
                 <Download className="w-3.5 h-3.5" /> Download{' '}
                 {mode === 'json' ? 'JSON' : 'TXT'}
@@ -424,7 +424,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
                   ? 'Filter JSON lines…'
                   : 'Search every tag or value…'
               }
-              className="w-full rounded-[4px] border-2 border-foreground bg-background pl-9 pr-4 py-2 text-[12px] text-foreground placeholder:text-text-ter outline-none"
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-background pl-9 pr-4 py-2 text-[12px] text-foreground placeholder:text-text-ter outline-none"
             />
           </div>
           {feedback && (
@@ -432,7 +432,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
               {feedback}
             </p>
           )}
-          <div className="border-2 border-foreground rounded-[4px] overflow-hidden">
+          <div className="border border-[var(--border-subtle)] rounded-xl overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b-2 border-foreground">
               <span className="text-[11px] font-semibold text-foreground">
                 {mode === 'json' ? 'Full JSON metadata' : 'Full ExifTool output'}
@@ -454,7 +454,7 @@ export function ExifToolFullScan({ file }: ExifToolFullScanProps) {
       )}
 
       {status === 'idle' && (
-        <div className="rounded-[4px] border-2 border-dashed border-foreground p-6 text-center">
+        <div className="rounded-xl border-2 border-dashed border-foreground p-6 text-center">
           <FileJson className="w-6 h-6 mx-auto text-text-sec mb-2" />
           <p className="text-[13px] font-medium text-foreground">
             Inspect the complete tag output

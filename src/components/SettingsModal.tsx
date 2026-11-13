@@ -27,7 +27,7 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex w-11 h-6 rounded-full border-2 border-foreground transition-colors shrink-0 ${
+      className={`relative inline-flex w-11 h-6 rounded-full border border-[var(--border-subtle)] transition-colors shrink-0 ${
         checked ? 'bg-foreground' : 'bg-background'
       }`}
     >
@@ -74,7 +74,7 @@ export function SettingsModal({
         aria-modal="true"
         aria-labelledby="settings-dialog-title"
         tabIndex={-1}
-        className="relative w-full max-w-lg border-2 border-foreground rounded-[4px] bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
+        className="relative w-full max-w-lg border border-[var(--border-subtle)] rounded-xl bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b-2 border-foreground">
@@ -92,7 +92,7 @@ export function SettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-[4px] text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-xl text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             aria-label="Close settings"
           >
             <X className="w-4 h-4" />
@@ -151,7 +151,7 @@ export function SettingsModal({
               maxLength={40}
               onChange={(e) => updateOpt('filenameSuffix', e.target.value)}
               placeholder='e.g. "_clean" or leave blank'
-              className="w-full px-3 py-2 text-[13px] rounded-[4px] border-2 border-foreground bg-background text-foreground placeholder:text-text-ter focus:outline-none"
+              className="w-full px-3 py-2 text-[13px] rounded-xl border border-[var(--border-subtle)] bg-background text-foreground placeholder:text-text-ter focus:outline-none"
             />
             <p className="text-[12px] text-text-sec">
               <code className="font-mono text-foreground">photo.jpg</code> →{' '}
@@ -191,7 +191,7 @@ export function SettingsModal({
               <button
                 type="button"
                 onClick={() => onToggleServerMode(false)}
-                className={`p-3.5 rounded-[4px] border-2 text-left transition-colors ${
+                className={`p-3.5 rounded-xl border-2 text-left transition-colors ${
                   !isServerMode
                     ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
                     : 'border-border-subtle bg-background hover:border-foreground'
@@ -211,7 +211,7 @@ export function SettingsModal({
               <button
                 type="button"
                 onClick={() => onToggleServerMode(true)}
-                className={`p-3.5 rounded-[4px] border-2 text-left transition-colors ${
+                className={`p-3.5 rounded-xl border-2 text-left transition-colors ${
                   isServerMode
                     ? 'border-foreground bg-black/[0.04] dark:bg-white/[0.08]'
                     : 'border-border-subtle bg-background hover:border-foreground'
@@ -237,7 +237,7 @@ export function SettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-[13px] font-semibold rounded-[4px] bg-foreground text-background hover:opacity-90 transition-opacity"
+            className="px-5 py-2 text-[13px] font-semibold rounded-xl bg-emerald-600 text-white hover:opacity-90 transition-opacity"
           >
             Done
           </button>

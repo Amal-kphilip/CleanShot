@@ -14,7 +14,7 @@ import {
   inspectFileInWorker,
 } from '@/lib/worker/workerRunner';
 import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
-import { Loader2, Copy, Check, Bookmark, Download } from 'lucide-react';
+import { Loader2, Copy, Check, Bookmark, Download, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 
 const MAX_CLIENT_FILES = 150;
 const MAX_CLIENT_FILE_BYTES = 50 * 1024 * 1024;
@@ -551,19 +551,33 @@ export default function HomePage() {
     <div className="flex flex-col flex-1 w-full">
       <Header onOpenSettings={() => setIsSettingsOpen(true)} />
 
-      <main className="flex-1 w-full flex flex-col gap-8 sm:gap-10 py-4 sm:py-6">
+      <main className="flex-1 w-full flex flex-col gap-7 sm:gap-8 py-2 sm:py-4">
         {/* Hero */}
-        <section>
-          <h1 className="text-[20px] sm:text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-foreground">
-            This app removes hidden metadata directly in your browser, so your
-            files stay on your device and you can practice good digital hygiene.
+        <section className="flex flex-col items-center text-center space-y-3 pt-2 pb-1">
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            100% Local Processing · Zero Uploads
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold leading-tight tracking-tight text-foreground max-w-3xl">
+            Lossless Metadata Remover
           </h1>
+          <p className="text-[14px] sm:text-[15px] text-text-sec leading-relaxed max-w-2xl">
+            Strip hidden EXIF, GPS, camera, and document metadata directly in your browser so your files stay private on your device.
+          </p>
+          <Link
+            href="/gemini-watermark-remover"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-glass-card px-4 py-1.5 text-[12px] font-semibold text-foreground hover:border-emerald-500/50 shadow-sm transition-all"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Need to remove Gemini AI image or video watermarks?</span>
+            <ArrowRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          </Link>
         </section>
 
         {batchError && (
           <div
             role="alert"
-            className="flex items-start justify-between gap-3 p-3.5 rounded-[4px] border-2 border-red-500 bg-red-500/10 text-[13px] text-foreground"
+            className="flex items-start justify-between gap-3 p-4 rounded-xl border border-red-500/40 bg-red-500/10 text-[13px] text-foreground"
           >
             <span>{batchError}</span>
             <button
@@ -596,7 +610,7 @@ export default function HomePage() {
               type="button"
               disabled={files.length <= 0 || isProcessing}
               onClick={() => setIsClearConfirmOpen(true)}
-              className="px-4 py-2.5 text-[13px] font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+              className="px-4 py-2.5 rounded-lg border border-[var(--border-subtle)] bg-glass-card text-[13px] font-medium text-text-sec hover:text-foreground hover:bg-glass-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Clear all
             </button>
@@ -606,7 +620,7 @@ export default function HomePage() {
                 type="button"
                 disabled={isProcessing}
                 onClick={() => downloadReadyItems(completedFiles)}
-                className="px-5 py-2.5 rounded-[4px] bg-foreground text-background hover:opacity-90 text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-opacity disabled:opacity-40"
+                className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40"
               >
                 <Download className="w-4 h-4" />
                 <span>
@@ -620,7 +634,7 @@ export default function HomePage() {
                 type="button"
                 disabled={files.length <= 0 || isProcessing}
                 onClick={handleProcessAll}
-                className="px-5 py-2.5 rounded-[4px] bg-foreground text-background hover:opacity-90 text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>Remove metadata</span>
@@ -629,17 +643,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="h-[3px] w-full bg-foreground" />
-
         {/* Share & Bookmark section */}
-        <div className="w-full flex flex-col gap-5 text-[14px]">
+        <div className="w-full rounded-xl border border-[var(--border-subtle)] bg-glass-card p-5 sm:p-6 shadow-sm flex flex-col gap-4 text-[14px]">
           {/* Social sharing */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-            <span className="w-44 lg:w-52 font-medium text-[13px] sm:text-[14px]">
+            <span className="w-44 lg:w-52 font-semibold text-[13px] text-text-sec">
               Sharing is caring
             </span>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -650,7 +661,7 @@ export default function HomePage() {
                   )
                 }
                 aria-label="Share on Facebook"
-                className="h-10 px-4 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
+                className="h-9 px-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] hover:border-emerald-500/40 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <span>Facebook</span>
               </button>
@@ -664,7 +675,7 @@ export default function HomePage() {
                   )
                 }
                 aria-label="Share on Twitter"
-                className="h-10 px-4 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
+                className="h-9 px-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] hover:border-emerald-500/40 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <span>Twitter</span>
               </button>
@@ -678,7 +689,7 @@ export default function HomePage() {
                   )
                 }
                 aria-label="Share on Reddit"
-                className="h-10 px-4 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
+                className="h-9 px-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] hover:border-emerald-500/40 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <span>Reddit</span>
               </button>
@@ -692,7 +703,7 @@ export default function HomePage() {
                   )
                 }
                 aria-label="Share on LinkedIn"
-                className="h-10 px-4 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
+                className="h-9 px-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] hover:border-emerald-500/40 text-foreground text-[12px] font-medium inline-flex items-center justify-center gap-2 transition-colors"
               >
                 <span>LinkedIn</span>
               </button>
@@ -701,34 +712,34 @@ export default function HomePage() {
 
           {/* Link to this tool */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-            <span className="w-44 lg:w-52 font-medium text-[13px] sm:text-[14px]">
+            <span className="w-44 lg:w-52 font-semibold text-[13px] text-text-sec">
               Link to this tool
             </span>
             <button
               type="button"
               onClick={handleCopyLink}
-              className="group sm:w-1/2 sm:max-w-sm flex items-stretch rounded-[4px] border-2 border-foreground overflow-hidden bg-background text-left cursor-pointer"
+              className="group sm:w-1/2 sm:max-w-sm flex items-stretch rounded-lg border border-[var(--border-subtle)] overflow-hidden bg-[var(--surface-elevated)] text-left cursor-pointer hover:border-emerald-500/40 transition-colors"
               aria-label="Copy link to this tool"
             >
-              <span className="h-10 px-3 flex-1 inline-flex items-center text-[12px] font-medium text-foreground truncate">
+              <span className="h-9 px-3 flex-1 inline-flex items-center text-[12px] font-medium text-foreground truncate">
                 {shareUrl}
               </span>
-              <span className="h-10 px-4 inline-flex items-center justify-center border-l-2 border-foreground bg-background group-hover:bg-black/5 dark:group-hover:bg-white/10 transition-colors text-foreground">
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              <span className="h-9 px-3.5 inline-flex items-center justify-center border-l border-[var(--border-subtle)] bg-glass-card group-hover:bg-glass-hover transition-colors text-foreground">
+                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
               </span>
             </button>
           </div>
 
           {/* Bookmark */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-            <span className="w-44 lg:w-52 font-medium text-[13px] sm:text-[14px]">
+            <span className="w-44 lg:w-52 font-semibold text-[13px] text-text-sec">
               Come back!
             </span>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setBookmarkNote(true)}
-                className="h-10 px-4 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-medium inline-flex items-center gap-2 transition-colors"
+                className="h-9 px-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] hover:border-emerald-500/40 text-foreground text-[12px] font-medium inline-flex items-center gap-2 transition-colors"
               >
                 <Bookmark className="w-4 h-4" />
                 <span>Bookmark page</span>
@@ -744,37 +755,43 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-8 sm:py-12 mt-auto">
-        <div className="w-full flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end text-[12px] font-medium">
-          <p className="text-text-sec">Built for everyday digital hygiene.</p>
+      <footer className="w-full py-6 sm:py-8 mt-10 border-t border-[var(--border-subtle)]">
+        <div className="w-full flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center text-[12px] font-medium text-text-sec">
+          <p>CleanShot — Built for everyday digital hygiene.</p>
           <div className="flex items-center gap-5 flex-wrap">
             <Link
+              href="/gemini-watermark-remover"
+              className="hover:text-foreground transition-colors"
+            >
+              Watermark Remover
+            </Link>
+            <Link
               href="/how-it-works"
-              className="underline underline-offset-4 hover:text-foreground text-text-sec"
+              className="hover:text-foreground transition-colors"
             >
               How it works
             </Link>
             <Link
               href="/inspector"
-              className="underline underline-offset-4 hover:text-foreground text-text-sec"
+              className="hover:text-foreground transition-colors"
             >
               Inspector
             </Link>
             <Link
               href="/formats"
-              className="underline underline-offset-4 hover:text-foreground text-text-sec"
+              className="hover:text-foreground transition-colors"
             >
               Formats
             </Link>
             <Link
               href="/privacy"
-              className="underline underline-offset-4 hover:text-foreground text-text-sec"
+              className="hover:text-foreground transition-colors"
             >
               Privacy
             </Link>
             <Link
               href="/faq"
-              className="underline underline-offset-4 hover:text-foreground text-text-sec"
+              className="hover:text-foreground transition-colors"
             >
               FAQ
             </Link>
@@ -802,12 +819,12 @@ export default function HomePage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="clear-all-dialog-title"
-            className="w-full max-w-md border-2 border-foreground rounded-[4px] bg-background p-6 flex flex-col gap-4"
+            className="w-full max-w-md border border-[var(--border-subtle)] rounded-2xl bg-glass-card shadow-floating p-6 flex flex-col gap-4"
           >
             <div className="flex flex-col gap-1">
               <h3
                 id="clear-all-dialog-title"
-                className="text-[15px] font-semibold text-foreground leading-none"
+                className="text-[16px] font-semibold text-foreground leading-none"
               >
                 Clear all files?
               </h3>
@@ -820,7 +837,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setIsClearConfirmOpen(false)}
-                className="px-4 py-2 text-[12px] font-semibold rounded-[4px] border-2 border-foreground bg-background text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                className="px-4 py-2 text-[12px] font-semibold rounded-lg border border-[var(--border-subtle)] bg-glass-card text-foreground hover:bg-glass-hover transition-colors"
               >
                 Cancel
               </button>
@@ -830,7 +847,7 @@ export default function HomePage() {
                   handleClearAll();
                   setIsClearConfirmOpen(false);
                 }}
-                className="px-4 py-2 text-[12px] font-semibold rounded-[4px] border-2 border-foreground bg-red-600 hover:bg-red-700 text-white transition-colors"
+                className="px-4 py-2 text-[12px] font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
               >
                 Clear all
               </button>

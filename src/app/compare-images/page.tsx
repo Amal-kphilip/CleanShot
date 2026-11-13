@@ -250,8 +250,8 @@ export default function CompareImagesPage() {
     side: 'left' | 'right';
     item: Picked | null;
   }) => (
-    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[4px] border-2 border-dashed border-foreground bg-background p-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] border-2 border-foreground text-foreground">
+    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-foreground bg-background p-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-foreground">
         <Upload className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
@@ -288,7 +288,7 @@ export default function CompareImagesPage() {
       {error && (
         <p
           role="alert"
-          className="mt-4 rounded-[4px] border-2 border-red-500 bg-red-500/10 p-3 text-xs text-foreground"
+          className="mt-4 rounded-xl border-2 border-red-500 bg-red-500/10 p-3 text-xs text-foreground"
         >
           {error}
         </p>
@@ -296,7 +296,7 @@ export default function CompareImagesPage() {
 
       {left && right ? (
         <>
-          <div className="mt-5 rounded-[4px] border-2 border-foreground bg-background p-4 sm:p-5">
+          <div className="mt-5 rounded-xl border border-[var(--border-subtle)] bg-background p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold text-foreground">
                 Overlay comparison
@@ -306,7 +306,7 @@ export default function CompareImagesPage() {
               </p>
             </div>
 
-            <div className="relative mx-auto aspect-[4/3] max-h-[620px] overflow-hidden rounded-[4px] border-2 border-foreground bg-black sm:aspect-video">
+            <div className="relative mx-auto aspect-[4/3] max-h-[620px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-black sm:aspect-video">
               <img
                 src={right.url}
                 alt={`Image B on right: ${right.file.name}`}
@@ -325,10 +325,10 @@ export default function CompareImagesPage() {
                 />
               </div>
 
-              <div className="absolute bottom-3 left-3 rounded-[4px] border border-white/25 bg-black/80 px-2 py-1 text-[10px] font-semibold uppercase text-white">
+              <div className="absolute bottom-3 left-3 rounded-xl border border-white/25 bg-black/80 px-2 py-1 text-[10px] font-semibold uppercase text-white">
                 A · Left
               </div>
-              <div className="absolute bottom-3 right-3 rounded-[4px] border border-white/25 bg-black/80 px-2 py-1 text-[10px] font-semibold uppercase text-white">
+              <div className="absolute bottom-3 right-3 rounded-xl border border-white/25 bg-black/80 px-2 py-1 text-[10px] font-semibold uppercase text-white">
                 B · Right
               </div>
               <div
@@ -355,7 +355,7 @@ export default function CompareImagesPage() {
             </label>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="min-w-0 rounded-[4px] border border-border-subtle p-3">
+              <div className="min-w-0 rounded-xl border border-border-subtle p-3">
                 <p className="break-words text-xs font-semibold text-foreground">
                   A · {left.file.name}
                 </p>
@@ -363,7 +363,7 @@ export default function CompareImagesPage() {
                   {left.width} × {left.height} px · {fmt(left.file.size)}
                 </p>
               </div>
-              <div className="min-w-0 rounded-[4px] border border-border-subtle p-3">
+              <div className="min-w-0 rounded-xl border border-border-subtle p-3">
                 <p className="break-words text-xs font-semibold text-foreground">
                   B · {right.file.name}
                 </p>
@@ -378,7 +378,7 @@ export default function CompareImagesPage() {
                 type="button"
                 onClick={() => void compare()}
                 disabled={busy}
-                className="px-5 py-2.5 rounded-[4px] bg-foreground text-background hover:opacity-90 text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 {busy ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -390,7 +390,7 @@ export default function CompareImagesPage() {
               <button
                 type="button"
                 onClick={clear}
-                className="px-5 py-2.5 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[13px] font-semibold inline-flex items-center justify-center"
+                className="px-5 py-2.5 rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[13px] font-semibold inline-flex items-center justify-center"
               >
                 Clear files
               </button>
@@ -398,7 +398,7 @@ export default function CompareImagesPage() {
           </div>
 
           {diff && (
-            <section className="mt-5 rounded-[4px] border-2 border-foreground bg-background p-4 sm:p-5">
+            <section className="mt-5 rounded-xl border border-[var(--border-subtle)] bg-background p-4 sm:p-5">
               <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase text-text-sec">
@@ -414,7 +414,7 @@ export default function CompareImagesPage() {
                 </div>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold inline-flex items-center gap-2"
+                  className="px-4 py-2 rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold inline-flex items-center gap-2"
                   onClick={download}
                 >
                   <Download className="h-4 w-4" /> Download heatmap
@@ -424,16 +424,16 @@ export default function CompareImagesPage() {
               <img
                 src={diff.url}
                 alt="Pixel difference heatmap"
-                className="mt-5 max-h-[500px] w-full rounded-[4px] border border-border-subtle object-contain"
+                className="mt-5 max-h-[500px] w-full rounded-xl border border-border-subtle object-contain"
               />
               <div className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                <p className="rounded-[4px] border border-border-subtle p-3 text-text-sec">
+                <p className="rounded-xl border border-border-subtle p-3 text-text-sec">
                   Normalized canvas{' '}
                   <span className="mt-1 block font-semibold text-foreground">
                     {diff.width} × {diff.height}
                   </span>
                 </p>
-                <p className="rounded-[4px] border border-border-subtle p-3 text-text-sec">
+                <p className="rounded-xl border border-border-subtle p-3 text-text-sec">
                   Mean RGB channel difference{' '}
                   <span className="mt-1 block font-semibold text-foreground">
                     {diff.meanDifference.toFixed(2)} / 255
@@ -444,7 +444,7 @@ export default function CompareImagesPage() {
           )}
         </>
       ) : (
-        <div className="mt-5 flex min-h-64 items-center justify-center rounded-[4px] border-2 border-dashed border-foreground bg-background p-8 text-center">
+        <div className="mt-5 flex min-h-64 items-center justify-center rounded-xl border-2 border-dashed border-foreground bg-background p-8 text-center">
           <div>
             <Images className="mx-auto h-7 w-7 text-text-sec" />
             <p className="mt-3 text-sm font-semibold text-foreground">

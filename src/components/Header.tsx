@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Moon, Sun, SlidersHorizontal, ArrowUp } from 'lucide-react';
+import { Moon, Sun, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 
 interface HeaderProps {
@@ -11,11 +11,12 @@ interface HeaderProps {
 }
 
 const navLinks = [
-  { href: '/', label: 'Home' },
+  { href: '/', label: 'Metadata' },
+  { href: '/gemini-watermark-remover', label: 'Watermark Remover' },
   { href: '/inspector', label: 'Inspector' },
-  { href: '/tools', label: 'Tools' },
-  { href: '/how-it-works', label: 'How it works' },
+  { href: '/tools', label: 'All Tools' },
   { href: '/formats', label: 'Formats' },
+  { href: '/how-it-works', label: 'How it works' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/faq', label: 'FAQ' },
 ];
@@ -25,138 +26,103 @@ export function Header({ onOpenSettings }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
 
   const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || Boolean(pathname?.startsWith(`${href}/`));
-
-  const visibleSideLinks = navLinks.filter((link) => !isActive(link.href));
+    href === '/'
+      ? pathname === '/'
+      : pathname === href || Boolean(pathname?.startsWith(`${href}/`));
 
   return (
-    <>
-      <header className="w-full py-6 sm:py-10">
-        <nav className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center justify-between w-full sm:w-auto">
-            <Link
-              href="/"
-              aria-label="Go to CleanShot homepage"
-              className="inline-flex items-center gap-2.5 text-foreground hover:opacity-85 transition-opacity"
-            >
-              <img
-                src="/app-icon-black.png"
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-8 object-contain dark:hidden"
-              />
-              <img
-                src="/app-icon-white.png"
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-8 object-contain hidden dark:block"
-              />
-              <span className="text-[26px] sm:text-[34px] font-semibold leading-none tracking-[-0.02em]">
+    <header className="sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3.5 mb-6 bg-[var(--surface-glass)] backdrop-blur-md border-b border-[var(--border-subtle)]">
+      <nav className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <Link
+            href="/"
+            aria-label="Go to CleanShot homepage"
+            className="inline-flex items-center gap-2.5 text-foreground hover:opacity-90 transition-opacity"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <span className="flex flex-col">
+              <span className="text-[17px] sm:text-[18px] font-bold leading-tight tracking-tight text-foreground">
                 CleanShot
               </span>
-            </Link>
+              <span className="text-[11px] font-medium text-text-ter leading-none">
+                Local Privacy &amp; Watermark Studio
+              </span>
+            </span>
+          </Link>
 
-            {/* Mobile right actions */}
-            <div className="flex items-center gap-1.5 sm:hidden">
-              {onOpenSettings && (
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="p-2 rounded-[4px] text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                  title="Settings"
-                  aria-label="Settings"
-                >
-                  <SlidersHorizontal className="w-5 h-5" />
-                </button>
-              )}
+          {/* Mobile right actions */}
+          <div className="flex items-center gap-1.5 md:hidden">
+            {onOpenSettings && (
               <button
                 type="button"
-                onClick={toggleTheme}
-                className="p-2 rounded-[4px] text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                title="Toggle theme"
-                aria-label="Toggle theme"
+                onClick={onOpenSettings}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-glass-card text-foreground hover:bg-glass-hover transition-colors"
+                title="Settings"
+                aria-label="Settings"
               >
-                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                <SlidersHorizontal className="w-4 h-4" />
               </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-glass-card text-foreground hover:bg-glass-hover transition-colors"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </div>
-
-          {/* Navigation links + Desktop controls */}
-          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 flex-wrap">
-            <div className="flex items-center gap-3 sm:gap-5 flex-wrap text-[13px] sm:text-[14px] font-medium">
-              {navLinks.map((link) => {
-                const active = isActive(link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={active ? 'page' : undefined}
-                    className={`transition-colors ${
-                      active
-                        ? 'text-foreground font-semibold underline underline-offset-4 decoration-2'
-                        : 'text-text-sec hover:text-foreground'
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div className="hidden sm:flex items-center gap-1.5">
-              {onOpenSettings && (
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="p-2 rounded-[4px] text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                  title="Settings"
-                  aria-label="Settings"
-                >
-                  <SlidersHorizontal className="w-5 h-5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="p-2 rounded-[4px] text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                title="Toggle theme"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </nav>
-      </header>
-
-      {/* Fixed side navigation on wide screens */}
-      <aside className="fixed flex-col items-start bottom-12 ml-[1000px] hidden xl:flex z-30">
-        <div className="pointer-events-auto w-fit flex flex-col items-start gap-4">
-          <button
-            type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            aria-label="Scroll to top"
-            className="w-9 h-9 inline-flex items-center justify-center rounded-[4px] border-2 border-foreground bg-background text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-          >
-            <ArrowUp className="w-4 h-4" />
-          </button>
-
-          <nav className="flex flex-col items-start gap-1.5 text-[12px] font-medium">
-            {visibleSideLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-text-sec hover:text-foreground transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="pt-1 text-[11px] text-text-ter select-none">
-              &copy; {new Date().getFullYear()} All rights reserved
-            </div>
-          </nav>
         </div>
-      </aside>
-    </>
+
+        {/* Navigation links + Desktop controls */}
+        <div className="flex items-center justify-between md:justify-end gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap text-[13px] font-medium">
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`px-2.5 py-1.5 rounded-lg transition-colors ${
+                    active
+                      ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 font-semibold'
+                      : 'text-text-sec hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-[var(--border-subtle)]">
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-glass-card text-foreground hover:bg-glass-hover transition-colors"
+                title="Settings"
+                aria-label="Settings"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-glass-card text-foreground hover:bg-glass-hover transition-colors"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </nav>
+    </header>
   );
 }

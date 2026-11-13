@@ -90,7 +90,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <div className="flex flex-col flex-1 items-center w-full">
-            <div className="w-full max-w-[1040px] flex flex-col flex-1 px-6 sm:px-8">
+            <div className="w-full max-w-6xl flex flex-col flex-1 px-4 sm:px-6 lg:px-8">
               {children}
             </div>
           </div>

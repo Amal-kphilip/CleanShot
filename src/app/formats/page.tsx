@@ -85,19 +85,19 @@ export default function FormatsPage() {
           </h1>
         </section>
 
-        <div className="h-[3px] w-full bg-foreground" />
+        <div className="h-px w-full bg-[var(--border-subtle)]" />
 
         <div className="flex flex-col gap-6">
           {formats.map((f) => (
             <div
               key={f.name}
-              className="p-5 rounded-[4px] border-2 border-foreground flex flex-col gap-2"
+              className="p-5 rounded-xl border border-[var(--border-subtle)] flex flex-col gap-2"
             >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-[17px] sm:text-[19px] font-semibold text-foreground">
                   {f.name}
                 </h2>
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-[4px] border border-foreground text-foreground">
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-xl border border-foreground text-foreground">
                   {f.status}
                 </span>
               </div>

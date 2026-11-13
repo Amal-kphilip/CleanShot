@@ -96,7 +96,7 @@ export default function HowItWorksPage() {
           </p>
         </section>
 
-        <div className="h-[3px] w-full bg-foreground" />
+        <div className="h-px w-full bg-[var(--border-subtle)]" />
 
         {/* Supported formats */}
         <section className="w-full flex flex-col gap-4">
@@ -146,7 +146,7 @@ export default function HowItWorksPage() {
           </p>
           <Link
             href="/"
-            className="px-5 py-2.5 rounded-[4px] bg-background text-foreground hover:opacity-90 text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-opacity"
+            className="px-5 py-2.5 rounded-xl bg-background text-foreground hover:opacity-90 text-[13px] sm:text-[14px] font-semibold inline-flex items-center gap-2 transition-opacity"
           >
             <span>Remove metadata</span>
             <ArrowRight className="w-4 h-4" />

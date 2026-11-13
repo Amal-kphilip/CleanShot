@@ -137,7 +137,7 @@ export function InspectorModal({
         aria-modal="true"
         aria-labelledby="inspector-dialog-title"
         tabIndex={-1}
-        className="relative w-full max-w-4xl border-2 border-foreground rounded-[4px] bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
+        className="relative w-full max-w-4xl border border-[var(--border-subtle)] rounded-xl bg-background text-foreground flex flex-col max-h-[90dvh] overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b-2 border-foreground">
@@ -145,7 +145,7 @@ export function InspectorModal({
             <img
               src={thumbnailUrl}
               alt=""
-              className="w-10 h-10 rounded-[4px] object-cover border border-foreground shrink-0"
+              className="w-10 h-10 rounded-xl object-cover border border-foreground shrink-0"
             />
           )}
           <div className="min-w-0 flex-1">
@@ -161,7 +161,7 @@ export function InspectorModal({
             </p>
           </div>
           {displayMetadata.hasHighRiskFields && (
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-[4px] border-2 border-red-500 bg-red-500/10 text-foreground shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-xl border-2 border-red-500 bg-red-500/10 text-foreground shrink-0">
               <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
               <span>High-Risk Fields</span>
             </div>
@@ -169,7 +169,7 @@ export function InspectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-[4px] text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors shrink-0"
+            className="p-1.5 rounded-xl text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors shrink-0"
             aria-label="Close inspector"
           >
             <X className="w-4 h-4" />
@@ -182,9 +182,9 @@ export function InspectorModal({
             type="button"
             onClick={() => setActiveTab('before')}
             aria-pressed={activeTab === 'before'}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-[4px] border-2 transition-colors ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
               activeTab === 'before'
-                ? 'border-foreground bg-foreground text-background font-semibold'
+                ? 'border-foreground bg-emerald-600 text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -194,9 +194,9 @@ export function InspectorModal({
             type="button"
             onClick={() => setActiveTab('exiftool')}
             aria-pressed={activeTab === 'exiftool'}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-[4px] border-2 transition-colors ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors ${
               activeTab === 'exiftool'
-                ? 'border-foreground bg-foreground text-background font-semibold'
+                ? 'border-foreground bg-emerald-600 text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -207,9 +207,9 @@ export function InspectorModal({
             onClick={() => setActiveTab('after')}
             disabled={!isProcessed || !cleanedMetadata}
             aria-pressed={showingAfter}
-            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-[4px] border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`px-3.5 py-1.5 text-[12px] font-medium rounded-xl border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               showingAfter
-                ? 'border-foreground bg-foreground text-background font-semibold'
+                ? 'border-foreground bg-emerald-600 text-white font-semibold'
                 : 'border-transparent text-text-sec hover:text-foreground'
             }`}
           >
@@ -223,7 +223,7 @@ export function InspectorModal({
           <>
             {processingError && !isProcessed && (
               <div
-                className="mx-6 mt-3 p-3 rounded-[4px] border-2 border-amber-500 bg-amber-500/10 text-[12px] text-foreground"
+                className="mx-6 mt-3 p-3 rounded-xl border-2 border-amber-500 bg-amber-500/10 text-[12px] text-foreground"
                 role="status"
               >
                 A cleaned output is not available for this file: {processingError}
@@ -232,7 +232,7 @@ export function InspectorModal({
             {showingAfter && (
               <div className="px-6 pt-4">
                 {displayMetadata.fields.length === 0 ? (
-                  <div className="p-3.5 rounded-[4px] border-2 border-foreground flex items-start gap-2.5">
+                  <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[12px] font-semibold text-foreground">
@@ -244,7 +244,7 @@ export function InspectorModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-[4px] border-2 border-foreground flex items-start gap-2.5">
+                  <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] flex items-start gap-2.5">
                     <Info className="w-4 h-4 text-text-sec mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[12px] font-semibold text-foreground">
@@ -272,9 +272,9 @@ export function InspectorModal({
                       type="button"
                       onClick={() => setSelectedCategory(category.id)}
                       aria-pressed={selected}
-                      className={`flex-shrink-0 sm:flex-shrink flex items-center gap-2 px-3 py-2 rounded-[4px] text-[12px] font-medium transition-colors w-auto sm:w-full text-left justify-between ${
+                      className={`flex-shrink-0 sm:flex-shrink flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium transition-colors w-auto sm:w-full text-left justify-between ${
                         selected
-                          ? 'bg-foreground text-background font-semibold'
+                          ? 'bg-emerald-600 text-white font-semibold'
                           : 'text-text-sec hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground'
                       }`}
                     >
@@ -282,7 +282,7 @@ export function InspectorModal({
                         <Icon className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">{category.label}</span>
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] ml-auto shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-xl ml-auto shrink-0">
                         {category.count}
                       </span>
                     </button>
@@ -292,7 +292,7 @@ export function InspectorModal({
 
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {displayMetadata.gps && (
-                  <div className="m-4 mb-0 p-3.5 rounded-[4px] border-2 border-amber-500 bg-amber-500/10 flex items-start justify-between gap-3 shrink-0">
+                  <div className="m-4 mb-0 p-3.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 flex items-start justify-between gap-3 shrink-0">
                     <div className="flex items-start gap-2.5">
                       <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                       <div>
@@ -332,11 +332,11 @@ export function InspectorModal({
                     placeholder="Search fields or values…"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-[12px] rounded-[4px] border-2 border-foreground bg-background text-foreground placeholder:text-text-ter focus:outline-none"
+                    className="w-full pl-9 pr-4 py-2 text-[12px] rounded-xl border border-[var(--border-subtle)] bg-background text-foreground placeholder:text-text-ter focus:outline-none"
                   />
                 </div>
 
-                <div className="flex-1 overflow-y-auto mx-4 mb-4 rounded-[4px] border-2 border-foreground divide-y divide-border-subtle">
+                <div className="flex-1 overflow-y-auto mx-4 mb-4 rounded-xl border border-[var(--border-subtle)] divide-y divide-border-subtle">
                   {filteredFields.length === 0 ? (
                     <div className="p-8 text-center text-[13px] text-text-sec">
                       No fields match your search.
@@ -353,7 +353,7 @@ export function InspectorModal({
                               {field.name}
                             </span>
                             {field.riskLevel === 'high' && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-[4px] border border-red-500 text-red-500">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-xl border border-red-500 text-red-500">
                                 <AlertTriangle className="w-2.5 h-2.5" />
                                 High risk
                               </span>
@@ -391,7 +391,7 @@ export function InspectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-[12px] font-semibold rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground transition-colors"
+            className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground transition-colors"
           >
             Close
           </button>

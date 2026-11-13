@@ -68,14 +68,14 @@ export default function InspectorPage() {
         )}
 
         {file && metadata && (
-          <div className="p-6 rounded-[4px] border-2 border-foreground bg-background space-y-6">
+          <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-background space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
               <div className="flex items-center gap-3.5">
                 {thumbnailUrl && (
                   <img
                     src={thumbnailUrl}
                     alt={file.name}
-                    className="w-12 h-12 rounded-[4px] object-cover border border-foreground shrink-0"
+                    className="w-12 h-12 rounded-xl object-cover border border-foreground shrink-0"
                   />
                 )}
                 <div className="min-w-0">
@@ -94,7 +94,7 @@ export default function InspectorPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="px-4 py-2 rounded-[4px] bg-foreground text-background hover:opacity-90 text-[12px] font-semibold flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:opacity-90 text-[12px] font-semibold flex items-center gap-1.5"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>View Details</span>
@@ -104,7 +104,7 @@ export default function InspectorPage() {
                   <button
                     type="button"
                     onClick={handleDownloadCleaned}
-                    className="px-4 py-2 rounded-[4px] border-2 border-foreground bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl border border-[var(--border-subtle)] bg-background hover:bg-black/5 dark:hover:bg-white/10 text-foreground text-[12px] font-semibold flex items-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download Cleaned</span>
@@ -126,7 +126,7 @@ export default function InspectorPage() {
             </div>
 
             {metadata.gps && (
-              <div className="p-3.5 rounded-[4px] border-2 border-amber-500 bg-amber-500/10 flex items-start gap-2.5">
+              <div className="p-3.5 rounded-xl border-2 border-amber-500 bg-amber-500/10 flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <div className="text-[12px]">
                   <span className="font-semibold text-foreground block mb-0.5">
@@ -146,7 +146,7 @@ export default function InspectorPage() {
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-[4px] border-2 border-foreground">
+              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)]">
                 <span className="text-[11px] font-medium text-text-sec block mb-1">
                   Location Tags
                 </span>
@@ -155,7 +155,7 @@ export default function InspectorPage() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-[4px] border-2 border-foreground">
+              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)]">
                 <span className="text-[11px] font-medium text-text-sec block mb-1">
                   Device / Camera
                 </span>
@@ -164,7 +164,7 @@ export default function InspectorPage() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-[4px] border-2 border-foreground">
+              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)]">
                 <span className="text-[11px] font-medium text-text-sec block mb-1">
                   Timestamps
                 </span>
@@ -173,7 +173,7 @@ export default function InspectorPage() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-[4px] border-2 border-foreground">
+              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)]">
                 <span className="text-[11px] font-medium text-text-sec block mb-1">
                   Author / Identity
                 </span>
