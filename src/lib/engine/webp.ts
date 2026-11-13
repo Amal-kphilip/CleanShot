@@ -1,5 +1,6 @@
 import { StripOptions } from './types';
 import { createOrientationOnlyExifPayload } from './orientation';
+import { containsProvenanceMarkers } from './provenance';
 
 /**
  * Lossless WebP RIFF container stripper.
@@ -10,8 +11,13 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 } {
   const keepIcc = options.keepIccProfile === true; // Strict removal by default.
+  const preserveProvenance = options.preserveProvenance === true;
+  let provenancePreserved = false;
+  let unverifiedMetadataRemoval = false;
   const removedSegments: string[] = [];
 
   // Check RIFF header: "RIFF" (0-3) and "WEBP" (8-11)
@@ -85,7 +91,19 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
         removedSegments.push('EXIF Metadata chunk');
       }
     } else if (fourCC === 'XMP ') {
-      removedSegments.push('XMP Metadata chunk');
+      if (
+        preserveProvenance &&
+        containsProvenanceMarkers(buffer.subarray(chunkDataStart, chunkDataStart + chunkSize))
+      ) {
+        keptChunks.push({
+          fourCC,
+          rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
+        });
+        provenancePreserved = true;
+        unverifiedMetadataRemoval = true;
+      } else {
+        removedSegments.push('XMP Metadata chunk');
+      }
     } else if (fourCC === 'ICCP') {
       if (!keepIcc) {
         removedSegments.push('ICCP (ICC Color Profile chunk)');
@@ -100,6 +118,20 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
         fourCC,
         rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
       });
+    } else if (preserveProvenance) {
+      keptChunks.push({
+        fourCC,
+        rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
+      });
+      if (
+        fourCC === 'C2PA' ||
+        fourCC === 'JUMB' ||
+        containsProvenanceMarkers(buffer.subarray(chunkDataStart, chunkDataStart + chunkSize))
+      ) {
+        provenancePreserved = true;
+      } else {
+        unverifiedMetadataRemoval = true;
+      }
     } else {
       // Per the RIFF/WebP container model, unknown chunks are optional extensions.
       // Drop them instead of failing open or leaving custom metadata behind.
@@ -170,5 +202,7 @@ export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
     cleanedBuffer: cleaned,
     removedSegments,
     bytesSaved: buffer.length - cleaned.length,
+    ...(provenancePreserved ? { provenancePreserved: true } : {}),
+    ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
   };
 }

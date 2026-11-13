@@ -5,6 +5,7 @@ import {
   type WatermarkEngine,
   type WatermarkMeta,
 } from '@pilio/gemini-watermark-remover/browser';
+import { stripBlobMetadataInWorker } from '@/lib/worker/workerRunner';
 
 export type AdaptiveMode = 'auto' | 'always' | 'off';
 export type OutputFormat = 'auto' | 'png' | 'jpeg' | 'webp';
@@ -20,6 +21,8 @@ export interface ProcessedWatermarkResult {
   elapsedMs: number;
   outputName: string;
   mimeType: ResolvedImageMime;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 }
 
 /**
@@ -122,8 +125,71 @@ export function getSharedWatermarkEngine(): Promise<WatermarkEngine> {
   return sharedEnginePromise;
 }
 
+export interface CleanedMediaAudit {
+  blob: Blob;
+  provenancePreserved: boolean;
+  unverifiedMetadataRemoval: boolean;
+}
+
 /**
- * Removes Gemini watermarks from an image File entirely in the browser.
+ * Runs the existing StripMeta metadata engine (with ICC color profile and
+ * C2PA/provenance preservation enabled) on a processed image Blob and returns
+ * both the cleaned Blob and metadata-audit flags.
+ */
+export async function cleanProcessedImageBlobWithAudit(
+  blob: Blob,
+  filename: string,
+  mimeType: ResolvedImageMime,
+  signal?: AbortSignal
+): Promise<CleanedMediaAudit> {
+  const stripResult = await stripBlobMetadataInWorker(
+    blob,
+    filename,
+    {
+      stripAll: true,
+      keepIccProfile: true,
+      preserveProvenance: true,
+    },
+    signal
+  );
+
+  const cleanedCopy = new Uint8Array(stripResult.cleanedBuffer.byteLength);
+  cleanedCopy.set(stripResult.cleanedBuffer);
+  const cleanedBlob = new Blob([cleanedCopy.buffer], {
+    type: stripResult.mimeType || mimeType,
+  });
+  if (cleanedBlob.size === 0) {
+    throw new Error('Metadata cleaning produced an empty image file.');
+  }
+  return {
+    blob: cleanedBlob,
+    provenancePreserved: Boolean(stripResult.provenancePreserved),
+    unverifiedMetadataRemoval: Boolean(stripResult.unverifiedMetadataRemoval),
+  };
+}
+
+/**
+ * Runs the existing StripMeta metadata engine (with ICC color profile and
+ * C2PA/provenance preservation enabled) on a processed image Blob.
+ */
+export async function cleanProcessedImageBlob(
+  blob: Blob,
+  filename: string,
+  mimeType: ResolvedImageMime,
+  signal?: AbortSignal
+): Promise<Blob> {
+  const { blob: cleanedBlob } = await cleanProcessedImageBlobWithAudit(
+    blob,
+    filename,
+    mimeType,
+    signal
+  );
+  return cleanedBlob;
+}
+
+/**
+ * Removes Gemini watermarks from an image File entirely in the browser,
+ * then cleans privacy-sensitive metadata via the StripMeta engine.
  * Caller is responsible for revoking `originalUrl` and `previewUrl` when done.
  */
 export async function removeGeminiWatermarkFromFile(
@@ -132,6 +198,7 @@ export async function removeGeminiWatermarkFromFile(
     adaptiveMode?: AdaptiveMode;
     outputFormat?: OutputFormat;
     engine?: WatermarkEngine;
+    signal?: AbortSignal;
   } = {}
 ): Promise<ProcessedWatermarkResult> {
   const adaptiveMode = options.adaptiveMode ?? 'auto';
@@ -148,7 +215,18 @@ export async function removeGeminiWatermarkFromFile(
     });
 
     const { mimeType, extension } = resolveOutputMimeType(file.type, outputFormat);
-    const blob = await canvasToImageBlob(canvas, mimeType);
+    const outputName = buildCleanFilename(file.name, extension);
+    const canvasBlob = await canvasToImageBlob(canvas, mimeType);
+    const {
+      blob,
+      provenancePreserved,
+      unverifiedMetadataRemoval,
+    } = await cleanProcessedImageBlobWithAudit(
+      canvasBlob,
+      outputName,
+      mimeType,
+      options.signal
+    );
     const previewUrl = URL.createObjectURL(blob);
     const elapsedMs = Math.round(performance.now() - startedAt);
 
@@ -160,8 +238,10 @@ export async function removeGeminiWatermarkFromFile(
       height: image.naturalHeight,
       meta,
       elapsedMs,
-      outputName: buildCleanFilename(file.name, extension),
+      outputName,
       mimeType,
+      ...(provenancePreserved ? { provenancePreserved: true } : {}),
+      ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
     };
   } catch (error) {
     URL.revokeObjectURL(originalUrl);

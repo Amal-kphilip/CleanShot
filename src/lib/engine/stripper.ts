@@ -67,6 +67,8 @@ export async function stripImageMetadata(
 
   let cleanedBuffer: Uint8Array = fileBuffer;
   let removedSegments: string[] = [];
+  let provenancePreserved = false;
+  let unverifiedMetadataRemoval = false;
 
   try {
     switch (format) {
@@ -74,6 +76,8 @@ export async function stripImageMetadata(
         const res = stripJpeg(fileBuffer, options);
         cleanedBuffer = res.cleanedBuffer;
         removedSegments = res.removedSegments;
+        provenancePreserved = Boolean(res.provenancePreserved);
+        unverifiedMetadataRemoval = Boolean(res.unverifiedMetadataRemoval);
         break;
       }
 
@@ -81,6 +85,8 @@ export async function stripImageMetadata(
         const res = stripPng(fileBuffer, options);
         cleanedBuffer = res.cleanedBuffer;
         removedSegments = res.removedSegments;
+        provenancePreserved = Boolean(res.provenancePreserved);
+        unverifiedMetadataRemoval = Boolean(res.unverifiedMetadataRemoval);
         break;
       }
 
@@ -88,6 +94,8 @@ export async function stripImageMetadata(
         const res = stripWebp(fileBuffer, options);
         cleanedBuffer = res.cleanedBuffer;
         removedSegments = res.removedSegments;
+        provenancePreserved = Boolean(res.provenancePreserved);
+        unverifiedMetadataRemoval = Boolean(res.unverifiedMetadataRemoval);
         break;
       }
 
@@ -122,9 +130,11 @@ export async function stripImageMetadata(
       case 'mp4':
       case 'mov':
       case 'm4a': {
-        const res = stripIsobmff(fileBuffer);
+        const res = stripIsobmff(fileBuffer, options);
         cleanedBuffer = res.cleanedBuffer;
         removedSegments = res.removedSegments;
+        provenancePreserved = Boolean(res.provenancePreserved);
+        unverifiedMetadataRemoval = Boolean(res.unverifiedMetadataRemoval);
         break;
       }
 
@@ -203,6 +213,8 @@ export async function stripImageMetadata(
         (['jpeg', 'png', 'webp'].includes(format) && options.keepIccProfile === true && options.keepOrientation === true),
       cleanedBuffer,
       mimeType: formatInfo.mimeType,
+      ...(provenancePreserved ? { provenancePreserved: true } : {}),
+      ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
     };
   } catch (err: any) {
     return {

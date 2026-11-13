@@ -1,5 +1,6 @@
 import { StripOptions } from './types';
 import { createOrientationOnlyJpegSegment } from './orientation';
+import { containsProvenanceMarkers } from './provenance';
 
 /**
  * Robust Lossless JPEG metadata stripper.
@@ -11,8 +12,13 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 } {
   const keepIcc = options.keepIccProfile === true;
+  const preserveProvenance = options.preserveProvenance === true;
+  let provenancePreserved = false;
+  let unverifiedMetadataRemoval = false;
   const removedSegments: string[] = [];
   if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) {
     throw new Error('Invalid JPEG stream: Missing Start of Image (SOI) marker');
@@ -93,14 +99,21 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
       shouldKeep = false;
       segmentLabel = 'JPEG Comment (COM)';
     } else if (marker === 0xe1) {
-      shouldKeep = false;
-      const orientationOnly = options.keepOrientation === true
-        ? createOrientationOnlyJpegSegment(buffer.slice(segmentDataStart, segmentDataStart + segmentDataLength))
-        : undefined;
-      if (orientationOnly) chunks.push(orientationOnly);
-      segmentLabel = orientationOnly
-        ? 'APP1 (EXIF removed; orientation tag preserved)'
-        : 'APP1 (EXIF / XMP / C2PA metadata)';
+      const segSlice = buffer.subarray(segmentDataStart, segmentDataStart + segmentDataLength);
+      if (preserveProvenance && containsProvenanceMarkers(segSlice)) {
+        shouldKeep = true;
+        provenancePreserved = true;
+        unverifiedMetadataRemoval = true;
+      } else {
+        shouldKeep = false;
+        const orientationOnly = options.keepOrientation === true
+          ? createOrientationOnlyJpegSegment(buffer.slice(segmentDataStart, segmentDataStart + segmentDataLength))
+          : undefined;
+        if (orientationOnly) chunks.push(orientationOnly);
+        segmentLabel = orientationOnly
+          ? 'APP1 (EXIF removed; orientation tag preserved)'
+          : 'APP1 (EXIF / XMP / C2PA metadata)';
+      }
     } else if (marker === 0xe2) {
       const isIcc = segmentDataLength >= 12 &&
         buffer[segmentDataStart] === 0x49 && buffer[segmentDataStart + 1] === 0x43 &&
@@ -126,9 +139,21 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
       // JFIF/JFXX density data and embedded thumbnails are metadata, so strip APP0.
       shouldKeep = false;
       segmentLabel = 'APP0 (JFIF/JFXX density or thumbnail metadata)';
-    } else if (marker >= 0xe0 && marker <= 0xef) {
+    } else if (marker === 0xed) {
       shouldKeep = false;
-      segmentLabel = `APP${marker - 0xe0} (vendor metadata)`;
+      segmentLabel = 'APP13 (Photoshop 8BIM / IPTC metadata)';
+    } else if (marker >= 0xe0 && marker <= 0xef) {
+      if (preserveProvenance) {
+        shouldKeep = true;
+        if (containsProvenanceMarkers(buffer.subarray(segmentDataStart, segmentDataStart + segmentDataLength))) {
+          provenancePreserved = true;
+        } else {
+          unverifiedMetadataRemoval = true;
+        }
+      } else {
+        shouldKeep = false;
+        segmentLabel = `APP${marker - 0xe0} (vendor metadata)`;
+      }
     }
 
     if (shouldKeep) chunks.push(buffer.slice(markerStart, segmentEnd));
@@ -145,5 +170,11 @@ export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
     cleaned.set(chunk, writeOffset);
     writeOffset += chunk.length;
   }
-  return { cleanedBuffer: cleaned, removedSegments, bytesSaved: buffer.length - cleaned.length };
+  return {
+    cleanedBuffer: cleaned,
+    removedSegments,
+    bytesSaved: buffer.length - cleaned.length,
+    ...(provenancePreserved ? { provenancePreserved: true } : {}),
+    ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
+  };
 }

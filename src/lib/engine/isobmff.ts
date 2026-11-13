@@ -1,4 +1,6 @@
 import { readUint16BE, readUint32BE, readUint64BE } from './binary';
+import { StripOptions } from './types';
+import { containsProvenanceMarkers } from './provenance';
 
 type BoxBounds = { type: string; headerLength: number; boxEnd: number };
 type LocatedBox = BoxBounds & { offset: number };
@@ -522,6 +524,8 @@ function walkAndNeutralize(
   end: number,
   timestampBoxType: string | null,
   removedSegments: string[],
+  preserveProvenance: boolean,
+  provenanceState: { provenancePreserved: boolean; unverifiedMetadataRemoval: boolean },
 ): boolean {
   let offset = start;
   while (offset < end) {
@@ -530,14 +534,25 @@ function walkAndNeutralize(
     const { type, headerLength, boxEnd } = box;
 
     if (type === 'udta' || type === 'meta') {
-      neutralizeBox(bytes, { ...box, offset });
-      removedSegments.push(`ISOBMFF ${type} metadata box`);
+      if (preserveProvenance && containsProvenanceMarkers(bytes.subarray(offset, boxEnd))) {
+        provenanceState.provenancePreserved = true;
+        provenanceState.unverifiedMetadataRemoval = true;
+      } else {
+        neutralizeBox(bytes, { ...box, offset });
+        removedSegments.push(`ISOBMFF ${type} metadata box`);
+      }
+    } else if (type === 'uuid' && preserveProvenance) {
+      if (containsProvenanceMarkers(bytes.subarray(offset, boxEnd))) {
+        provenanceState.provenancePreserved = true;
+      } else {
+        provenanceState.unverifiedMetadataRemoval = true;
+      }
     } else if (type === 'moov') {
-      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'mvhd', removedSegments)) return false;
+      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'mvhd', removedSegments, preserveProvenance, provenanceState)) return false;
     } else if (type === 'trak') {
-      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'tkhd', removedSegments)) return false;
+      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'tkhd', removedSegments, preserveProvenance, provenanceState)) return false;
     } else if (type === 'mdia') {
-      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'mdhd', removedSegments)) return false;
+      if (!walkAndNeutralize(bytes, offset + headerLength, boxEnd, 'mdhd', removedSegments, preserveProvenance, provenanceState)) return false;
     } else if (timestampBoxType && type === timestampBoxType) {
       zeroIsobmffTimestamps(bytes, offset + headerLength, boxEnd);
       removedSegments.push(`ISOBMFF ${type} creation/modification timestamps`);
@@ -552,14 +567,19 @@ function walkAndNeutralize(
  * Strips privacy-sensitive metadata from an MP4/MOV/M4A file (all share the
  * same ISOBMFF box structure).
  */
-export function stripIsobmff(bytes: Uint8Array): {
+export function stripIsobmff(bytes: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 } {
   if (bytes.length < 8) {
     throw new Error('Malformed ISOBMFF container: file is too small');
   }
+
+  const preserveProvenance = options.preserveProvenance === true;
+  const provenanceState = { provenancePreserved: false, unverifiedMetadataRemoval: false };
 
   const topLevelBoxes = readChildBoxes(bytes, 0, bytes.length);
   if (!topLevelBoxes || topLevelBoxes.length === 0) {
@@ -580,13 +600,22 @@ export function stripIsobmff(bytes: Uint8Array): {
   const removedSegments: string[] = [];
   const result = bytes.slice();
   for (const { track, sampleRanges, fragmentBoxes, trackId } of metadataTrackPlans) {
+    if (
+      preserveProvenance &&
+      (containsProvenanceMarkers(bytes.subarray(track.offset, track.boxEnd)) ||
+        sampleRanges.some(({ start, end }) => containsProvenanceMarkers(bytes.subarray(start, end))))
+    ) {
+      provenanceState.provenancePreserved = true;
+      provenanceState.unverifiedMetadataRemoval = true;
+      continue;
+    }
     for (const { start, end } of sampleRanges) result.fill(0, start, end);
     for (const fragmentBox of fragmentBoxes) neutralizeBox(result, fragmentBox);
     neutralizeBox(result, track);
     removedSegments.push(`ISOBMFF metadata track #${trackId}`);
   }
 
-  if (!walkAndNeutralize(result, 0, result.length, null, removedSegments)) {
+  if (!walkAndNeutralize(result, 0, result.length, null, removedSegments, preserveProvenance, provenanceState)) {
     throw new Error('Malformed ISOBMFF container structure encountered during cleaning');
   }
 
@@ -594,5 +623,7 @@ export function stripIsobmff(bytes: Uint8Array): {
     cleanedBuffer: result,
     removedSegments,
     bytesSaved: bytes.length - result.length,
+    ...(provenanceState.provenancePreserved ? { provenancePreserved: true } : {}),
+    ...(provenanceState.unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
   };
 }

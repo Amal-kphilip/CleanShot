@@ -4,7 +4,7 @@ import { StripOptions } from '../engine/types';
 
 type WorkerRequest =
   | { id: string; action: 'inspect'; buffer: ArrayBuffer; filename?: string }
-  | { id: string; action: 'strip'; buffer: ArrayBuffer; filename: string; options: StripOptions };
+  | { id: string; action: 'strip'; buffer: ArrayBuffer; filename: string; options: StripOptions; skipInspect?: boolean };
 
 const workerScope = self as unknown as {
   onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
@@ -22,16 +22,21 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
     const result = await stripImageMetadata(new Uint8Array(message.buffer), message.filename, message.options);
     let cleanedMetadata;
-    if (!result.error) {
+    if (!result.error && !message.skipInspect) {
       try {
         cleanedMetadata = await inspectMetadata(result.cleanedBuffer, message.filename);
       } catch {
         // Cleaning may succeed even if the best-effort post-clean inspection cannot parse the output.
       }
     }
+    const transferBuffer =
+      result.cleanedBuffer.byteOffset === 0 &&
+      result.cleanedBuffer.byteLength === result.cleanedBuffer.buffer.byteLength
+        ? (result.cleanedBuffer.buffer as ArrayBuffer)
+        : (result.cleanedBuffer.slice().buffer as ArrayBuffer);
     workerScope.postMessage(
       { id: message.id, result, cleanedMetadata },
-      [result.cleanedBuffer.buffer as ArrayBuffer],
+      [transferBuffer],
     );
   } catch (error) {
     workerScope.postMessage({

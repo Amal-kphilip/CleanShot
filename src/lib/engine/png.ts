@@ -1,5 +1,6 @@
 import { StripOptions } from './types';
 import { createOrientationOnlyExifPayload } from './orientation';
+import { containsProvenanceMarkers } from './provenance';
 
 function calculatePngCrc(buffer: Uint8Array, start: number, end: number): number {
   let crc = 0xffffffff;
@@ -30,8 +31,13 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 } {
   const keepIcc = options.keepIccProfile === true; // Strict removal by default; opt in to preserve color interpretation metadata.
+  const preserveProvenance = options.preserveProvenance === true;
+  let provenancePreserved = false;
+  let unverifiedMetadataRemoval = false;
   const removedSegments: string[] = [];
 
   // PNG Signature: 89 50 4E 47 0D 0A 1A 0A
@@ -155,9 +161,18 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
         removedSegments.push(segName);
         break;
       case 'iTXt':
-        shouldKeep = false;
-        segName = 'iTXt (UTF-8 metadata / XMP / C2PA manifest)';
-        removedSegments.push(segName);
+        if (
+          preserveProvenance &&
+          containsProvenanceMarkers(buffer.subarray(offset + 8, offset + 8 + dataLength))
+        ) {
+          shouldKeep = true;
+          provenancePreserved = true;
+          unverifiedMetadataRemoval = true;
+        } else {
+          shouldKeep = false;
+          segName = 'iTXt (UTF-8 metadata / XMP / C2PA manifest)';
+          removedSegments.push(segName);
+        }
         break;
       case 'eXIf': {
         const orientationPayload = options.keepOrientation === true
@@ -182,22 +197,33 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
       case 'dSIG':
       case 'c2pa':
       case 'caBX':
-        shouldKeep = false;
-        segName = chunkType === 'caBX'
-          ? 'caBX (C2PA Content Credentials / provenance metadata)'
-          : 'C2PA / Digital Signature Credential';
-        removedSegments.push(segName);
+        if (preserveProvenance) {
+          shouldKeep = true;
+          provenancePreserved = true;
+        } else {
+          shouldKeep = false;
+          segName = chunkType === 'caBX'
+            ? 'caBX (C2PA Content Credentials / provenance metadata)'
+            : 'C2PA / Digital Signature Credential';
+          removedSegments.push(segName);
+        }
         break;
       default: {
         // PNG marks optional ancillary chunks with a lowercase first type byte.
         // Unknown ancillary chunks are removed in strict mode so private/vendor
         // metadata such as provenance records cannot make the whole file pass through.
+        // In provenance-preserving mode, retain unknown ancillary chunks and flag unverified removal.
         // Unknown critical chunks may be required to decode pixels, so fail closed.
         const isAncillary = (typeBytes[0] & 0x20) !== 0;
         if (isAncillary) {
-          shouldKeep = false;
-          segName = `${chunkType} (Unrecognized ancillary chunk removed)`;
-          removedSegments.push(segName);
+          if (preserveProvenance) {
+            shouldKeep = true;
+            unverifiedMetadataRemoval = true;
+          } else {
+            shouldKeep = false;
+            segName = `${chunkType} (Unrecognized ancillary chunk removed)`;
+            removedSegments.push(segName);
+          }
           break;
         }
         throw new Error(`PNG contains an unrecognized critical chunk (${chunkType}); safe cleaning is not available for this variant.`);
@@ -236,5 +262,7 @@ export function stripPng(buffer: Uint8Array, options: StripOptions = {}): {
     cleanedBuffer: cleaned,
     removedSegments,
     bytesSaved: buffer.length - cleaned.length,
+    ...(provenancePreserved ? { provenancePreserved: true } : {}),
+    ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
   };
 }

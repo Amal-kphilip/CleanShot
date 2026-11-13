@@ -132,6 +132,138 @@ export async function processFileItem(
   return { id: task.id, result, metadata, cleanedMetadata, thumbnailUrl: '' };
 }
 
+const MAX_MAIN_THREAD_FALLBACK_BYTES = 10 * 1024 * 1024;
+
+function isVideoFilename(filename: string): boolean {
+  return /\.(mp4|mov|m4a|webm|mkv)$/i.test(filename);
+}
+
+/**
+ * Strips metadata from a Blob using the existing stripWorker (zero-copy transferable ArrayBuffer)
+ * without running an extra inspection pass, respecting AbortSignal and failing on `result.error`.
+ */
+export async function stripBlobMetadataInWorker(
+  blob: Blob,
+  filename: string,
+  options: StripOptions = {},
+  signal?: AbortSignal,
+): Promise<StripResult> {
+  signal?.throwIfAborted();
+  const buffer = await blob.arrayBuffer();
+  signal?.throwIfAborted();
+
+  const validateResult = (result: StripResult): StripResult => {
+    if (result.error) {
+      throw new Error(result.error);
+    }
+    if (!result.cleanedBuffer || result.cleanedBuffer.length === 0) {
+      throw new Error('Metadata cleaning returned an empty file.');
+    }
+    return result;
+  };
+
+  const allowMainThreadFallback =
+    blob.size <= MAX_MAIN_THREAD_FALLBACK_BYTES && !isVideoFilename(filename);
+
+  if (typeof Worker === 'undefined') {
+    if (typeof window !== 'undefined' && !allowMainThreadFallback) {
+      throw new Error(
+        'Web Worker support is required to clean large video files off the main thread.',
+      );
+    }
+    const result = await stripImageMetadata(new Uint8Array(buffer), filename, options);
+    signal?.throwIfAborted();
+    return validateResult(result);
+  }
+
+  return new Promise<StripResult>((resolve, reject) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL('./stripWorker.ts', import.meta.url), { type: 'module' });
+    } catch {
+      if (!allowMainThreadFallback) {
+        reject(
+          new Error(
+            'Background metadata worker failed to initialize. Large or video files cannot be cleaned on the main thread.',
+          ),
+        );
+        return;
+      }
+      stripImageMetadata(new Uint8Array(buffer), filename, options).then((res) => {
+        try {
+          signal?.throwIfAborted();
+          resolve(validateResult(res));
+        } catch (err) {
+          reject(err);
+        }
+      }, reject);
+      return;
+    }
+
+    const id = crypto.randomUUID();
+    let settled = false;
+
+    const dispose = () => {
+      signal?.removeEventListener('abort', onAbort);
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+    };
+
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      dispose();
+      reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+
+    worker.onmessage = (
+      event: MessageEvent<{ id: string; result?: StripResult; error?: string }>,
+    ) => {
+      if (event.data.id !== id || settled) return;
+      settled = true;
+      dispose();
+      if (event.data.error || !event.data.result) {
+        reject(new Error(event.data.error || 'Worker returned no metadata-cleaning result.'));
+        return;
+      }
+      try {
+        resolve(validateResult(event.data.result));
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    worker.onerror = (event) => {
+      if (settled) return;
+      settled = true;
+      dispose();
+      reject(new Error(event.message || 'Metadata worker failed.'));
+    };
+
+    try {
+      worker.postMessage(
+        { id, action: 'strip', buffer, filename, options, skipInspect: true },
+        [buffer],
+      );
+    } catch (error) {
+      if (!settled) {
+        settled = true;
+        dispose();
+        reject(error instanceof Error ? error : new Error('Unable to start metadata worker.'));
+      }
+    }
+  });
+}
+
 /** Concurrency-limited pool. At most `concurrency` worker jobs exist simultaneously. */
 export async function processBatchWithConcurrency(
   tasks: ProcessTask[],

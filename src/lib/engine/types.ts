@@ -82,6 +82,7 @@ export interface StripOptions {
   removeAuthorCopyright?: boolean; // Artist, copyright, creator (default: true)
   removeSoftwareTech?: boolean;  // Software, history, editing tools (default: true)
   removeThumbnails?: boolean;    // Embedded thumbnail images (default: true)
+  preserveProvenance?: boolean;  // Opt-in: preserve C2PA / Content Credentials / AI provenance metadata (default: false)
   filenameSuffix?: string;       // e.g. "_clean" or ""
   preserveFolderStructure?: boolean; // In ZIP output
 }
@@ -100,6 +101,8 @@ export interface StripResult {
   pixelHash?: string;
   cleanedBuffer: Uint8Array;
   mimeType: string;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
   error?: string;
 }
 

@@ -980,7 +980,10 @@ export default function GeminiWatermarkRemoverPage() {
                 </button>
 
                 <p className="text-[11px] leading-relaxed text-text-sec">
-                  Canvas export also strips embedded EXIF, GPS, and XMP metadata from the output file.
+                  Privacy metadata removed by StripMeta.{' '}
+                  {activeItem.imageResult.unverifiedMetadataRemoval
+                    ? 'Unknown or mixed metadata structures were retained to avoid altering potential provenance data; complete metadata removal could not be verified.'
+                    : 'Canvas export & metadata cleaning strip embedded EXIF, GPS, and XMP data.'}
                 </p>
               </aside>
             </div>
@@ -1101,6 +1104,13 @@ export default function GeminiWatermarkRemoverPage() {
                   <Download className="h-4 w-4" />
                   Download cleaned MP4
                 </button>
+
+                <p className="text-[11px] leading-relaxed text-text-sec">
+                  MP4 container privacy metadata removed by StripMeta.{' '}
+                  {activeItem.videoResult.unverifiedMetadataRemoval
+                    ? 'Unknown or mixed metadata structures were retained to avoid altering potential provenance data; complete metadata removal could not be verified.'
+                    : 'Processed 100% locally via WebCodecs.'}
+                </p>
               </aside>
             </div>
           )}

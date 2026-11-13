@@ -12,6 +12,7 @@ import {
   resolveAllenkFdncnnRuntimeProfile,
   type AllenkProfile,
 } from '@/lib/gwr-video/videoDenoiseRuntimePolicy.js';
+import { stripBlobMetadataInWorker } from '@/lib/worker/workerRunner';
 
 export type VideoDenoiseMode = 'auto' | 'ai' | 'fast' | 'none';
 
@@ -22,6 +23,8 @@ export interface ProcessedVideoResult {
   outputName: string;
   elapsedMs: number;
   exportResult: VideoExportResult;
+  provenancePreserved?: boolean;
+  unverifiedMetadataRemoval?: boolean;
 }
 
 export interface VideoProgressUpdate {
@@ -122,8 +125,67 @@ async function loadOnnxRuntime(profile: AllenkProfile, signal?: AbortSignal) {
   return promise;
 }
 
+export interface CleanedVideoAudit {
+  blob: Blob;
+  provenancePreserved: boolean;
+  unverifiedMetadataRemoval: boolean;
+}
+
 /**
- * Removes Gemini/Veo watermarks from a video File locally in the browser using WebCodecs.
+ * Runs the existing StripMeta ISOBMFF/MP4 metadata engine in a Web Worker
+ * (preserving C2PA/Content Credentials provenance) on the exported MP4 Blob
+ * and returns both the cleaned Blob and metadata-audit flags.
+ */
+export async function cleanProcessedVideoBlobWithAudit(
+  blob: Blob,
+  filename: string,
+  signal?: AbortSignal
+): Promise<CleanedVideoAudit> {
+  const stripResult = await stripBlobMetadataInWorker(
+    blob,
+    filename,
+    {
+      stripAll: true,
+      preserveProvenance: true,
+    },
+    signal
+  );
+
+  const cleanedCopy = new Uint8Array(stripResult.cleanedBuffer.byteLength);
+  cleanedCopy.set(stripResult.cleanedBuffer);
+  const cleanedBlob = new Blob([cleanedCopy.buffer], {
+    type: stripResult.mimeType || 'video/mp4',
+  });
+  if (cleanedBlob.size === 0) {
+    throw new Error('Metadata cleaning produced an empty MP4 file.');
+  }
+  return {
+    blob: cleanedBlob,
+    provenancePreserved: Boolean(stripResult.provenancePreserved),
+    unverifiedMetadataRemoval: Boolean(stripResult.unverifiedMetadataRemoval),
+  };
+}
+
+/**
+ * Runs the existing StripMeta ISOBMFF/MP4 metadata engine in a Web Worker
+ * (preserving C2PA/Content Credentials provenance) on the exported MP4 Blob.
+ */
+export async function cleanProcessedVideoBlob(
+  blob: Blob,
+  filename: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  const { blob: cleanedBlob } = await cleanProcessedVideoBlobWithAudit(
+    blob,
+    filename,
+    signal
+  );
+  return cleanedBlob;
+}
+
+/**
+ * Removes Gemini/Veo watermarks from a video File locally in the browser using WebCodecs,
+ * then strips privacy-sensitive container metadata from the exported MP4 in a Web Worker.
  */
 export async function removeGeminiWatermarkFromVideo(
   file: File,
@@ -225,7 +287,7 @@ export async function removeGeminiWatermarkFromVideo(
       allenkFdncnnReuseThreshold: 6.5,
       yieldToMainThread,
       onProgress: (ev: VideoProgressEvent) => {
-        const mapped = 0.25 + Math.max(0, Math.min(1, ev.progress || 0)) * 0.75;
+        const mapped = 0.25 + Math.max(0, Math.min(1, ev.progress || 0)) * 0.7;
         onProgress({
           phase: 'encode',
           progress: mapped,
@@ -237,16 +299,46 @@ export async function removeGeminiWatermarkFromVideo(
       },
     });
 
-    const previewUrl = URL.createObjectURL(exportResult.blob);
+    options.signal?.throwIfAborted();
+    const outputName = buildCleanVideoFilename(file.name);
+    onProgress({
+      phase: 'encode',
+      progress: 0.96,
+      message: 'Removing privacy metadata from MP4 container…',
+    });
+
+    const {
+      blob: cleanedBlob,
+      provenancePreserved,
+      unverifiedMetadataRemoval,
+    } = await cleanProcessedVideoBlobWithAudit(
+      exportResult.blob,
+      outputName,
+      options.signal
+    );
+    const finalExportResult: VideoExportResult = {
+      ...exportResult,
+      blob: cleanedBlob,
+    };
+
+    const previewUrl = URL.createObjectURL(cleanedBlob);
     const elapsedMs = Math.round(performance.now() - startedAt);
 
+    onProgress({
+      phase: 'encode',
+      progress: 1,
+      message: 'Completed',
+    });
+
     return {
-      blob: exportResult.blob,
+      blob: cleanedBlob,
       previewUrl,
       originalUrl,
-      outputName: buildCleanVideoFilename(file.name),
+      outputName,
       elapsedMs,
-      exportResult,
+      exportResult: finalExportResult,
+      ...(provenancePreserved ? { provenancePreserved: true } : {}),
+      ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
     };
   } catch (error) {
     URL.revokeObjectURL(originalUrl);
