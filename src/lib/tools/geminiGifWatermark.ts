@@ -1,5 +1,8 @@
 import {
   createWatermarkEngine,
+  detectWatermarkConfig,
+  calculateWatermarkPosition,
+  removeRepeatedWatermarkLayers,
   removeWatermarkFromImageData,
   removeWatermarkFromImageDataSync,
   type WatermarkEngine,
@@ -109,11 +112,38 @@ function applyDisposalMethod(
   }
 }
 
+const REFINER_PAD = 12;
+
+interface RegionBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function getPaddedRegion(
+  pos: WatermarkPosition,
+  screenWidth: number,
+  screenHeight: number,
+  pad = REFINER_PAD,
+): RegionBox {
+  const x = Math.max(0, pos.x - pad);
+  const y = Math.max(0, pos.y - pad);
+  const right = Math.min(screenWidth, pos.x + pos.width + pad);
+  const bottom = Math.min(screenHeight, pos.y + pos.height + pad);
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
+  };
+}
+
 function extractPatchRgba(
   canvas: Uint8ClampedArray,
   screenWidth: number,
   screenHeight: number,
-  pos: WatermarkPosition,
+  pos: RegionBox,
 ): Uint8ClampedArray {
   const patch = new Uint8ClampedArray(pos.width * pos.height * 4);
   for (let row = 0; row < pos.height; row++) {
@@ -133,161 +163,57 @@ function extractPatchRgba(
   return patch;
 }
 
-/**
- * Calibrates a per-pixel effective alpha mask from the winning probe frame's
- * before/after patches, falling back to the engine's embedded alpha map on
- * near-saturated white pixels where `(255 - after)` is small.
- *
- * This guarantees 100% temporal consistency across all animated GIF frames:
- * - Stationary pixels under the watermark reproduce the probe frame's exact cleaned RGB.
- * - Moving pixels under the watermark use the exact same calibrated alpha mask and position,
- *   eliminating frame-to-frame flicker or missed frames.
- */
-function buildCalibratedAlphaMask(
-  beforePatch: Uint8ClampedArray,
-  afterPatch: Uint8ClampedArray,
-  fallbackAlphaMap: Float32Array | null,
-  alphaGain: number,
-  pixelCount: number,
-): Float32Array {
-  const calibrated = new Float32Array(pixelCount);
-  const gain = Number.isFinite(alphaGain) && alphaGain > 0 ? alphaGain : 1;
-
-  for (let i = 0; i < pixelCount; i++) {
-    const off = i * 4;
-    const bR = beforePatch[off];
-    const bG = beforePatch[off + 1];
-    const bB = beforePatch[off + 2];
-    const aR = afterPatch[off];
-    const aG = afterPatch[off + 1];
-    const aB = afterPatch[off + 2];
-
-    const diffR = bR - aR;
-    const diffG = bG - aG;
-    const diffB = bB - aB;
-    const maxAbsDiff = Math.max(Math.abs(diffR), Math.abs(diffG), Math.abs(diffB));
-
-    if (maxAbsDiff === 0) {
-      if (fallbackAlphaMap && i < fallbackAlphaMap.length) {
-        // If pixel was already saturated white (255), keep fallback alpha in case later frames are darker
-        if (bR >= 250 && bG >= 250 && bB >= 250) {
-          calibrated[i] = Math.min(0.99, Math.max(-0.99, fallbackAlphaMap[i] * gain));
-        } else {
-          calibrated[i] = 0;
-        }
-      }
-      continue;
-    }
-
-    // White-logo reverse alpha: alpha = (before - after) / (255 - after)
-    let alphaSum = 0;
-    let alphaWeight = 0;
-    const channels: Array<[number, number]> = [
-      [bR, aR],
-      [bG, aG],
-      [bB, aB],
-    ];
-
-    for (const [bVal, aVal] of channels) {
-      if (bVal >= aVal) {
-        const denom = 255 - aVal;
-        if (denom >= 8) {
-          const est = (bVal - aVal) / denom;
-          if (est > 0 && est <= 0.99) {
-            alphaSum += est * denom;
-            alphaWeight += denom;
-          }
-        }
-      } else {
-        // Dark-polarity logo (logo = 0): alpha = -(after - before) / after
-        if (aVal >= 8) {
-          const est = -(aVal - bVal) / aVal;
-          if (est < 0 && est >= -0.99) {
-            alphaSum += est * aVal;
-            alphaWeight += aVal;
-          }
-        }
-      }
-    }
-
-    if (alphaWeight > 0) {
-      calibrated[i] = Math.max(-0.99, Math.min(0.99, alphaSum / alphaWeight));
-    } else if (fallbackAlphaMap && i < fallbackAlphaMap.length) {
-      calibrated[i] = Math.max(-0.99, Math.min(0.99, fallbackAlphaMap[i] * gain));
-    }
-  }
-
-  return calibrated;
-}
-
-function applyCalibratedWatermarkRemovalToCanvas(
+function applyPatchRgba(
   canvas: Uint8ClampedArray,
   screenWidth: number,
   screenHeight: number,
-  pos: WatermarkPosition,
-  probeBeforePatch: Uint8ClampedArray,
-  probeAfterPatch: Uint8ClampedArray,
-  calibratedAlpha: Float32Array,
-): boolean {
-  let modifiedAny = false;
-
+  pos: RegionBox,
+  patch: Uint8ClampedArray,
+): void {
   for (let row = 0; row < pos.height; row++) {
     const cy = pos.y + row;
     if (cy < 0 || cy >= screenHeight) continue;
     for (let col = 0; col < pos.width; col++) {
       const cx = pos.x + col;
       if (cx < 0 || cx >= screenWidth) continue;
+      const dstOff = (cy * screenWidth + cx) * 4;
+      // Preserve transparent pixels
+      if (canvas[dstOff + 3] === 0) continue;
+      const srcOff = (row * pos.width + col) * 4;
+      canvas[dstOff] = patch[srcOff];
+      canvas[dstOff + 1] = patch[srcOff + 1];
+      canvas[dstOff + 2] = patch[srcOff + 2];
+    }
+  }
+}
 
-      const cOff = (cy * screenWidth + cx) * 4;
-      // Never modify transparent pixels
-      if (canvas[cOff + 3] === 0) continue;
+function patchesEqual(a: Uint8ClampedArray, b: Uint8ClampedArray): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
-      const pIdx = row * pos.width + col;
-      const pOff = pIdx * 4;
-
-      const r = canvas[cOff];
-      const g = canvas[cOff + 1];
-      const b = canvas[cOff + 2];
-
-      // If pixel matches the probe frame's input pixel, use the probe frame's exact output pixel
-      if (
-        probeBeforePatch[pOff + 3] === 255 &&
-        Math.abs(r - probeBeforePatch[pOff]) <= 1 &&
-        Math.abs(g - probeBeforePatch[pOff + 1]) <= 1 &&
-        Math.abs(b - probeBeforePatch[pOff + 2]) <= 1
-      ) {
-        const nextR = probeAfterPatch[pOff];
-        const nextG = probeAfterPatch[pOff + 1];
-        const nextB = probeAfterPatch[pOff + 2];
-        if (nextR !== r || nextG !== g || nextB !== b) {
-          canvas[cOff] = nextR;
-          canvas[cOff + 1] = nextG;
-          canvas[cOff + 2] = nextB;
-          modifiedAny = true;
-        }
-        continue;
-      }
-
-      const rawAlpha = calibratedAlpha[pIdx];
-      const absAlpha = Math.abs(rawAlpha);
-      if (absAlpha < 0.002) continue;
-
-      const logoVal = rawAlpha < 0 ? 0 : 255;
-      const oneMinusAlpha = 1.0 - Math.min(absAlpha, 0.99);
-      const nextR = Math.max(0, Math.min(255, Math.round((r - absAlpha * logoVal) / oneMinusAlpha)));
-      const nextG = Math.max(0, Math.min(255, Math.round((g - absAlpha * logoVal) / oneMinusAlpha)));
-      const nextB = Math.max(0, Math.min(255, Math.round((b - absAlpha * logoVal) / oneMinusAlpha)));
-
-      if (nextR !== r || nextG !== g || nextB !== b) {
-        canvas[cOff] = nextR;
-        canvas[cOff + 1] = nextG;
-        canvas[cOff + 2] = nextB;
-        modifiedAny = true;
+function hasOpaquePixelsInRegion(
+  canvas: Uint8ClampedArray,
+  screenWidth: number,
+  screenHeight: number,
+  pos: WatermarkPosition,
+): boolean {
+  const x0 = Math.max(0, pos.x);
+  const y0 = Math.max(0, pos.y);
+  const x1 = Math.min(screenWidth, pos.x + pos.width);
+  const y1 = Math.min(screenHeight, pos.y + pos.height);
+  for (let cy = y0; cy < y1; cy++) {
+    const rowOff = cy * screenWidth;
+    for (let cx = x0; cx < x1; cx++) {
+      if (canvas[(rowOff + cx) * 4 + 3] > 0) {
+        return true;
       }
     }
   }
-
-  return modifiedAny;
+  return false;
 }
 
 function colorDistSq(
@@ -547,7 +473,7 @@ function quantizeModifiedFrame(params: {
     }
   }
 
-  if (outPaletteColors.length === 0) {
+  while (outPaletteColors.length < 2) {
     outPaletteColors.push([0, 0, 0]);
   }
 
@@ -667,11 +593,13 @@ export async function processGeminiGifBuffer(
       : 'Analyzing GIF for Gemini watermark…',
   });
 
-  // Probe frame 0 first; only probe midpoint and final frame if frame 0 has no watermark
-  // (e.g. an animated GIF whose opening frame is a blank/intro card).
+  // Probe frame 0 first; only probe additional frames if frame 0 has no watermark
+  // (e.g. an animated GIF whose opening frame is blank or transparent).
   const probeIndexSet = new Set<number>([0]);
   if (totalFrames > 1) {
+    probeIndexSet.add(Math.floor(totalFrames / 4));
     probeIndexSet.add(Math.floor(totalFrames / 2));
+    probeIndexSet.add(Math.floor((3 * totalFrames) / 4));
     probeIndexSet.add(totalFrames - 1);
   }
   const probeIndices = [...probeIndexSet].sort((a, b) => a - b);
@@ -680,14 +608,13 @@ export async function processGeminiGifBuffer(
   interface ProbeCandidate {
     frameIndex: number;
     meta: WatermarkMeta;
-    beforePatch: Uint8ClampedArray;
-    afterPatch: Uint8ClampedArray;
+    cleanedData: Uint8ClampedArray;
   }
 
   const probeCanvas = new Uint8ClampedArray(width * height * 4);
   let probePrevCanvas: Uint8ClampedArray | null = null;
   let firstProbeMeta: WatermarkMeta | null = null;
-  const appliedCandidates: ProbeCandidate[] = [];
+  let winningCandidate: ProbeCandidate | null = null;
 
   for (let i = 0; i <= maxProbeIndex; i++) {
     options.signal?.throwIfAborted();
@@ -717,20 +644,31 @@ export async function processGeminiGifBuffer(
       }
 
       if (removalRes.meta.applied && removalRes.meta.position) {
-        const pos = removalRes.meta.position;
-        appliedCandidates.push({
-          frameIndex: i,
-          meta: removalRes.meta,
-          beforePatch: extractPatchRgba(probeCanvas, width, height, pos),
-          afterPatch: extractPatchRgba(
-            new Uint8ClampedArray(removalRes.imageData.data),
-            width,
-            height,
-            pos,
-          ),
-        });
-        // Stop probing once watermark is confirmed so multi-frame GIFs process rapidly
-        break;
+        const currentGain = removalRes.meta.detection?.suppressionGain ?? 0;
+        const currentBestEffort = Boolean(
+          (removalRes.meta as { bestEffort?: boolean }).bestEffort,
+        );
+        const prevGain = winningCandidate?.meta.detection?.suppressionGain ?? -Infinity;
+        const prevBestEffort = Boolean(
+          (winningCandidate?.meta as { bestEffort?: boolean } | undefined)?.bestEffort,
+        );
+
+        if (
+          !winningCandidate ||
+          (prevBestEffort && !currentBestEffort) ||
+          (prevBestEffort === currentBestEffort && currentGain > prevGain)
+        ) {
+          winningCandidate = {
+            frameIndex: i,
+            meta: removalRes.meta,
+            cleanedData: new Uint8ClampedArray(removalRes.imageData.data),
+          };
+        }
+
+        // Stop probing early only when we have a clean, high-confidence match
+        if (!currentBestEffort) {
+          break;
+        }
       }
     }
 
@@ -745,7 +683,7 @@ export async function processGeminiGifBuffer(
   }
 
   // Fast lossless path: if no watermark was detected on any probe frame, clean GIF metadata directly
-  if (appliedCandidates.length === 0) {
+  if (!winningCandidate) {
     options.signal?.throwIfAborted();
     const result = await stripImageMetadata(gifBytes, outputName);
     if (result.error) {
@@ -761,45 +699,32 @@ export async function processGeminiGifBuffer(
     };
   }
 
-  // Pick consensus candidate across applied probe frames (most frequent position, then highest suppressionGain)
-  const posCounts = new Map<string, number>();
-  for (const c of appliedCandidates) {
-    const p = c.meta.position!;
-    const key = `${p.x},${p.y},${p.width},${p.height}`;
-    posCounts.set(key, (posCounts.get(key) ?? 0) + 1);
-  }
-
-  const winningCandidate = [...appliedCandidates].sort((a, b) => {
-    const pa = a.meta.position!;
-    const pb = b.meta.position!;
-    const countDiff =
-      (posCounts.get(`${pb.x},${pb.y},${pb.width},${pb.height}`) ?? 0) -
-      (posCounts.get(`${pa.x},${pa.y},${pa.width},${pa.height}`) ?? 0);
-    if (countDiff !== 0) return countDiff;
-    const gainA = a.meta.detection?.suppressionGain ?? 0;
-    const gainB = b.meta.detection?.suppressionGain ?? 0;
-    if (gainB !== gainA) return gainB - gainA;
-    return a.frameIndex - b.frameIndex;
-  })[0];
-
   const wmPos = winningCandidate.meta.position!;
+  const paddedRegion = getPaddedRegion(wmPos, width, height, REFINER_PAD);
+
+  const standardConfig = detectWatermarkConfig(width, height);
+  const standardPos = calculateWatermarkPosition(width, height, standardConfig);
+  const isStandardCatalogPos =
+    wmPos.x === standardPos.x &&
+    wmPos.y === standardPos.y &&
+    wmPos.width === standardPos.width &&
+    wmPos.height === standardPos.height;
+
+  const engine = options.engine ?? (await createWatermarkEngine());
   let fallbackAlphaMap: Float32Array | null = null;
   try {
-    const engine = options.engine ?? (await createWatermarkEngine());
-    if (wmPos.width === wmPos.height && wmPos.width > 0) {
-      fallbackAlphaMap = await engine.getAlphaMap(wmPos.width);
-    }
+    const requestedSize =
+      winningCandidate.meta.config?.alphaVariant ?? wmPos.width;
+    fallbackAlphaMap = await engine.getAlphaMap(
+      requestedSize as number,
+    );
   } catch {
-    fallbackAlphaMap = null;
+    try {
+      fallbackAlphaMap = await engine.getAlphaMap(wmPos.width);
+    } catch {
+      fallbackAlphaMap = null;
+    }
   }
-
-  const calibratedAlpha = buildCalibratedAlphaMask(
-    winningCandidate.beforePatch,
-    winningCandidate.afterPatch,
-    fallbackAlphaMap,
-    winningCandidate.meta.alphaGain,
-    wmPos.width * wmPos.height,
-  );
 
   // Pass 2: Stream through all frames in lockstep (origCanvas & outCanvas)
   const origCanvas = new Uint8ClampedArray(width * height * 4);
@@ -807,6 +732,9 @@ export async function processGeminiGifBuffer(
   const cleanedCanvas = new Uint8ClampedArray(width * height * 4);
   let origPrevCanvas: Uint8ClampedArray | null = null;
   let outPrevCanvas: Uint8ClampedArray | null = null;
+
+  let lastOrigWmRegion: Uint8ClampedArray | null = null;
+  let lastCleanedWmRegion: Uint8ClampedArray | null = null;
 
   const encodedFrames: EncodedGifFrameInput[] = [];
   let outGlobalColorTable = decoded.globalColorTable;
@@ -825,27 +753,113 @@ export async function processGeminiGifBuffer(
     compositeFrameOntoCanvas(origCanvas, width, height, frame, origPalette);
 
     cleanedCanvas.set(origCanvas);
-    const modifiedWatermarkInCanvas = applyCalibratedWatermarkRemovalToCanvas(
-      cleanedCanvas,
-      width,
-      height,
-      wmPos,
-      winningCandidate.beforePatch,
-      winningCandidate.afterPatch,
-      calibratedAlpha,
-    );
+    let modifiedWatermarkInCanvas = false;
+
+    if (hasOpaquePixelsInRegion(origCanvas, width, height, wmPos)) {
+      const currentOrigRegion = extractPatchRgba(
+        origCanvas,
+        width,
+        height,
+        paddedRegion,
+      );
+
+      if (
+        lastOrigWmRegion &&
+        lastCleanedWmRegion &&
+        patchesEqual(currentOrigRegion, lastOrigWmRegion)
+      ) {
+        applyPatchRgba(
+          cleanedCanvas,
+          width,
+          height,
+          paddedRegion,
+          lastCleanedWmRegion,
+        );
+        modifiedWatermarkInCanvas = true;
+      } else if (i === winningCandidate.frameIndex) {
+        const cleanedRegion = extractPatchRgba(
+          winningCandidate.cleanedData,
+          width,
+          height,
+          paddedRegion,
+        );
+        applyPatchRgba(cleanedCanvas, width, height, paddedRegion, cleanedRegion);
+        lastOrigWmRegion = currentOrigRegion;
+        lastCleanedWmRegion = cleanedRegion;
+        modifiedWatermarkInCanvas = true;
+      } else {
+        // Run the actual @pilio/gemini-watermark-remover engine on this frame's full composited canvas
+        const frameDataCopy = new Uint8ClampedArray(origCanvas);
+        const perFrameAdaptiveMode: GifAdaptiveMode =
+          adaptiveMode === 'always'
+            ? 'always'
+            : isStandardCatalogPos
+              ? 'off'
+              : adaptiveMode;
+        const frameRes = await removeWatermarkFromImageData(
+          { width, height, data: frameDataCopy },
+          { engine, adaptiveMode: perFrameAdaptiveMode },
+        );
+
+        const posMatches =
+          frameRes.meta.applied &&
+          frameRes.meta.position &&
+          ((Math.abs(frameRes.meta.position.x - wmPos.x) <= 4 &&
+            Math.abs(frameRes.meta.position.y - wmPos.y) <= 4) ||
+            !(frameRes.meta as { bestEffort?: boolean }).bestEffort);
+
+        let cleanedRegion: Uint8ClampedArray;
+        if (posMatches) {
+          cleanedRegion = extractPatchRgba(
+            new Uint8ClampedArray(frameRes.imageData.data),
+            width,
+            height,
+            paddedRegion,
+          );
+        } else if (
+          fallbackAlphaMap &&
+          fallbackAlphaMap.length === wmPos.width * wmPos.height
+        ) {
+          // Consistent multi-pass fallback at the exact consensus watermark position
+          // when a single frame's moving content triggers an adaptive skip.
+          const fallbackCopy = new Uint8ClampedArray(origCanvas);
+          const layerRes = removeRepeatedWatermarkLayers(
+            { width, height, data: fallbackCopy },
+            fallbackAlphaMap,
+            wmPos,
+            {
+              alphaGain: winningCandidate.meta.alphaGain,
+              maxPasses: Math.max(1, winningCandidate.meta.passCount || 1),
+            },
+          ) as { imageData: { data: Uint8ClampedArray } };
+          cleanedRegion = extractPatchRgba(
+            new Uint8ClampedArray(layerRes.imageData.data),
+            width,
+            height,
+            paddedRegion,
+          );
+        } else {
+          cleanedRegion = currentOrigRegion;
+        }
+
+        applyPatchRgba(cleanedCanvas, width, height, paddedRegion, cleanedRegion);
+        lastOrigWmRegion = currentOrigRegion;
+        lastCleanedWmRegion = cleanedRegion;
+        modifiedWatermarkInCanvas = !patchesEqual(cleanedRegion, currentOrigRegion);
+      }
+    }
 
     let minX = Math.max(0, frame.left);
     let minY = Math.max(0, frame.top);
     let maxX = Math.min(width, frame.left + frame.width);
     let maxY = Math.min(height, frame.top + frame.height);
 
-    // Check if any pixel in wmPos changed relative to outCanvasBefore or origCanvas
+    // Check if any pixel in paddedRegion changed relative to outCanvasBefore or origCanvas
     let needsRequantize = false;
-    const wmX0 = Math.max(0, wmPos.x);
-    const wmY0 = Math.max(0, wmPos.y);
-    const wmX1 = Math.min(width, wmPos.x + wmPos.width);
-    const wmY1 = Math.min(height, wmPos.y + wmPos.height);
+    const wmX0 = paddedRegion.x;
+    const wmY0 = paddedRegion.y;
+    const wmX1 = paddedRegion.x + paddedRegion.width;
+    const wmY1 = paddedRegion.y + paddedRegion.height;
 
     for (let cy = wmY0; cy < wmY1; cy++) {
       const rowOff = cy * width;
@@ -879,7 +893,7 @@ export async function processGeminiGifBuffer(
       }
     }
 
-    if (!needsRequantize && !modifiedWatermarkInCanvas) {
+    if (!needsRequantize) {
       // Frame is completely unaffected by watermark removal: preserve verbatim
       encodedFrames.push({
         left: frame.left,
@@ -898,6 +912,7 @@ export async function processGeminiGifBuffer(
       applyDisposalMethod(origCanvas, origPrevCanvas, width, height, frame.disposalMethod, frame);
       applyDisposalMethod(outCanvas, outPrevCanvas, width, height, frame.disposalMethod, frame);
     } else {
+      void modifiedWatermarkInCanvas;
       const outLeft = minX;
       const outTop = minY;
       const outWidth = Math.max(1, maxX - minX);

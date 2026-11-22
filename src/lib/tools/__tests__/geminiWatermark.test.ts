@@ -897,4 +897,132 @@ describe('Gemini GIF Watermark Removal & Metadata Cleaning Pipeline', () => {
       (globalThis as { Worker?: unknown }).Worker = originalWorker;
     }
   });
+
+  it('removes Gemini watermark cleanly across a real photographic multi-frame animated GIF with moving backgrounds and 256-color quantization', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const realGifBytes = new Uint8Array(
+      fs.readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tests/privacy/fixtures/synthetic/gif/file_example_GIF_500kB.gif',
+        ),
+      ),
+    );
+    const decodedReal = decodeGif(realGifBytes);
+    const srcFrame = decodedReal.frames[0];
+    const srcPal = srcFrame.localColorTable ?? decodedReal.globalColorTable!;
+
+    // Crop a 480x360 region from the real photo into 3 shifting frames with authentic 48x48 Gemini watermark
+    const width = 480;
+    const height = 360;
+    const engine = await createWatermarkEngine();
+    const info = engine.getWatermarkInfo(width, height);
+    const alphaMap = await engine.getAlphaMap(info.size);
+    const wmPos = info.position;
+
+    const animFrames: EncodedGifFrameInput[] = [];
+    const expectedCleanLums: number[] = [];
+
+    for (let f = 0; f < 3; f++) {
+      const shiftX = f * 120;
+      const shiftY = f * 80;
+      const frameIndices = new Uint8Array(width * height);
+      let lumSum = 0;
+
+      for (let y = 0; y < height; y++) {
+        const sy = Math.min(decodedReal.height - 1, y + shiftY);
+        for (let x = 0; x < width; x++) {
+          const sx = Math.min(decodedReal.width - 1, x + shiftX);
+          const idx = srcFrame.indices[sy * decodedReal.width + sx];
+          frameIndices[y * width + x] = idx;
+        }
+      }
+
+      // Compute clean baseline mean luminance in watermark rect before blending watermark
+      for (let row = 0; row < wmPos.height; row++) {
+        for (let col = 0; col < wmPos.width; col++) {
+          const pIdx = frameIndices[(wmPos.y + row) * width + (wmPos.x + col)];
+          lumSum +=
+            (srcPal[pIdx * 3] + srcPal[pIdx * 3 + 1] + srcPal[pIdx * 3 + 2]) / 3;
+        }
+      }
+      expectedCleanLums.push(lumSum / (wmPos.width * wmPos.height));
+
+      // Blend Gemini watermark and quantize back to the 256-color GIF palette
+      for (let row = 0; row < wmPos.height; row++) {
+        for (let col = 0; col < wmPos.width; col++) {
+          const a = Math.max(0, Math.min(1, alphaMap[row * wmPos.width + col]));
+          if (a <= 0) continue;
+          const idxPos = (wmPos.y + row) * width + (wmPos.x + col);
+          const pIdx = frameIndices[idxPos];
+          const r = Math.round(a * 255 + (1 - a) * srcPal[pIdx * 3]);
+          const g = Math.round(a * 255 + (1 - a) * srcPal[pIdx * 3 + 1]);
+          const b = Math.round(a * 255 + (1 - a) * srcPal[pIdx * 3 + 2]);
+
+          let best = 0;
+          let bestDist = Infinity;
+          const maxK = Math.floor(srcPal.length / 3);
+          for (let k = 0; k < maxK; k++) {
+            const dr = r - srcPal[k * 3];
+            const dg = g - srcPal[k * 3 + 1];
+            const db = b - srcPal[k * 3 + 2];
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestDist) {
+              bestDist = d;
+              best = k;
+            }
+          }
+          frameIndices[idxPos] = best;
+        }
+      }
+
+      animFrames.push({
+        left: 0,
+        top: 0,
+        width,
+        height,
+        delayCs: 10 + f * 5,
+        disposalMethod: 1,
+        transparentIndex: -1,
+        localColorTable: null,
+        indices: frameIndices,
+      });
+    }
+
+    const animGifBytes = injectGifCommentAndXmpMetadata(
+      encodeGif({
+        width,
+        height,
+        globalColorTable: srcPal,
+        loopCount: 0,
+        frames: animFrames,
+      }),
+      'CLEANSHOT_TEST_REAL_PHOTO_GIF_SECRET',
+    );
+
+    const processed = await processGeminiGifBuffer(animGifBytes, 'real-photo-anim-clean.gif', {
+      adaptiveMode: 'auto',
+      engine,
+    });
+
+    expect(processed.animated).toBe(true);
+    expect(processed.frameCount).toBe(3);
+    expect(processed.meta?.applied).toBe(true);
+
+    const outAscii = new TextDecoder('latin1').decode(processed.result.cleanedBuffer);
+    expect(outAscii).not.toContain('CLEANSHOT_TEST_REAL_PHOTO_GIF_SECRET');
+    expect(outAscii).not.toContain('CLEANSHOT_TEST_GIF_XMP_SECRET');
+
+    const outDecoded = decodeGif(processed.result.cleanedBuffer);
+    expect(outDecoded.frames.length).toBe(3);
+    expect(outDecoded.frames.map((f) => f.delayCs)).toEqual([10, 15, 20]);
+
+    const cleanedLums = [0, 1, 2].map((f) =>
+      measureWatermarkRegionMeanLuminance(outDecoded, f, wmPos),
+    );
+    for (let f = 0; f < 3; f++) {
+      expect(Math.abs(cleanedLums[f] - expectedCleanLums[f])).toBeLessThan(3.0);
+    }
+  });
 });
