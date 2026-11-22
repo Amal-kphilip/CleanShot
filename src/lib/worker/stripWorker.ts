@@ -3,6 +3,10 @@ import { stripImageMetadata } from '../engine/stripper';
 import { inspectMetadata } from '../engine/inspector';
 import { sanitizeFilename } from '../engine/magic';
 import { StripOptions } from '../engine/types';
+import {
+  extractSupportedFilesFromZipBuffer,
+  ZipExtractionLimits,
+} from '../zip/zipExtractor';
 
 type GeminiAdaptiveMode = 'auto' | 'always' | 'off';
 type GeminiTargetMime = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -32,6 +36,13 @@ type WorkerRequest =
       action: 'zip';
       files: Array<{ name: string; data: ArrayBuffer; path?: string }>;
       preserveFolders: boolean;
+    }
+  | {
+      id: string;
+      action: 'extract-zip';
+      buffer: ArrayBuffer;
+      archiveName: string;
+      limits?: ZipExtractionLimits;
     };
 
 const workerScope = self as unknown as {
@@ -111,6 +122,35 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       workerScope.postMessage(
         { id: message.id, zipBuffer: transferBuffer },
         [transferBuffer],
+      );
+      return;
+    }
+
+    if (message.action === 'extract-zip') {
+      let lastProgressPost = 0;
+      const zipExtracted = await extractSupportedFilesFromZipBuffer(
+        message.buffer,
+        message.archiveName,
+        message.limits,
+        (progress) => {
+          const now = Date.now();
+          if (
+            progress.processedEntries === progress.totalEntries ||
+            now - lastProgressPost >= 80
+          ) {
+            lastProgressPost = now;
+            workerScope.postMessage({
+              id: message.id,
+              type: 'progress',
+              zipProgress: progress,
+            });
+          }
+        },
+      );
+      const transfers = zipExtracted.extractedFiles.map((entry) => entry.buffer);
+      workerScope.postMessage(
+        { id: message.id, zipExtracted },
+        transfers,
       );
       return;
     }

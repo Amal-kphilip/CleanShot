@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Header } from '@/components/Header';
-import { DropZone } from '@/components/DropZone';
+import { DropZone, ZipExtractionStatus } from '@/components/DropZone';
 import { FileItemState } from '@/components/FileList';
 import { StripOptions } from '@/lib/engine/types';
 import {
@@ -12,8 +12,11 @@ import {
   createThumbnail,
   inspectFileInWorker,
   createZipArchiveInWorker,
+  extractZipArchiveInWorker,
+  getDeviceAwareConcurrency,
 } from '@/lib/worker/workerRunner';
 import { triggerDownload } from '@/lib/zip/clientZip';
+import { isZipFile } from '@/lib/zip/zipExtractor';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 import { Loader2, Copy, Check, Bookmark, Download, ShieldCheck, Sparkles } from 'lucide-react';
 
@@ -46,11 +49,14 @@ export default function HomePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [inspectItem, setInspectItem] = useState<FileItemState | null>(null);
+  const [zipExtractionStatus, setZipExtractionStatus] =
+    useState<ZipExtractionStatus | null>(null);
   const objectUrls = useRef(new Set<string>());
   const clearDialogRef = useRef<HTMLDivElement>(null);
   const pendingPatchesRef = useRef(new Map<string, Partial<FileItemState>>());
   const flushTimerRef = useRef<number | null>(null);
   const batchVersionRef = useRef(0);
+  const zipExtractAbortRef = useRef<AbortController | null>(null);
   const closeClearConfirm = useCallback(() => setIsClearConfirmOpen(false), []);
   useDialogAccessibility(isClearConfirmOpen, closeClearConfirm, clearDialogRef);
 
@@ -75,16 +81,24 @@ export default function HomePage() {
       const existing = pendingPatchesRef.current.get(id);
       pendingPatchesRef.current.set(id, existing ? { ...existing, ...patch } : patch);
       if (flushTimerRef.current === null) {
-        flushTimerRef.current = window.setTimeout(flushFilePatches, 80);
+        flushTimerRef.current = window.setTimeout(flushFilePatches, 110);
       }
     },
     [flushFilePatches]
   );
 
+  const cancelZipExtraction = useCallback(() => {
+    zipExtractAbortRef.current?.abort(new Error('ZIP extraction canceled.'));
+    zipExtractAbortRef.current = null;
+    setZipExtractionStatus(null);
+  }, []);
+
   useEffect(() => {
     const urls = objectUrls.current;
     const pendingPatches = pendingPatchesRef.current;
     return () => {
+      zipExtractAbortRef.current?.abort();
+      zipExtractAbortRef.current = null;
       if (flushTimerRef.current !== null) {
         window.clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
@@ -109,8 +123,18 @@ export default function HomePage() {
       let queuedBytes = files.reduce((total, item) => total + item.file.size, 0);
       const acceptedFiles: File[] = [];
       const rejected: string[] = [];
+      const zipArchives: File[] = [];
+      const directFiles: File[] = [];
 
       for (const file of newFiles) {
+        if (isZipFile(file)) {
+          zipArchives.push(file);
+        } else {
+          directFiles.push(file);
+        }
+      }
+
+      for (const file of directFiles) {
         if (file.size > MAX_CLIENT_FILE_BYTES) {
           rejected.push(`${file.name} (over 50 MB)`);
           continue;
@@ -127,9 +151,86 @@ export default function HomePage() {
         queuedBytes += file.size;
       }
 
+      if (zipArchives.length > 0) {
+        zipExtractAbortRef.current?.abort();
+        const extractController = new AbortController();
+        zipExtractAbortRef.current = extractController;
+
+        try {
+          for (const archive of zipArchives) {
+            if (extractController.signal.aborted) break;
+            const remainingFiles = Math.max(
+              0,
+              MAX_CLIENT_FILES - (files.length + acceptedFiles.length)
+            );
+            const remainingBytes = Math.max(
+              0,
+              MAX_CLIENT_BATCH_BYTES - queuedBytes
+            );
+
+            setZipExtractionStatus({
+              archiveName: archive.name,
+              extractedCount: 0,
+              processedEntries: 0,
+              totalEntries: 1,
+            });
+
+            try {
+              const extracted = await extractZipArchiveInWorker(
+                archive,
+                {
+                  maxFileBytes: MAX_CLIENT_FILE_BYTES,
+                  maxRemainingFiles: remainingFiles,
+                  maxRemainingBytes: remainingBytes,
+                },
+                (progress) => {
+                  if (!extractController.signal.aborted) {
+                    setZipExtractionStatus(progress);
+                  }
+                },
+                extractController.signal
+              );
+
+              if (extracted.rejected.length > 0) {
+                rejected.push(...extracted.rejected);
+              }
+              if (
+                extracted.totalCandidateEntries === 0 &&
+                extracted.rejected.length === 0
+              ) {
+                rejected.push(
+                  extracted.skippedUnsupportedCount > 0
+                    ? `${archive.name} (no supported media/document files found; ${extracted.skippedUnsupportedCount} unsupported skipped)`
+                    : `${archive.name} (archive contains no supported files)`
+                );
+              }
+              for (const extractedFile of extracted.files) {
+                acceptedFiles.push(extractedFile);
+                queuedBytes += extractedFile.size;
+              }
+            } catch (zipErr) {
+              if (extractController.signal.aborted) {
+                rejected.push(`${archive.name} (extraction canceled)`);
+                break;
+              }
+              const msg =
+                zipErr instanceof Error
+                  ? zipErr.message
+                  : `${archive.name} could not be extracted.`;
+              rejected.push(msg);
+            }
+          }
+        } finally {
+          if (zipExtractAbortRef.current === extractController) {
+            zipExtractAbortRef.current = null;
+          }
+          setZipExtractionStatus(null);
+        }
+      }
+
       if (rejected.length) {
         setBatchError(
-          `Some files were not added. Limits: 50 MB per file, 100 MB total queue, and ${MAX_CLIENT_FILES} files. Rejected: ${rejected
+          `Some files were not added. Limits: 50 MB per file, 100 MB total queue, and ${MAX_CLIENT_FILES} files. Details: ${rejected
             .slice(0, 4)
             .join(', ')}${rejected.length > 4 ? `, and ${rejected.length - 4} more` : ''}.`
         );
@@ -156,7 +257,10 @@ export default function HomePage() {
 
       const versionAtStart = batchVersionRef.current;
       let inspectCursor = 0;
-      const inspectConcurrency = Math.min(3, initialItems.length);
+      const inspectConcurrency = Math.min(
+        getDeviceAwareConcurrency(3),
+        initialItems.length
+      );
       await Promise.all(
         Array.from({ length: inspectConcurrency }, async () => {
           while (inspectCursor < initialItems.length) {
@@ -278,15 +382,7 @@ export default function HomePage() {
       }));
       await processBatchWithConcurrency(
         tasks,
-        Math.min(
-          3,
-          Math.max(
-            1,
-            typeof navigator !== 'undefined'
-              ? (navigator.hardwareConcurrency || 2) - 1
-              : 2
-          )
-        ),
+        getDeviceAwareConcurrency(3),
         (id) =>
           scheduleFilePatch(id, {
             status: 'processing',
@@ -344,15 +440,18 @@ export default function HomePage() {
     }
   }, [downloadReadyItems, files, flushFilePatches, options, isProcessing, scheduleFilePatch]);
 
-  const handleRemoveFile = (id: string) => {
-    const item = files.find((file) => file.id === id);
-    if (item) revokeThumbnail(item);
-    setFiles((prev) => prev.filter((file) => file.id !== id));
-    if (inspectItem?.id === id) setInspectItem(null);
-  };
+  const handleRemoveFile = useCallback((id: string) => {
+    setFiles((prev) => {
+      const target = prev.find((file) => file.id === id);
+      if (target) revokeThumbnail(target);
+      return prev.filter((file) => file.id !== id);
+    });
+    setInspectItem((prev) => (prev?.id === id ? null : prev));
+  }, []);
 
   const handleClearAll = () => {
     if (isProcessing) return;
+    cancelZipExtraction();
     batchVersionRef.current += 1;
     pendingPatchesRef.current.clear();
     if (flushTimerRef.current !== null) {
@@ -449,13 +548,15 @@ export default function HomePage() {
           <DropZone
             onFilesSelected={handleFilesSelected}
             isProcessing={isProcessing}
-            disabled={isProcessing}
+            disabled={isProcessing || Boolean(zipExtractionStatus)}
             files={files}
             onRemoveFile={handleRemoveFile}
             onInspectFile={setInspectItem}
             onDownloadFile={handleDownloadSingle}
             maxFiles={MAX_CLIENT_FILES}
             maxTotalSizeMb={100}
+            zipExtractionStatus={zipExtractionStatus}
+            onCancelZipExtraction={cancelZipExtraction}
           />
 
           <div className="w-full grid grid-cols-2 sm:flex sm:justify-end items-center gap-2.5 sm:gap-3">

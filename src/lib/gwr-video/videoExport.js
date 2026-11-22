@@ -1005,6 +1005,7 @@ export async function removeGeminiVideoWatermark(file, options = {}) {
             codecReclaimStats
         });
 
+        let lastYieldAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
         for await (const sample of samples) {
             let timestamp = Math.max(0, sample.timestamp - metadata.firstTimestamp);
             if (timestamp < lastTimestamp) {
@@ -1075,6 +1076,14 @@ export async function removeGeminiVideoWatermark(file, options = {}) {
                 aiReuseFrames,
                 alphaGain
             });
+
+            if (typeof options.yieldToMainThread === 'function') {
+                const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                if (processedFrames % 4 === 0 || now - lastYieldAt >= 28) {
+                    await options.yieldToMainThread();
+                    lastYieldAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                }
+            }
         }
 
         source.close();

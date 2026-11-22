@@ -31,7 +31,11 @@ import type {
   VideoDenoiseMode,
   VideoProgressUpdate,
 } from '@/lib/tools/geminiVideoWatermark';
-import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
+import {
+  createZipArchiveInWorker,
+  getDeviceAwareConcurrency,
+} from '@/lib/worker/workerRunner';
+import { triggerDownload } from '@/lib/zip/clientZip';
 
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
@@ -78,6 +82,150 @@ function formatSkipReason(reason: string | null | undefined): string {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
+const WatermarkDropzoneRow = React.memo(function WatermarkDropzoneRow({
+  item,
+  selected,
+  showSpinner,
+  onSelect,
+  onRemove,
+}: {
+  item: QueueItem;
+  selected: boolean;
+  showSpinner: boolean;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const readyOutput = item.imageResult ?? item.videoResult;
+  return (
+    <li
+      onClick={() => onSelect(item.id)}
+      className={`flex items-center gap-3 py-2 px-3 rounded-xl border bg-glass-card shadow-sm transition-colors cursor-pointer ${
+        selected
+          ? 'border-[#145BF5] ring-1 ring-[#145BF5]/30'
+          : 'border-[var(--border-subtle)] hover:border-[#145BF5]/40'
+      }`}
+    >
+      {item.kind === 'video' ? (
+        <Film className="shrink-0 w-4 h-4 text-[#145BF5]" />
+      ) : (
+        <ImageIcon className="shrink-0 w-4 h-4 text-[#145BF5]" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] sm:text-[14px] font-medium text-foreground truncate">
+          {item.file.name}
+        </p>
+        <p className="text-[11px] text-text-sec truncate">
+          {item.status === 'processing'
+            ? item.kind === 'video' && item.progress
+              ? `${item.progress.message} (${Math.round(item.progress.progress * 100)}%)`
+              : 'Processing…'
+            : item.status === 'done'
+              ? `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Ready`
+              : item.error ?? 'Failed'}
+        </p>
+      </div>
+
+      {item.status === 'done' && readyOutput && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerDownload(readyOutput.blob, readyOutput.outputName);
+          }}
+          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
+          title="Download cleaned file"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Save</span>
+        </button>
+      )}
+
+      {item.status === 'processing' &&
+        (showSpinner ? (
+          <LoaderCircle className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
+        ) : (
+          <span
+            aria-label="Queued for processing"
+            className="shrink-0 w-2.5 h-2.5 rounded-full bg-[#145BF5]/70"
+          />
+        ))}
+      {item.status === 'done' && (
+        <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />
+      )}
+      {(item.status === 'error' || item.status === 'canceled') && (
+        <AlertTriangle className="shrink-0 w-4 h-4 text-red-500" />
+      )}
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(item.id);
+        }}
+        aria-label={`Remove ${item.file.name}`}
+        className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </li>
+  );
+});
+
+const WatermarkFileChip = React.memo(function WatermarkFileChip({
+  item,
+  selected,
+  showSpinner,
+  onSelect,
+  onRemove,
+}: {
+  item: QueueItem;
+  selected: boolean;
+  showSpinner: boolean;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+        selected
+          ? 'border-[#145BF5] bg-[#145BF5] text-white shadow-sm'
+          : 'border-[var(--border-subtle)] bg-glass-card text-foreground hover:border-[#145BF5]/40'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(item.id)}
+        className="inline-flex items-center gap-1.5 text-left"
+      >
+        {item.status === 'processing' &&
+          (showSpinner ? (
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <span className="h-2 w-2 rounded-full bg-current opacity-75" />
+          ))}
+        {item.status === 'done' && <CheckCircle2 className="h-3.5 w-3.5" />}
+        {(item.status === 'error' || item.status === 'canceled') && (
+          <AlertTriangle className="h-3.5 w-3.5" />
+        )}
+        {item.kind === 'video' ? (
+          <Film className="h-3.5 w-3.5 opacity-80" />
+        ) : (
+          <ImageIcon className="h-3.5 w-3.5 opacity-80" />
+        )}
+        <span className="max-w-[160px] truncate">{item.file.name}</span>
+      </button>
+      <button
+        type="button"
+        aria-label={`Remove ${item.file.name}`}
+        onClick={() => onRemove(item.id)}
+        className="opacity-70 hover:opacity-100"
+      >
+        ×
+      </button>
+    </div>
+  );
+});
+
 export default function GeminiWatermarkRemoverPage() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -98,6 +246,76 @@ export default function GeminiWatermarkRemoverPage() {
   const prevActiveStatusRef = useRef<{ id: string; status: QueueItem['status'] } | null>(null);
   const activeUrlsRef = useRef(new Set<string>());
   const abortControllersRef = useRef(new Map<string, AbortController>());
+  const progressThrottleRef = useRef(
+    new Map<
+      string,
+      {
+        lastEmitAt: number;
+        timer: number | null;
+        latest: VideoProgressUpdate;
+      }
+    >()
+  );
+
+  const clearProgressThrottle = useCallback((id: string) => {
+    const entry = progressThrottleRef.current.get(id);
+    if (entry?.timer != null) {
+      window.clearTimeout(entry.timer);
+    }
+    progressThrottleRef.current.delete(id);
+  }, []);
+
+  const commitVideoProgress = useCallback((id: string, progress: VideoProgressUpdate) => {
+    const nextPct = Math.round((progress.progress ?? 0) * 100);
+    setItems((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        if (item.id !== id || item.status !== 'processing') return item;
+        const prevPct =
+          item.progress != null ? Math.round((item.progress.progress ?? 0) * 100) : -1;
+        if (prevPct === nextPct && item.progress?.message === progress.message) {
+          return item;
+        }
+        changed = true;
+        return { ...item, progress };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const scheduleVideoProgress = useCallback(
+    (id: string, progress: VideoProgressUpdate) => {
+      const now = performance.now();
+      const THROTTLE_MS = 125;
+      const existing = progressThrottleRef.current.get(id);
+
+      if (!existing || now - existing.lastEmitAt >= THROTTLE_MS) {
+        if (existing?.timer != null) {
+          window.clearTimeout(existing.timer);
+        }
+        progressThrottleRef.current.set(id, {
+          lastEmitAt: now,
+          timer: null,
+          latest: progress,
+        });
+        commitVideoProgress(id, progress);
+        return;
+      }
+
+      existing.latest = progress;
+      if (existing.timer == null) {
+        const delay = Math.max(16, THROTTLE_MS - (now - existing.lastEmitAt));
+        existing.timer = window.setTimeout(() => {
+          const current = progressThrottleRef.current.get(id);
+          if (!current) return;
+          current.lastEmitAt = performance.now();
+          current.timer = null;
+          commitVideoProgress(id, current.latest);
+        }, delay);
+      }
+    },
+    [commitVideoProgress]
+  );
 
   const trackUrl = (url: string) => {
     activeUrlsRef.current.add(url);
@@ -121,7 +339,12 @@ export default function GeminiWatermarkRemoverPage() {
   useEffect(() => {
     const urls = activeUrlsRef.current;
     const controllers = abortControllersRef.current;
+    const throttles = progressThrottleRef.current;
     return () => {
+      throttles.forEach((entry) => {
+        if (entry.timer != null) window.clearTimeout(entry.timer);
+      });
+      throttles.clear();
       controllers.forEach((ctrl) => ctrl.abort());
       controllers.clear();
       urls.forEach((url) => URL.revokeObjectURL(url));
@@ -219,13 +442,22 @@ export default function GeminiWatermarkRemoverPage() {
           preserveAudio: keepAudio,
           signal: controller.signal,
           onProgress: (progress) => {
-            setItems((prev) =>
-              prev.map((item) =>
-                item.id === id ? { ...item, progress } : item
-              )
-            );
+            scheduleVideoProgress(id, progress);
           },
         });
+        clearProgressThrottle(id);
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(result.originalUrl);
+          URL.revokeObjectURL(result.previewUrl);
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+                : item
+            )
+          );
+          return;
+        }
         trackUrl(result.originalUrl);
         trackUrl(result.previewUrl);
 
@@ -243,6 +475,7 @@ export default function GeminiWatermarkRemoverPage() {
           })
         );
       } catch (caught) {
+        clearProgressThrottle(id);
         if (controller.signal.aborted) {
           setItems((prev) =>
             prev.map((item) =>
@@ -263,10 +496,11 @@ export default function GeminiWatermarkRemoverPage() {
           )
         );
       } finally {
+        clearProgressThrottle(id);
         abortControllersRef.current.delete(id);
       }
     },
-    []
+    [clearProgressThrottle, scheduleVideoProgress]
   );
 
   const runQueuedBatch = useCallback(
@@ -310,7 +544,7 @@ export default function GeminiWatermarkRemoverPage() {
         );
       };
 
-      void runPool(imageTasks, 2, (task) =>
+      void runPool(imageTasks, getDeviceAwareConcurrency(2), (task) =>
         processImageItem(task.id, task.file, mode, format, task.controller)
       );
       void runPool(videoTasks, 1, (task) =>
@@ -442,25 +676,31 @@ export default function GeminiWatermarkRemoverPage() {
     runQueuedBatch(snapshot, adaptiveMode, outputFormat, videoDenoiseMode, preserveAudio);
   };
 
-  const removeItem = (id: string) => {
-    abortControllersRef.current.get(id)?.abort();
-    abortControllersRef.current.delete(id);
-    setItems((prev) => {
-      const target = prev.find((item) => item.id === id);
-      if (target) releaseItemUrls(target);
-      const next = prev.filter((item) => item.id !== id);
-      if (activeId === id) {
-        const nextVisible = next.filter((item) => item.kind === mediaTab);
-        setActiveId(nextVisible[0]?.id ?? null);
-      }
-      return next;
-    });
-  };
+  const removeItem = useCallback(
+    (id: string) => {
+      clearProgressThrottle(id);
+      abortControllersRef.current.get(id)?.abort();
+      abortControllersRef.current.delete(id);
+      setItems((prev) => {
+        const target = prev.find((item) => item.id === id);
+        if (target) releaseItemUrls(target);
+        const next = prev.filter((item) => item.id !== id);
+        setActiveId((currentActive) => {
+          if (currentActive !== id) return currentActive;
+          const nextVisible = next.filter((item) => item.kind === mediaTab);
+          return nextVisible[0]?.id ?? null;
+        });
+        return next;
+      });
+    },
+    [clearProgressThrottle, mediaTab]
+  );
 
   const clearAll = () => {
     setItems((prev) => {
       const toRemove = prev.filter((item) => item.kind === mediaTab);
       for (const item of toRemove) {
+        clearProgressThrottle(item.id);
         abortControllersRef.current.get(item.id)?.abort();
         abortControllersRef.current.delete(item.id);
         releaseItemUrls(item);
@@ -475,19 +715,19 @@ export default function GeminiWatermarkRemoverPage() {
     const ready = visibleItems.filter(
       (item) => item.status === 'done' && (item.imageResult || item.videoResult)
     );
-    if (ready.length === 0) return;
+    if (ready.length < 2) return;
     setZipBusy(true);
+    setGlobalError('');
     try {
-      const entries = await Promise.all(
-        ready.map(async (item) => {
-          const res = item.imageResult ?? item.videoResult!;
-          return {
-            name: res.outputName,
-            data: new Uint8Array(await res.blob.arrayBuffer()),
-          };
-        })
-      );
-      const zipBlob = createZipArchive(entries, false);
+      const entries: Array<{ name: string; data: Uint8Array }> = [];
+      for (const item of ready) {
+        const res = item.imageResult ?? item.videoResult!;
+        entries.push({
+          name: res.outputName,
+          data: new Uint8Array(await res.blob.arrayBuffer()),
+        });
+      }
+      const zipBlob = await createZipArchiveInWorker(entries, false);
       triggerDownload(
         zipBlob,
         mediaTab === 'video'
@@ -572,7 +812,7 @@ export default function GeminiWatermarkRemoverPage() {
             setIsDragging(false);
             if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
           }}
-          className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-4 sm:p-10 text-center transition-all duration-300 ease-out shadow-2xl shadow-blue-600/10 ${
+          className={`gwr-checkerboard group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] sm:rounded-[32px] border-[3px] p-4 sm:p-10 text-center transition-colors duration-200 shadow-lg sm:shadow-2xl shadow-blue-600/10 ${
             visibleItems.length > 0
               ? 'min-h-[150px] sm:min-h-[180px] gap-3 sm:gap-4'
               : 'min-h-[230px] sm:min-h-[320px] lg:min-h-[380px] gap-4 sm:gap-5'
@@ -584,7 +824,7 @@ export default function GeminiWatermarkRemoverPage() {
         >
           <span
             aria-hidden="true"
-            className="absolute inset-0 bg-white/40 dark:bg-[#141720]/70 backdrop-blur-[2px] transition-opacity group-hover:bg-white/25 dark:group-hover:bg-[#141720]/55"
+            className="absolute inset-0 bg-white/55 dark:bg-[#141720]/75 sm:backdrop-blur-[2px] transition-opacity group-hover:bg-white/35 dark:group-hover:bg-[#141720]/60"
           />
           <input
             ref={fileInputRef}
@@ -638,78 +878,24 @@ export default function GeminiWatermarkRemoverPage() {
               className="relative z-10 w-full max-w-2xl flex flex-col gap-1.5 text-left"
               onClick={(e) => e.stopPropagation()}
             >
-              {visibleItems.map((item) => {
-                const selected = activeItem?.id === item.id;
-                const readyOutput = item.imageResult ?? item.videoResult;
-                return (
-                  <li
-                    key={item.id}
-                    onClick={() => setActiveId(item.id)}
-                    className={`flex items-center gap-3 py-2 px-3 rounded-xl border bg-glass-card/95 shadow-sm transition-colors cursor-pointer ${
-                      selected
-                        ? 'border-[#145BF5] ring-1 ring-[#145BF5]/30'
-                        : 'border-[var(--border-subtle)] hover:border-[#145BF5]/40'
-                    }`}
-                  >
-                    {item.kind === 'video' ? (
-                      <Film className="shrink-0 w-4 h-4 text-[#145BF5]" />
-                    ) : (
-                      <ImageIcon className="shrink-0 w-4 h-4 text-[#145BF5]" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] sm:text-[14px] font-medium text-foreground truncate">
-                        {item.file.name}
-                      </p>
-                      <p className="text-[11px] text-text-sec truncate">
-                        {item.status === 'processing'
-                          ? item.kind === 'video' && item.progress
-                            ? `${item.progress.message} (${Math.round(item.progress.progress * 100)}%)`
-                            : 'Processing…'
-                          : item.status === 'done'
-                            ? `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Ready`
-                            : item.error ?? 'Failed'}
-                      </p>
-                    </div>
-
-                    {item.status === 'done' && readyOutput && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          triggerDownload(readyOutput.blob, readyOutput.outputName);
-                        }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
-                        title="Download cleaned file"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Save</span>
-                      </button>
-                    )}
-
-                    {item.status === 'processing' && (
-                      <LoaderCircle className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
-                    )}
-                    {item.status === 'done' && (
-                      <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />
-                    )}
-                    {(item.status === 'error' || item.status === 'canceled') && (
-                      <AlertTriangle className="shrink-0 w-4 h-4 text-red-500" />
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeItem(item.id);
-                      }}
-                      aria-label={`Remove ${item.file.name}`}
-                      className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </li>
-                );
-              })}
+              {(() => {
+                let activeSpinners = 0;
+                return visibleItems.map((item) => {
+                  const showSpinner =
+                    item.status === 'processing' && activeSpinners < 2;
+                  if (showSpinner) activeSpinners++;
+                  return (
+                    <WatermarkDropzoneRow
+                      key={item.id}
+                      item={item}
+                      selected={activeItem?.id === item.id}
+                      showSpinner={showSpinner}
+                      onSelect={setActiveId}
+                      onRemove={removeItem}
+                    />
+                  );
+                });
+              })()}
             </ul>
           )}
         </div>
@@ -815,69 +1001,28 @@ export default function GeminiWatermarkRemoverPage() {
               <span className="font-semibold text-foreground">{readyItems.length}</span>{' '}
               ready
             </div>
-
-            {readyItems.length > 1 && (
-              <button
-                type="button"
-                disabled={zipBusy}
-                onClick={downloadAllZip}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-40"
-              >
-                {zipBusy ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Archive className="h-4 w-4" />
-                )}
-                Download all ({readyItems.length}) as ZIP
-              </button>
-            )}
           </div>
 
           {visibleItems.length > 1 && (
             <div className="flex flex-wrap gap-2">
-              {visibleItems.map((item) => {
-                const selected = activeItem?.id === item.id;
-                return (
-                  <div
-                    key={item.id}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                      selected
-                        ? 'border-[#145BF5] bg-[#145BF5] text-white shadow-sm'
-                        : 'border-[var(--border-subtle)] bg-glass-card text-foreground hover:border-[#145BF5]/40'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(item.id)}
-                      className="inline-flex items-center gap-1.5 text-left"
-                    >
-                      {item.status === 'processing' && (
-                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                      )}
-                      {item.status === 'done' && (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      {(item.status === 'error' || item.status === 'canceled') && (
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                      )}
-                      {item.kind === 'video' ? (
-                        <Film className="h-3.5 w-3.5 opacity-80" />
-                      ) : (
-                        <ImageIcon className="h-3.5 w-3.5 opacity-80" />
-                      )}
-                      <span className="max-w-[160px] truncate">{item.file.name}</span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${item.file.name}`}
-                      onClick={() => removeItem(item.id)}
-                      className="opacity-70 hover:opacity-100"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
+              {(() => {
+                let chipSpinners = 0;
+                return visibleItems.map((item) => {
+                  const showSpinner =
+                    item.status === 'processing' && chipSpinners < 2;
+                  if (showSpinner) chipSpinners++;
+                  return (
+                    <WatermarkFileChip
+                      key={item.id}
+                      item={item}
+                      selected={activeItem?.id === item.id}
+                      showSpinner={showSpinner}
+                      onSelect={setActiveId}
+                      onRemove={removeItem}
+                    />
+                  );
+                });
+              })()}
             </div>
           )}
         </section>
@@ -909,15 +1054,25 @@ export default function GeminiWatermarkRemoverPage() {
 
               {activeItem.kind === 'video' && (
                 <div className="space-y-1.5">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-elevated)]">
+                  <div
+                    role="progressbar"
+                    aria-label={`Processing ${activeItem.file.name}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((activeItem.progress?.progress ?? 0) * 100)}
+                    className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-elevated)]"
+                  >
                     <div
-                      className="h-full bg-[#145BF5] transition-all duration-150"
+                      className="h-full w-full origin-left bg-[#145BF5] transition-transform duration-150 ease-out will-change-transform"
                       style={{
-                        width: `${Math.round((activeItem.progress?.progress ?? 0) * 100)}%`,
+                        transform: `scaleX(${Math.max(
+                          0,
+                          Math.min(1, activeItem.progress?.progress ?? 0)
+                        )})`,
                       }}
                     />
                   </div>
-                  <p className="text-right text-[11px] font-semibold text-text-sec">
+                  <p className="text-right text-[11px] font-semibold text-text-sec tabular-nums">
                     {Math.round((activeItem.progress?.progress ?? 0) * 100)}%
                   </p>
                 </div>
@@ -941,7 +1096,7 @@ export default function GeminiWatermarkRemoverPage() {
 
           {/* IMAGE RESULT */}
           {activeItem.status === 'done' && activeItem.imageResult && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-[12px] font-semibold text-text-sec">
                   <span>Before (Original)</span>
@@ -1047,19 +1202,41 @@ export default function GeminiWatermarkRemoverPage() {
                   </dl>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    triggerDownload(
-                      activeItem.imageResult!.blob,
-                      activeItem.imageResult!.outputName
-                    )
-                  }
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
+                <div
+                  className={`mt-2 grid grid-cols-1 gap-2.5 ${
+                    readyItems.length >= 2 ? 'sm:grid-cols-2' : ''
+                  }`}
                 >
-                  <Download className="h-4 w-4" />
-                  Download cleaned image
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      triggerDownload(
+                        activeItem.imageResult!.blob,
+                        activeItem.imageResult!.outputName
+                      )
+                    }
+                    className="min-h-[42px] inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-3.5 py-2.5 text-[12px] sm:text-[13px] font-semibold text-white shadow-sm transition-colors active:scale-[0.98]"
+                  >
+                    <Download className="h-4 w-4 shrink-0" />
+                    <span>Download cleaned image</span>
+                  </button>
+
+                  {readyItems.length >= 2 && (
+                    <button
+                      type="button"
+                      disabled={zipBusy}
+                      onClick={downloadAllZip}
+                      className="min-h-[42px] inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#145BF5]/40 bg-[var(--surface-elevated)] hover:bg-[#145BF5]/10 px-3.5 py-2.5 text-[12px] sm:text-[13px] font-semibold text-foreground shadow-sm transition-colors active:scale-[0.98] disabled:opacity-40"
+                    >
+                      {zipBusy ? (
+                        <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-[#145BF5]" />
+                      ) : (
+                        <Archive className="h-4 w-4 shrink-0 text-[#145BF5]" />
+                      )}
+                      <span>Download all ({readyItems.length}) as ZIP</span>
+                    </button>
+                  )}
+                </div>
 
                 <p className="text-[11px] leading-relaxed text-text-sec">
                   Privacy metadata removed by StripMeta.{' '}
@@ -1073,7 +1250,7 @@ export default function GeminiWatermarkRemoverPage() {
 
           {/* VIDEO RESULT */}
           {activeItem.status === 'done' && activeItem.videoResult && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-glass-card overflow-hidden text-[12px] font-semibold">
@@ -1173,19 +1350,41 @@ export default function GeminiWatermarkRemoverPage() {
                   </dl>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    triggerDownload(
-                      activeItem.videoResult!.blob,
-                      activeItem.videoResult!.outputName
-                    )
-                  }
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all active:scale-[0.98]"
+                <div
+                  className={`mt-2 grid grid-cols-1 gap-2.5 ${
+                    readyItems.length >= 2 ? 'sm:grid-cols-2' : ''
+                  }`}
                 >
-                  <Download className="h-4 w-4" />
-                  Download cleaned MP4
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      triggerDownload(
+                        activeItem.videoResult!.blob,
+                        activeItem.videoResult!.outputName
+                      )
+                    }
+                    className="min-h-[42px] inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#145BF5] hover:bg-[#0F4AD4] px-3.5 py-2.5 text-[12px] sm:text-[13px] font-semibold text-white shadow-sm transition-colors active:scale-[0.98]"
+                  >
+                    <Download className="h-4 w-4 shrink-0" />
+                    <span>Download cleaned MP4</span>
+                  </button>
+
+                  {readyItems.length >= 2 && (
+                    <button
+                      type="button"
+                      disabled={zipBusy}
+                      onClick={downloadAllZip}
+                      className="min-h-[42px] inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#145BF5]/40 bg-[var(--surface-elevated)] hover:bg-[#145BF5]/10 px-3.5 py-2.5 text-[12px] sm:text-[13px] font-semibold text-foreground shadow-sm transition-colors active:scale-[0.98] disabled:opacity-40"
+                    >
+                      {zipBusy ? (
+                        <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-[#145BF5]" />
+                      ) : (
+                        <Archive className="h-4 w-4 shrink-0 text-[#145BF5]" />
+                      )}
+                      <span>Download all ({readyItems.length}) as ZIP</span>
+                    </button>
+                  )}
+                </div>
 
                 <p className="text-[11px] leading-relaxed text-text-sec">
                   MP4 container privacy metadata removed by StripMeta.{' '}

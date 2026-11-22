@@ -2,6 +2,12 @@ import { stripImageMetadata } from '../engine/stripper';
 import { inspectMetadata } from '../engine/inspector';
 import { StripOptions, StripResult, ParsedMetadata } from '../engine/types';
 import { createZipArchive, ZipFileInput } from '../zip/clientZip';
+import {
+  extractSupportedFilesFromZipBuffer,
+  ZipExtractionLimits,
+  ZipExtractionProgress,
+  ZipExtractionWorkerResult,
+} from '../zip/zipExtractor';
 
 export interface ProcessTask {
   id: string;
@@ -21,10 +27,13 @@ export interface ProcessOutput {
 
 interface WorkerResponse {
   id: string;
+  type?: 'progress';
   result?: StripResult;
   metadata?: ParsedMetadata;
   cleanedMetadata?: ParsedMetadata;
   zipBuffer?: ArrayBuffer;
+  zipExtracted?: ZipExtractionWorkerResult;
+  zipProgress?: ZipExtractionProgress;
   geminiMeta?: { width: number; height: number; meta: unknown };
   error?: string;
 }
@@ -34,6 +43,7 @@ interface PooledTask {
   message: Record<string, unknown>;
   transfer: Transferable[];
   signal?: AbortSignal;
+  onProgressMessage?: (data: WorkerResponse) => void;
   resolve: (value: WorkerResponse) => void;
   reject: (reason?: unknown) => void;
   cleanupAbort?: () => void;
@@ -52,11 +62,48 @@ class WorkerUnavailableError extends Error {
   }
 }
 
-const MAX_MAIN_THREAD_FALLBACK_BYTES = 10 * 1024 * 1024;
+export const MAX_MAIN_THREAD_FALLBACK_BYTES = 10 * 1024 * 1024;
 const poolSlots: PoolSlot[] = [];
 const taskQueue: PooledTask[] = [];
 let workersBlocked = false;
 let lastWorkerCtor: unknown = undefined;
+
+/**
+ * Returns device-aware worker/task concurrency to protect low-memory mobile devices
+ * while keeping desktop batches fast.
+ */
+export function getDeviceAwareConcurrency(maxDesktop = 3): number {
+  if (typeof navigator === 'undefined') return 2;
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const memory = typeof nav.deviceMemory === 'number' ? nav.deviceMemory : undefined;
+  const cores = navigator.hardwareConcurrency || 2;
+  const isMobileViewport =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 768px)').matches;
+
+  if (memory !== undefined && memory <= 2) return 1;
+  if ((memory !== undefined && memory <= 4) || isMobileViewport) {
+    return Math.min(2, Math.max(1, cores - 1));
+  }
+  return Math.min(maxDesktop, Math.max(1, cores - 1));
+}
+
+function getMaxPoolSize(): number {
+  return getDeviceAwareConcurrency(4);
+}
+
+function isVideoFilename(filename: string): boolean {
+  return /\.(mp4|mov|m4a|webm|mkv)$/i.test(filename);
+}
+
+function canFallbackToMainThread(byteLength: number, filename: string): boolean {
+  return byteLength <= MAX_MAIN_THREAD_FALLBACK_BYTES && !isVideoFilename(filename);
+}
+
+function shouldEnforceWorkerRequirement(): boolean {
+  return typeof Worker !== 'undefined' || typeof window !== 'undefined';
+}
 
 function syncWorkerEnvironment() {
   const currentCtor = typeof Worker !== 'undefined' ? Worker : undefined;
@@ -67,15 +114,6 @@ function syncWorkerEnvironment() {
       removeSlot(poolSlots[0]);
     }
   }
-}
-
-function getMaxPoolSize(): number {
-  if (typeof navigator === 'undefined') return 2;
-  return Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 2) - 1));
-}
-
-function isVideoFilename(filename: string): boolean {
-  return /\.(mp4|mov|m4a|webm|mkv)$/i.test(filename);
 }
 
 function removeSlot(slot: PoolSlot) {
@@ -111,6 +149,10 @@ function createPoolSlot(): PoolSlot {
   worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
     const active = slot.currentTask;
     if (!active || event.data.id !== active.id) return;
+    if (event.data.type === 'progress') {
+      active.onProgressMessage?.(event.data);
+      return;
+    }
     active.cleanupAbort?.();
     slot.currentTask = null;
     slot.busy = false;
@@ -199,6 +241,7 @@ function runInWorkerPool(
   message: Record<string, unknown>,
   transfer: Transferable[],
   signal?: AbortSignal,
+  onProgressMessage?: (data: WorkerResponse) => void,
 ): Promise<WorkerResponse> {
   syncWorkerEnvironment();
   if (signal?.aborted) {
@@ -211,6 +254,7 @@ function runInWorkerPool(
       message,
       transfer,
       signal,
+      onProgressMessage,
       resolve,
       reject,
     };
@@ -252,6 +296,8 @@ async function stripInWorker(
   includeOriginalInspect: boolean,
   onProgress?: (progress: number) => void,
 ): Promise<{ result: StripResult; metadata?: ParsedMetadata; cleanedMetadata?: ParsedMetadata }> {
+  const byteLength = buffer.byteLength;
+  const allowFallback = canFallbackToMainThread(byteLength, filename);
   onProgress?.(35);
   try {
     const data = await runInWorkerPool(
@@ -271,6 +317,11 @@ async function stripInWorker(
   } catch (error) {
     if (!(error instanceof WorkerUnavailableError)) {
       throw error;
+    }
+    if (!allowFallback && shouldEnforceWorkerRequirement()) {
+      throw new Error(
+        'Background metadata worker failed to initialize. Large or video files cannot be cleaned on the main thread.',
+      );
     }
     const inputBytes = new Uint8Array(buffer);
     let metadata: ParsedMetadata | undefined;
@@ -297,6 +348,7 @@ async function stripInWorker(
 
 /** Run metadata inspection in the shared Web Worker pool so large EXIF payloads do not block scrolling. */
 export async function inspectFileInWorker(file: File, id = crypto.randomUUID()): Promise<ParsedMetadata> {
+  const allowFallback = canFallbackToMainThread(file.size, file.name);
   const buffer = await file.arrayBuffer();
   try {
     const data = await runInWorkerPool(
@@ -308,6 +360,11 @@ export async function inspectFileInWorker(file: File, id = crypto.randomUUID()):
     throw new Error(data.error || 'Metadata inspection failed');
   } catch (error) {
     if (error instanceof WorkerUnavailableError) {
+      if (!allowFallback && shouldEnforceWorkerRequirement()) {
+        throw new Error(
+          'Background metadata worker failed to initialize. Large or video files cannot be inspected on the main thread.',
+        );
+      }
       return inspectMetadata(new Uint8Array(buffer), file.name);
     }
     throw error;
@@ -364,8 +421,7 @@ export async function stripBlobMetadataInWorker(
     return result;
   };
 
-  const allowMainThreadFallback =
-    blob.size <= MAX_MAIN_THREAD_FALLBACK_BYTES && !isVideoFilename(filename);
+  const allowMainThreadFallback = canFallbackToMainThread(blob.size, filename);
 
   const id = crypto.randomUUID();
   try {
@@ -383,7 +439,7 @@ export async function stripBlobMetadataInWorker(
     if (!(error instanceof WorkerUnavailableError)) {
       throw error;
     }
-    if (!allowMainThreadFallback && (typeof Worker !== 'undefined' || typeof window !== 'undefined')) {
+    if (!allowMainThreadFallback && shouldEnforceWorkerRequirement()) {
       throw new Error(
         'Background metadata worker failed to initialize. Large or video files cannot be cleaned on the main thread.',
       );
@@ -397,7 +453,7 @@ export async function stripBlobMetadataInWorker(
 /** Concurrency-limited pool. At most `concurrency` worker jobs exist simultaneously. */
 export async function processBatchWithConcurrency(
   tasks: ProcessTask[],
-  concurrency: number = 3,
+  concurrency: number = getDeviceAwareConcurrency(3),
   onFileStart?: (id: string) => void,
   onFileComplete?: (output: ProcessOutput) => void,
   onFileError?: (id: string, error: string) => void,
@@ -492,13 +548,21 @@ export async function processGeminiImageInWorker(
 
 /**
  * Builds a ZIP archive inside the shared Web Worker pool so large batches do not freeze the UI.
- * Falls back to synchronous `createZipArchive` if Web Workers are unavailable.
+ * Allows main-thread fallback only for small archives (<= 10 MB) when workers are unavailable.
  */
 export async function createZipArchiveInWorker(
   files: ZipFileInput[],
   preserveFolders: boolean = false,
 ): Promise<Blob> {
+  const totalBytes = files.reduce((sum, f) => sum + f.data.byteLength, 0);
+  const allowFallback = totalBytes <= MAX_MAIN_THREAD_FALLBACK_BYTES;
+
   if (typeof Worker === 'undefined') {
+    if (!allowFallback && typeof window !== 'undefined') {
+      throw new Error(
+        'Background ZIP worker is unavailable. Large archives cannot be created on the main thread.',
+      );
+    }
     return createZipArchive(files, preserveFolders);
   }
 
@@ -523,8 +587,103 @@ export async function createZipArchiveInWorker(
     return new Blob([data.zipBuffer], { type: 'application/zip' });
   } catch (error) {
     if (error instanceof WorkerUnavailableError) {
+      if (!allowFallback && shouldEnforceWorkerRequirement()) {
+        throw new Error(
+          'Background ZIP worker failed to initialize. Large archives cannot be created on the main thread.',
+        );
+      }
       return createZipArchive(files, preserveFolders);
     }
     throw error;
+  }
+}
+
+export interface ExtractedZipFileResult {
+  files: File[];
+  rejected: string[];
+  skippedUnsupportedCount: number;
+  totalCandidateEntries: number;
+}
+
+function hydrateExtractedFiles(result: ZipExtractionWorkerResult): ExtractedZipFileResult {
+  const files = result.extractedFiles.map((entry) => {
+    const file = new File([entry.buffer], entry.name, {
+      type: entry.mimeType,
+      lastModified: entry.lastModified,
+    });
+    try {
+      Object.defineProperty(file, 'webkitRelativePath', {
+        value: entry.relativePath,
+        configurable: true,
+      });
+    } catch {
+      // Fallback if defineProperty is restricted
+    }
+    return file;
+  });
+
+  return {
+    files,
+    rejected: result.rejected,
+    skippedUnsupportedCount: result.skippedUnsupportedCount,
+    totalCandidateEntries: result.totalCandidateEntries,
+  };
+}
+
+/**
+ * Extracts supported files from a ZIP archive inside the shared Web Worker pool
+ * with streaming progress and transferable ArrayBuffers.
+ */
+export async function extractZipArchiveInWorker(
+  archiveFile: File,
+  limits: ZipExtractionLimits = {},
+  onProgress?: (progress: ZipExtractionProgress) => void,
+  signal?: AbortSignal,
+): Promise<ExtractedZipFileResult> {
+  signal?.throwIfAborted();
+  const allowFallback = archiveFile.size <= MAX_MAIN_THREAD_FALLBACK_BYTES;
+  const buffer = await archiveFile.arrayBuffer();
+  signal?.throwIfAborted();
+
+  const id = crypto.randomUUID();
+  try {
+    const data = await runInWorkerPool(
+      id,
+      {
+        id,
+        action: 'extract-zip',
+        buffer,
+        archiveName: archiveFile.name,
+        limits,
+      },
+      [buffer],
+      signal,
+      (msg) => {
+        if (msg.zipProgress) {
+          onProgress?.(msg.zipProgress);
+        }
+      },
+    );
+    if (data.error || !data.zipExtracted) {
+      throw new Error(data.error || `Failed to extract ${archiveFile.name}.`);
+    }
+    return hydrateExtractedFiles(data.zipExtracted);
+  } catch (error) {
+    if (!(error instanceof WorkerUnavailableError)) {
+      throw error;
+    }
+    if (!allowFallback && shouldEnforceWorkerRequirement()) {
+      throw new Error(
+        'Background ZIP worker failed to initialize. Large ZIP archives cannot be extracted on the main thread.',
+      );
+    }
+    const extracted = await extractSupportedFilesFromZipBuffer(
+      buffer,
+      archiveFile.name,
+      limits,
+      onProgress,
+      signal,
+    );
+    return hydrateExtractedFiles(extracted);
   }
 }

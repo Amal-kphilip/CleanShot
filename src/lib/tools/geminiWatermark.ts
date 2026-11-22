@@ -6,6 +6,7 @@ import {
   type WatermarkMeta,
 } from '@pilio/gemini-watermark-remover/browser';
 import {
+  MAX_MAIN_THREAD_FALLBACK_BYTES,
   processGeminiImageInWorker,
   stripBlobMetadataInWorker,
 } from '@/lib/worker/workerRunner';
@@ -247,6 +248,12 @@ export async function removeGeminiWatermarkFromFile(
             ? { unverifiedMetadataRemoval: true }
             : {}),
         };
+      }
+
+      if (typeof window !== 'undefined' && file.size > MAX_MAIN_THREAD_FALLBACK_BYTES) {
+        throw new Error(
+          'Background OffscreenCanvas worker is unavailable on this browser. Images larger than 10 MB cannot be processed on the main thread.'
+        );
       }
     }
 
