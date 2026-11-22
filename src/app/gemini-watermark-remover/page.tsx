@@ -120,7 +120,9 @@ const WatermarkDropzoneRow = React.memo(function WatermarkDropzoneRow({
               ? `${item.progress.message} (${Math.round(item.progress.progress * 100)}%)`
               : 'Processing…'
             : item.status === 'done'
-              ? `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Ready`
+              ? item.imageResult?.meta && !item.imageResult.meta.applied
+                ? `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Unchanged (no watermark detected)`
+                : `${formatBytes(readyOutput?.blob.size ?? item.file.size)} · Ready`
               : item.error ?? 'Failed'}
         </p>
       </div>
@@ -743,12 +745,21 @@ export default function GeminiWatermarkRemoverPage() {
     const ready = visibleItems.filter(
       (item) => item.status === 'done' && (item.imageResult || item.videoResult)
     );
+    const cleaned = ready.filter(
+      (item) => item.videoResult || item.imageResult?.meta?.applied !== false
+    );
+    if (cleaned.length === 0) {
+      setGlobalError(
+        'No watermarks were detected in the processed files, so there are no watermark-removed outputs to export.'
+      );
+      return;
+    }
     if (ready.length < 2) return;
     setZipBusy(true);
     setGlobalError('');
     try {
       const entries: Array<{ name: string; data: Uint8Array }> = [];
-      for (const item of ready) {
+      for (const item of cleaned) {
         const res = item.imageResult ?? item.videoResult!;
         entries.push({
           name: res.outputName,

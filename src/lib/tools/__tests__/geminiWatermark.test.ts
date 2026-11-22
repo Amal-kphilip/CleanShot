@@ -1025,4 +1025,186 @@ describe('Gemini GIF Watermark Removal & Metadata Cleaning Pipeline', () => {
       expect(Math.abs(cleanedLums[f] - expectedCleanLums[f])).toBeLessThan(3.0);
     }
   });
+
+  it('reports unchanged=true and meta.applied=false honestly when a GIF has no watermark', async () => {
+    const width = 320;
+    const height = 240;
+    const palette = new Uint8Array([
+      20, 30, 40,
+      200, 120, 40,
+      0, 0, 0,
+      255, 255, 255,
+    ]);
+    const indices0 = new Uint8Array(width * height).fill(0);
+    const indices1 = new Uint8Array(width * height).fill(1);
+    const cleanGif = injectGifCommentAndXmpMetadata(
+      encodeGif({
+        width,
+        height,
+        globalColorTable: palette,
+        loopCount: 2,
+        frames: [
+          {
+            left: 0,
+            top: 0,
+            width,
+            height,
+            delayCs: 12,
+            disposalMethod: 1,
+            transparentIndex: -1,
+            localColorTable: null,
+            indices: indices0,
+          },
+          {
+            left: 0,
+            top: 0,
+            width,
+            height,
+            delayCs: 18,
+            disposalMethod: 1,
+            transparentIndex: -1,
+            localColorTable: null,
+            indices: indices1,
+          },
+        ],
+      }),
+      'CLEANSHOT_TEST_NO_WM_GIF_SECRET',
+    );
+
+    const res = await processGeminiGifBuffer(cleanGif, 'no-wm-clean.gif');
+    expect(res.meta?.applied).toBe(false);
+    expect(res.unchanged).toBe(true);
+    expect(res.animated).toBe(true);
+    expect(res.frameCount).toBe(2);
+
+    const outAscii = new TextDecoder('latin1').decode(res.result.cleanedBuffer);
+    expect(outAscii).not.toContain('CLEANSHOT_TEST_NO_WM_GIF_SECRET');
+    expect(outAscii).not.toContain('CLEANSHOT_TEST_GIF_XMP_SECRET');
+
+    const decodedOut = decodeGif(res.result.cleanedBuffer);
+    expect(decodedOut.frames.length).toBe(2);
+    expect(decodedOut.loopCount).toBe(2);
+    expect(decodedOut.frames.map((f) => f.delayCs)).toEqual([12, 18]);
+  });
+
+  it('handles transparent GIFs with watermark near transparent pixels without transparent-black distortion', async () => {
+    const width = 320;
+    const height = 240;
+    const built = await buildWatermarkedGifFrame({
+      width,
+      height,
+      baseColor: [70, 90, 110],
+      transparentRect: { x: 0, y: 0, w: 120, h: 240 },
+      delayCs: 10,
+      disposalMethod: 2,
+    });
+
+    // Also make a strip adjacent to the watermark transparent
+    const wmPos = built.watermarkPosition;
+    for (let y = wmPos.y - 8; y < wmPos.y; y++) {
+      for (let x = wmPos.x; x < wmPos.x + wmPos.width; x++) {
+        built.frame.indices[y * width + x] = 255;
+      }
+    }
+
+    const rawGif = encodeGif({
+      width,
+      height,
+      globalColorTable: built.palette,
+      loopCount: 0,
+      frames: [built.frame, { ...built.frame, delayCs: 20 }],
+    });
+
+    const processed = await processGeminiGifBuffer(rawGif, 'transparent-clean.gif');
+    expect(processed.meta?.applied).toBe(true);
+    expect(processed.unchanged).toBe(false);
+
+    const outDecoded = decodeGif(processed.result.cleanedBuffer);
+    expect(outDecoded.frames.length).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const f = outDecoded.frames[i];
+      expect(f.transparentIndex).toBeGreaterThanOrEqual(0);
+      expect(f.indices[10 * f.width + 10]).toBe(f.transparentIndex);
+      const lum = measureWatermarkRegionMeanLuminance(outDecoded, i, wmPos);
+      expect(Math.abs(lum - built.cleanCenterLum)).toBeLessThan(3.0);
+    }
+  });
+
+  it('never expands disposalMethod=2 partial frames and preserves later frames after blank intro frames', async () => {
+    const width = 320;
+    const height = 240;
+    const built = await buildWatermarkedGifFrame({
+      width,
+      height,
+      baseColor: [40, 65, 85],
+      delayCs: 10,
+      disposalMethod: 1,
+    });
+
+    // Frame 0: blank solid intro frame (no watermark)
+    const blankIndices = new Uint8Array(width * height).fill(0);
+    // Frame 1: watermarked full frame
+    // Frame 2: partial frame with disposalMethod=2 in top-left corner (must NOT expand to wmPos!)
+    const partialW = 50;
+    const partialH = 40;
+    const partialIndices = new Uint8Array(partialW * partialH).fill(1);
+
+    const rawGif = encodeGif({
+      width,
+      height,
+      globalColorTable: built.palette,
+      loopCount: 0,
+      frames: [
+        {
+          left: 0,
+          top: 0,
+          width,
+          height,
+          delayCs: 8,
+          disposalMethod: 1,
+          transparentIndex: -1,
+          localColorTable: null,
+          indices: blankIndices,
+        },
+        built.frame,
+        {
+          left: 12,
+          top: 16,
+          width: partialW,
+          height: partialH,
+          delayCs: 10,
+          disposalMethod: 2,
+          transparentIndex: -1,
+          localColorTable: null,
+          indices: partialIndices,
+        },
+        { ...built.frame, delayCs: 14 },
+      ],
+    });
+
+    const processed = await processGeminiGifBuffer(rawGif, 'intro-disposal2-clean.gif');
+    expect(processed.meta?.applied).toBe(true);
+    expect(processed.unchanged).toBe(false);
+
+    const outDecoded = decodeGif(processed.result.cleanedBuffer);
+    expect(outDecoded.frames.length).toBe(4);
+
+    // Frame 2 (disposalMethod=2) must retain its exact original partial rectangle
+    const f2 = outDecoded.frames[2];
+    expect(f2.disposalMethod).toBe(2);
+    expect(f2.left).toBe(12);
+    expect(f2.top).toBe(16);
+    expect(f2.width).toBe(partialW);
+    expect(f2.height).toBe(partialH);
+
+    // Frames 1 and 3 (watermarked) must have watermark removed
+    for (const idx of [1, 3]) {
+      const lum = measureWatermarkRegionMeanLuminance(
+        outDecoded,
+        idx,
+        built.watermarkPosition,
+      );
+      expect(Math.abs(lum - built.cleanCenterLum)).toBeLessThan(3.0);
+    }
+  });
 });

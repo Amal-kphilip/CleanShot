@@ -33,6 +33,7 @@ export interface ProcessedGifWatermarkBufferResult {
   frameCount: number;
   animated: boolean;
   meta: WatermarkMeta | null;
+  unchanged?: boolean;
   result: StripResult;
 }
 
@@ -216,6 +217,89 @@ function hasOpaquePixelsInRegion(
   return false;
 }
 
+/**
+ * Creates a copy of `canvas` where any transparent (`alpha === 0`) pixels have
+ * their RGB filled with the mean RGB of nearby opaque pixels (in the bottom-right
+ * region or full frame). This prevents invisible transparent-black `(0, 0, 0)`
+ * pixels from distorting RGB-based watermark detection and alpha estimation.
+ */
+function prepareCanvasCopyForWatermarkEngine(
+  canvas: Uint8ClampedArray,
+  screenWidth: number,
+  screenHeight: number,
+  hintRegion?: RegionBox,
+): Uint8ClampedArray {
+  const copy = new Uint8ClampedArray(canvas);
+  let hasTransparent = false;
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+  let opaqueCount = 0;
+
+  if (hintRegion) {
+    const x0 = Math.max(0, hintRegion.x);
+    const y0 = Math.max(0, hintRegion.y);
+    const x1 = Math.min(screenWidth, hintRegion.x + hintRegion.width);
+    const y1 = Math.min(screenHeight, hintRegion.y + hintRegion.height);
+    for (let cy = y0; cy < y1; cy++) {
+      const rowOff = cy * screenWidth;
+      for (let cx = x0; cx < x1; cx++) {
+        const off = (rowOff + cx) * 4;
+        if (copy[off + 3] === 0) {
+          hasTransparent = true;
+        } else {
+          sumR += copy[off];
+          sumG += copy[off + 1];
+          sumB += copy[off + 2];
+          opaqueCount++;
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < copy.length; i += 4) {
+      if (copy[i + 3] === 0) {
+        hasTransparent = true;
+      } else {
+        sumR += copy[i];
+        sumG += copy[i + 1];
+        sumB += copy[i + 2];
+        opaqueCount++;
+      }
+    }
+  }
+
+  if (!hasTransparent) return copy;
+
+  // If hintRegion had no opaque pixels, compute global opaque mean
+  if (opaqueCount === 0 && hintRegion) {
+    for (let i = 0; i < copy.length; i += 4) {
+      if (copy[i + 3] > 0) {
+        sumR += copy[i];
+        sumG += copy[i + 1];
+        sumB += copy[i + 2];
+        opaqueCount++;
+      }
+    }
+  }
+
+  if (opaqueCount === 0) return copy;
+
+  const fillR = Math.round(sumR / opaqueCount);
+  const fillG = Math.round(sumG / opaqueCount);
+  const fillB = Math.round(sumB / opaqueCount);
+
+  for (let i = 0; i < copy.length; i += 4) {
+    if (copy[i + 3] === 0) {
+      copy[i] = fillR;
+      copy[i + 1] = fillG;
+      copy[i + 2] = fillB;
+      copy[i + 3] = 255;
+    }
+  }
+
+  return copy;
+}
+
 function colorDistSq(
   r1: number,
   g1: number,
@@ -305,14 +389,20 @@ function quantizeModifiedFrame(params: {
       const targetG = cleanedCanvas[cOff + 1];
       const targetB = cleanedCanvas[cOff + 2];
 
-      // If original frame left this pixel transparent and outCanvasBefore already has the target color,
-      // keep it transparent so partial-frame transparency is preserved.
+      // If original frame left this pixel transparent and outCanvasBefore already has the target color
+      // (within 1-2 LSB quantization tolerance of the already-cleaned previous frame),
+      // keep it transparent so partial-frame transparency is preserved without shimmer.
       if (
         origFrameIdx === origFrame.transparentIndex &&
         outCanvasBefore[cOff + 3] === 255 &&
-        outCanvasBefore[cOff] === targetR &&
-        outCanvasBefore[cOff + 1] === targetG &&
-        outCanvasBefore[cOff + 2] === targetB
+        colorDistSq(
+          outCanvasBefore[cOff],
+          outCanvasBefore[cOff + 1],
+          outCanvasBefore[cOff + 2],
+          targetR,
+          targetG,
+          targetB,
+        ) <= 27
       ) {
         pixelOrigIdx[pIdx] = -2;
         hasTransparency = true;
@@ -593,17 +683,27 @@ export async function processGeminiGifBuffer(
       : 'Analyzing GIF for Gemini watermark…',
   });
 
-  // Probe frame 0 first; only probe additional frames if frame 0 has no watermark
-  // (e.g. an animated GIF whose opening frame is blank or transparent).
-  const probeIndexSet = new Set<number>([0]);
+  // Stage 1: Probe representative frames (0, 1/4, 1/2, 3/4, last).
+  // Stage 2: If no watermark was detected on Stage 1 frames for a multi-frame GIF,
+  // probe additional intermediate frames (e.g. 1/8, 3/8, 5/8, 7/8, etc.) before
+  // concluding that no watermark is present.
+  const primaryProbeSet = new Set<number>([0]);
   if (totalFrames > 1) {
-    probeIndexSet.add(Math.floor(totalFrames / 4));
-    probeIndexSet.add(Math.floor(totalFrames / 2));
-    probeIndexSet.add(Math.floor((3 * totalFrames) / 4));
-    probeIndexSet.add(totalFrames - 1);
+    primaryProbeSet.add(Math.floor(totalFrames / 4));
+    primaryProbeSet.add(Math.floor(totalFrames / 2));
+    primaryProbeSet.add(Math.floor((3 * totalFrames) / 4));
+    primaryProbeSet.add(totalFrames - 1);
   }
-  const probeIndices = [...probeIndexSet].sort((a, b) => a - b);
-  const maxProbeIndex = probeIndices[probeIndices.length - 1];
+
+  const secondaryProbeSet = new Set<number>();
+  if (totalFrames > 5) {
+    for (let k = 1; k < 8; k += 2) {
+      const idx = Math.min(totalFrames - 1, Math.floor((k * totalFrames) / 8));
+      if (!primaryProbeSet.has(idx)) {
+        secondaryProbeSet.add(idx);
+      }
+    }
+  }
 
   interface ProbeCandidate {
     frameIndex: number;
@@ -611,95 +711,139 @@ export async function processGeminiGifBuffer(
     cleanedData: Uint8ClampedArray;
   }
 
-  const probeCanvas = new Uint8ClampedArray(width * height * 4);
-  let probePrevCanvas: Uint8ClampedArray | null = null;
   let firstProbeMeta: WatermarkMeta | null = null;
   let winningCandidate: ProbeCandidate | null = null;
 
-  for (let i = 0; i <= maxProbeIndex; i++) {
-    options.signal?.throwIfAborted();
-    const frame = frames[i];
-    const palette = frame.localColorTable ?? decoded.globalColorTable!;
+  const runProbePass = async (targetSet: Set<number>) => {
+    if (targetSet.size === 0) return;
+    const indices = [...targetSet].sort((a, b) => a - b);
+    const maxIdx = indices[indices.length - 1];
+    const probeCanvas = new Uint8ClampedArray(width * height * 4);
+    let probePrevCanvas: Uint8ClampedArray | null = null;
 
-    if (frame.disposalMethod === 3) {
-      probePrevCanvas = probeCanvas.slice();
-    }
+    for (let i = 0; i <= maxIdx; i++) {
+      options.signal?.throwIfAborted();
+      const frame = frames[i];
+      const palette = frame.localColorTable ?? decoded.globalColorTable!;
 
-    compositeFrameOntoCanvas(probeCanvas, width, height, frame, palette);
+      if (frame.disposalMethod === 3) {
+        probePrevCanvas = probeCanvas.slice();
+      }
 
-    if (probeIndexSet.has(i)) {
-      const testCopy = new Uint8ClampedArray(probeCanvas);
-      const removalRes = options.engine
-        ? await removeWatermarkFromImageData(
-            { width, height, data: testCopy },
-            { engine: options.engine, adaptiveMode },
-          )
-        : removeWatermarkFromImageDataSync(
-            { width, height, data: testCopy },
-            { adaptiveMode },
+      compositeFrameOntoCanvas(probeCanvas, width, height, frame, palette);
+
+      if (targetSet.has(i)) {
+        const testCopy = prepareCanvasCopyForWatermarkEngine(
+          probeCanvas,
+          width,
+          height,
+        );
+        const removalRes = options.engine
+          ? await removeWatermarkFromImageData(
+              { width, height, data: testCopy },
+              { engine: options.engine, adaptiveMode },
+            )
+          : removeWatermarkFromImageDataSync(
+              { width, height, data: testCopy },
+              { adaptiveMode },
+            );
+
+        if (!firstProbeMeta) {
+          firstProbeMeta = removalRes.meta;
+        }
+
+        if (removalRes.meta.applied && removalRes.meta.position) {
+          const currentGain = removalRes.meta.detection?.suppressionGain ?? 0;
+          const currentBestEffort = Boolean(
+            (removalRes.meta as { bestEffort?: boolean }).bestEffort,
+          );
+          const prevGain =
+            winningCandidate?.meta.detection?.suppressionGain ?? -Infinity;
+          const prevBestEffort = Boolean(
+            (winningCandidate?.meta as { bestEffort?: boolean } | undefined)
+              ?.bestEffort,
           );
 
-      if (!firstProbeMeta) {
-        firstProbeMeta = removalRes.meta;
-      }
+          if (
+            !winningCandidate ||
+            (prevBestEffort && !currentBestEffort) ||
+            (prevBestEffort === currentBestEffort && currentGain > prevGain)
+          ) {
+            winningCandidate = {
+              frameIndex: i,
+              meta: removalRes.meta,
+              cleanedData: new Uint8ClampedArray(removalRes.imageData.data),
+            };
+          }
 
-      if (removalRes.meta.applied && removalRes.meta.position) {
-        const currentGain = removalRes.meta.detection?.suppressionGain ?? 0;
-        const currentBestEffort = Boolean(
-          (removalRes.meta as { bestEffort?: boolean }).bestEffort,
-        );
-        const prevGain = winningCandidate?.meta.detection?.suppressionGain ?? -Infinity;
-        const prevBestEffort = Boolean(
-          (winningCandidate?.meta as { bestEffort?: boolean } | undefined)?.bestEffort,
-        );
-
-        if (
-          !winningCandidate ||
-          (prevBestEffort && !currentBestEffort) ||
-          (prevBestEffort === currentBestEffort && currentGain > prevGain)
-        ) {
-          winningCandidate = {
-            frameIndex: i,
-            meta: removalRes.meta,
-            cleanedData: new Uint8ClampedArray(removalRes.imageData.data),
-          };
-        }
-
-        // Stop probing early only when we have a clean, high-confidence match
-        if (!currentBestEffort) {
-          break;
+          // Stop probing early only when we have a clean, high-confidence match
+          if (!currentBestEffort) {
+            break;
+          }
         }
       }
+
+      applyDisposalMethod(
+        probeCanvas,
+        probePrevCanvas,
+        width,
+        height,
+        frame.disposalMethod,
+        frame,
+      );
     }
+  };
 
-    applyDisposalMethod(
-      probeCanvas,
-      probePrevCanvas,
-      width,
-      height,
-      frame.disposalMethod,
-      frame,
-    );
+  await runProbePass(primaryProbeSet);
+  if (!winningCandidate && secondaryProbeSet.size > 0) {
+    await runProbePass(secondaryProbeSet);
   }
 
-  // Fast lossless path: if no watermark was detected on any probe frame, clean GIF metadata directly
+  // Honest no-detection result: return metadata-cleaned original GIF with explicit applied=false / unchanged=true
   if (!winningCandidate) {
     options.signal?.throwIfAborted();
     const result = await stripImageMetadata(gifBytes, outputName);
     if (result.error) {
       throw new Error(result.error);
     }
+    const resolvedFirstMeta = firstProbeMeta as WatermarkMeta | null;
+    const noMatchMeta: WatermarkMeta = resolvedFirstMeta
+      ? { ...resolvedFirstMeta, applied: false }
+      : {
+          applied: false,
+          skipReason: 'no-watermark-detected',
+          size: null,
+          position: null,
+          config: null,
+          detection: {
+            adaptiveConfidence: null,
+            originalSpatialScore: null,
+            originalGradientScore: null,
+            processedSpatialScore: null,
+            processedGradientScore: null,
+            suppressionGain: null,
+          },
+          source: 'gif-probe',
+          decisionTier: null,
+          alphaGain: 1,
+          passCount: 0,
+          attemptedPassCount: 0,
+          passStopReason: 'no-watermark-detected',
+        };
     return {
       width,
       height,
       frameCount: totalFrames,
       animated,
-      meta: firstProbeMeta,
+      meta: noMatchMeta,
+      unchanged: true,
       result,
     };
   }
 
-  const wmPos = winningCandidate.meta.position!;
+  const confirmedCandidate: ProbeCandidate = winningCandidate;
+
+  const wmPos = confirmedCandidate.meta.position!;
   const paddedRegion = getPaddedRegion(wmPos, width, height, REFINER_PAD);
 
   const standardConfig = detectWatermarkConfig(width, height);
@@ -714,7 +858,7 @@ export async function processGeminiGifBuffer(
   let fallbackAlphaMap: Float32Array | null = null;
   try {
     const requestedSize =
-      winningCandidate.meta.config?.alphaVariant ?? wmPos.width;
+      confirmedCandidate.meta.config?.alphaVariant ?? wmPos.width;
     fallbackAlphaMap = await engine.getAlphaMap(
       requestedSize as number,
     );
@@ -776,9 +920,9 @@ export async function processGeminiGifBuffer(
           lastCleanedWmRegion,
         );
         modifiedWatermarkInCanvas = true;
-      } else if (i === winningCandidate.frameIndex) {
+      } else if (i === confirmedCandidate.frameIndex) {
         const cleanedRegion = extractPatchRgba(
-          winningCandidate.cleanedData,
+          confirmedCandidate.cleanedData,
           width,
           height,
           paddedRegion,
@@ -789,7 +933,12 @@ export async function processGeminiGifBuffer(
         modifiedWatermarkInCanvas = true;
       } else {
         // Run the actual @pilio/gemini-watermark-remover engine on this frame's full composited canvas
-        const frameDataCopy = new Uint8ClampedArray(origCanvas);
+        const frameDataCopy = prepareCanvasCopyForWatermarkEngine(
+          origCanvas,
+          width,
+          height,
+          paddedRegion,
+        );
         const perFrameAdaptiveMode: GifAdaptiveMode =
           adaptiveMode === 'always'
             ? 'always'
@@ -808,6 +957,11 @@ export async function processGeminiGifBuffer(
             Math.abs(frameRes.meta.position.y - wmPos.y) <= 4) ||
             !(frameRes.meta as { bestEffort?: boolean }).bestEffort);
 
+        const hasWatermarkEvidenceOnFrame =
+          i >= confirmedCandidate.frameIndex &&
+          (frameRes.meta.detection?.originalSpatialScore == null ||
+            frameRes.meta.detection.originalSpatialScore > 0.1);
+
         let cleanedRegion: Uint8ClampedArray;
         if (posMatches) {
           cleanedRegion = extractPatchRgba(
@@ -817,19 +971,25 @@ export async function processGeminiGifBuffer(
             paddedRegion,
           );
         } else if (
+          hasWatermarkEvidenceOnFrame &&
           fallbackAlphaMap &&
           fallbackAlphaMap.length === wmPos.width * wmPos.height
         ) {
           // Consistent multi-pass fallback at the exact consensus watermark position
           // when a single frame's moving content triggers an adaptive skip.
-          const fallbackCopy = new Uint8ClampedArray(origCanvas);
+          const fallbackCopy = prepareCanvasCopyForWatermarkEngine(
+            origCanvas,
+            width,
+            height,
+            paddedRegion,
+          );
           const layerRes = removeRepeatedWatermarkLayers(
             { width, height, data: fallbackCopy },
             fallbackAlphaMap,
             wmPos,
             {
-              alphaGain: winningCandidate.meta.alphaGain,
-              maxPasses: Math.max(1, winningCandidate.meta.passCount || 1),
+              alphaGain: confirmedCandidate.meta.alphaGain,
+              maxPasses: Math.max(1, confirmedCandidate.meta.passCount || 1),
             },
           ) as { imageData: { data: Uint8ClampedArray } };
           cleanedRegion = extractPatchRgba(
@@ -854,8 +1014,11 @@ export async function processGeminiGifBuffer(
     let maxX = Math.min(width, frame.left + frame.width);
     let maxY = Math.min(height, frame.top + frame.height);
 
-    // Check if any pixel in paddedRegion changed relative to outCanvasBefore or origCanvas
+    // Check if any pixel in paddedRegion changed relative to outCanvasBefore or origCanvas.
+    // Never expand a disposalMethod === 2 frame beyond its original rect so its disposal
+    // pass in subsequent frames never erases additional canvas pixels.
     let needsRequantize = false;
+    const canExpandFrame = frame.disposalMethod !== 2;
     const wmX0 = paddedRegion.x;
     const wmY0 = paddedRegion.y;
     const wmX1 = paddedRegion.x + paddedRegion.width;
@@ -875,7 +1038,7 @@ export async function processGeminiGifBuffer(
           ) {
             needsRequantize = true;
           }
-        } else {
+        } else if (canExpandFrame) {
           // Outside original partial frame rect: check if outCanvasBefore differs from cleanedCanvas
           if (
             outCanvasBefore[cOff] !== cleanedCanvas[cOff] ||
@@ -1012,7 +1175,8 @@ export async function processGeminiGifBuffer(
     height,
     frameCount: totalFrames,
     animated,
-    meta: winningCandidate.meta,
+    meta: confirmedCandidate.meta,
+    unchanged: false,
     result,
   };
 }
