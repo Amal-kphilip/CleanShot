@@ -1,3 +1,8 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
 import { concatBytes, readUint32LE, writeUint32LE } from './binary';
 
 type RiffChunk = { id: string; payloadStart: number; payloadSize: number; end: number };
@@ -17,35 +22,30 @@ function readChunkHeader(bytes: Uint8Array, offset: number): RiffChunk | null {
  * `id3 ` chunks entirely and copying everything else byte-for-byte (`fmt `,
  * `data`, `fact` are never touched).
  */
-export function stripRiffWav(bytes: Uint8Array): {
-  cleanedBuffer: Uint8Array;
-  removedSegments: string[];
-  bytesSaved: number;
-} {
-  if (bytes.length < 12) {
-    throw new Error('Invalid WAV file: header is too short');
-  }
+export function stripRiffChunks(
+  bytes: Uint8Array,
+  removedSegments?: string[],
+): Uint8Array | null {
+  if (bytes.length < 12) return null;
   const riffId = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+  if (riffId !== 'RIFF') return null;
   const formType = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-  if (riffId !== 'RIFF' || formType !== 'WAVE') {
-    throw new Error('Invalid WAV file: missing RIFF/WAVE signature');
-  }
+  if (formType !== 'WAVE') return null;
 
-  const removedSegments: string[] = [];
   const kept: Uint8Array[] = [];
   let offset = 12;
 
   while (offset < bytes.length) {
     const chunk = readChunkHeader(bytes, offset);
-    if (!chunk) {
-      throw new Error('Malformed WAV file: truncated or invalid RIFF chunk');
-    }
+    if (!chunk) return null;
     const { id, payloadStart, payloadSize, end } = chunk;
 
     if (id === 'LIST' && payloadSize >= 4) {
-      const listType = String.fromCharCode(...bytes.subarray(payloadStart, payloadStart + 4));
+      const listType = String.fromCharCode(
+        ...bytes.subarray(payloadStart, payloadStart + 4),
+      );
       if (listType === 'INFO') {
-        removedSegments.push('WAV LIST/INFO metadata chunk');
+        removedSegments?.push('WAV LIST/INFO metadata chunk');
         offset = end;
         continue;
       }
@@ -55,7 +55,11 @@ export function stripRiffWav(bytes: Uint8Array): {
     }
 
     if (id === 'bext' || id.toLowerCase() === 'id3 ') {
-      removedSegments.push(id === 'bext' ? 'WAV Broadcast Wave (bext) chunk' : 'WAV ID3 metadata chunk');
+      removedSegments?.push(
+        id === 'bext'
+          ? 'WAV Broadcast Wave (bext) chunk'
+          : 'WAV ID3 metadata chunk',
+      );
       offset = end;
       continue;
     }
@@ -66,6 +70,19 @@ export function stripRiffWav(bytes: Uint8Array): {
 
   const result = concatBytes([bytes.subarray(0, 12), ...kept]);
   writeUint32LE(result, 4, result.length - 8);
+  return result;
+}
+
+export function stripRiffWav(bytes: Uint8Array): {
+  cleanedBuffer: Uint8Array;
+  removedSegments: string[];
+  bytesSaved: number;
+} {
+  const removedSegments: string[] = [];
+  const result = stripRiffChunks(bytes, removedSegments);
+  if (!result) {
+    throw new Error('Invalid or malformed RIFF/WAVE file');
+  }
   return {
     cleanedBuffer: result,
     removedSegments,

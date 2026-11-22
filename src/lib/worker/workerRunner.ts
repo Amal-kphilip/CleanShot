@@ -8,6 +8,10 @@ import {
   ZipExtractionProgress,
   ZipExtractionWorkerResult,
 } from '../zip/zipExtractor';
+import {
+  GifWatermarkProgress,
+  isGifImage,
+} from '../tools/geminiGifWatermark';
 
 export interface ProcessTask {
   id: string;
@@ -34,7 +38,14 @@ interface WorkerResponse {
   zipBuffer?: ArrayBuffer;
   zipExtracted?: ZipExtractionWorkerResult;
   zipProgress?: ZipExtractionProgress;
-  geminiMeta?: { width: number; height: number; meta: unknown };
+  gifProgress?: GifWatermarkProgress;
+  geminiMeta?: {
+    width: number;
+    height: number;
+    meta: unknown;
+    frameCount?: number;
+    animated?: boolean;
+  };
   error?: string;
 }
 
@@ -488,23 +499,29 @@ export interface GeminiWorkerImageResult {
   height: number;
   meta: unknown;
   result: StripResult;
+  frameCount?: number;
+  animated?: boolean;
 }
 
 /**
- * Runs Gemini watermark removal + canvas encoding + StripMeta cleaning inside the shared
- * Web Worker pool so the main thread and CSS animations remain completely unblocked.
+ * Runs Gemini watermark removal + canvas/GIF encoding + CleanShot metadata cleaning inside
+ * the shared Web Worker pool so the main thread and CSS animations remain completely unblocked.
  */
 export async function processGeminiImageInWorker(
   file: File,
   outputName: string,
-  targetMimeType: 'image/png' | 'image/jpeg' | 'image/webp',
+  targetMimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif',
   adaptiveMode: 'auto' | 'always' | 'off',
   signal?: AbortSignal,
+  onProgress?: (progress: GifWatermarkProgress) => void,
 ): Promise<GeminiWorkerImageResult | null> {
+  const isGif = isGifImage(file.type, file.name) || targetMimeType === 'image/gif';
+  if (typeof Worker === 'undefined') {
+    return null;
+  }
   if (
-    typeof Worker === 'undefined' ||
-    typeof OffscreenCanvas === 'undefined' ||
-    typeof createImageBitmap !== 'function'
+    !isGif &&
+    (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function')
   ) {
     return null;
   }
@@ -521,13 +538,18 @@ export async function processGeminiImageInWorker(
         id,
         action: 'gemini-image',
         buffer,
-        sourceMimeType: file.type || 'image/png',
+        sourceMimeType: file.type || (isGif ? 'image/gif' : 'image/png'),
         outputName,
         targetMimeType,
         adaptiveMode,
       },
       [buffer],
       signal,
+      (msg) => {
+        if (msg.gifProgress) {
+          onProgress?.(msg.gifProgress);
+        }
+      },
     );
     if (data.error || !data.result || !data.geminiMeta) {
       throw new Error(data.error || 'Worker failed to process Gemini image.');
@@ -537,6 +559,12 @@ export async function processGeminiImageInWorker(
       height: data.geminiMeta.height,
       meta: data.geminiMeta.meta,
       result: data.result,
+      ...(data.geminiMeta.frameCount !== undefined
+        ? { frameCount: data.geminiMeta.frameCount }
+        : {}),
+      ...(data.geminiMeta.animated !== undefined
+        ? { animated: data.geminiMeta.animated }
+        : {}),
     };
   } catch (error) {
     if (error instanceof WorkerUnavailableError) {

@@ -116,7 +116,7 @@ const WatermarkDropzoneRow = React.memo(function WatermarkDropzoneRow({
         </p>
         <p className="text-[11px] text-text-sec truncate">
           {item.status === 'processing'
-            ? item.kind === 'video' && item.progress
+            ? item.progress
               ? `${item.progress.message} (${Math.round(item.progress.progress * 100)}%)`
               : 'Processing…'
             : item.status === 'done'
@@ -376,7 +376,15 @@ export default function GeminiWatermarkRemoverPage() {
           adaptiveMode: mode,
           outputFormat: format,
           signal: controller.signal,
+          onProgress: (p) => {
+            scheduleVideoProgress(id, {
+              phase: 'encode',
+              progress: p.progress,
+              message: p.message,
+            });
+          },
         });
+        clearProgressThrottle(id);
         if (controller.signal.aborted) {
           URL.revokeObjectURL(result.originalUrl);
           URL.revokeObjectURL(result.previewUrl);
@@ -396,22 +404,42 @@ export default function GeminiWatermarkRemoverPage() {
           prev.map((item) => {
             if (item.id !== id) return item;
             releaseItemUrls(item);
-            return { ...item, status: 'done', imageResult: result, error: undefined };
+            return {
+              ...item,
+              status: 'done',
+              imageResult: result,
+              progress: undefined,
+              error: undefined,
+            };
           })
         );
       } catch (caught) {
+        clearProgressThrottle(id);
+        if (controller.signal.aborted) {
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+                : item
+            )
+          );
+          return;
+        }
         const message =
           caught instanceof Error ? caught.message : 'Failed to process this image.';
         setItems((prev) =>
           prev.map((item) =>
-            item.id === id ? { ...item, status: 'error', error: message } : item
+            item.id === id
+              ? { ...item, status: 'error', progress: undefined, error: message }
+              : item
           )
         );
       } finally {
+        clearProgressThrottle(id);
         abortControllersRef.current.delete(id);
       }
     },
-    []
+    [clearProgressThrottle, scheduleVideoProgress]
   );
 
   const processVideoItem = useCallback(
@@ -829,7 +857,7 @@ export default function GeminiWatermarkRemoverPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept={mediaTab === 'video' ? 'video/*' : 'image/*'}
+            accept={mediaTab === 'video' ? 'video/*' : 'image/*,.gif'}
             multiple
             className="hidden"
             onChange={(e) => {
@@ -866,7 +894,7 @@ export default function GeminiWatermarkRemoverPage() {
                 <span className="text-[12px] font-medium text-text-sec">
                   {mediaTab === 'video'
                     ? 'Supports MP4, WebM, MOV up to 500 MB · 100% browser-local'
-                    : 'Supports PNG, JPEG, WebP up to 50 MB (or drop videos too) · 100% browser-local'}
+                    : 'Supports PNG, JPEG, WebP, GIF (static & animated) up to 50 MB (or drop videos too) · 100% browser-local'}
                 </span>
               </>
             )}
@@ -1041,7 +1069,7 @@ export default function GeminiWatermarkRemoverPage() {
                       `Removing Gemini watermark from ${activeItem.file.name}…`}
                   </span>
                 </div>
-                {activeItem.kind === 'video' && (
+                {(activeItem.kind === 'video' || activeItem.progress != null) && (
                   <button
                     type="button"
                     onClick={() => cancelItem(activeItem.id)}
@@ -1052,7 +1080,7 @@ export default function GeminiWatermarkRemoverPage() {
                 )}
               </div>
 
-              {activeItem.kind === 'video' && (
+              {(activeItem.kind === 'video' || activeItem.progress != null) && (
                 <div className="space-y-1.5">
                   <div
                     role="progressbar"
@@ -1152,6 +1180,9 @@ export default function GeminiWatermarkRemoverPage() {
                     </p>
                     <p className="mt-0.5 text-[12px] text-text-sec">
                       {activeItem.imageResult.width} × {activeItem.imageResult.height} px ·{' '}
+                      {activeItem.imageResult.frameCount && activeItem.imageResult.frameCount > 1
+                        ? `${activeItem.imageResult.frameCount} frames (Animated GIF) · `
+                        : ''}
                       {formatBytes(activeItem.imageResult.blob.size)}
                     </p>
                   </div>
@@ -1194,6 +1225,17 @@ export default function GeminiWatermarkRemoverPage() {
                     <dd className="text-right font-medium text-foreground">
                       {activeItem.imageResult.meta?.passCount ?? 0}
                     </dd>
+
+                    {activeItem.imageResult.frameCount !== undefined && (
+                      <>
+                        <dt className="text-text-sec">GIF frames</dt>
+                        <dd className="text-right font-medium text-foreground">
+                          {activeItem.imageResult.animated
+                            ? `${activeItem.imageResult.frameCount} (Animated)`
+                            : '1 (Static)'}
+                        </dd>
+                      </>
+                    )}
 
                     <dt className="text-text-sec">Processing time</dt>
                     <dd className="text-right font-medium text-foreground">
@@ -1239,7 +1281,7 @@ export default function GeminiWatermarkRemoverPage() {
                 </div>
 
                 <p className="text-[11px] leading-relaxed text-text-sec">
-                  Privacy metadata removed by StripMeta.{' '}
+                  Privacy metadata removed by CleanShot.{' '}
                   {activeItem.imageResult.unverifiedMetadataRemoval
                     ? 'Unknown or mixed metadata structures were retained to avoid altering potential provenance data; complete metadata removal could not be verified.'
                     : 'Canvas export & metadata cleaning strip embedded EXIF, GPS, and XMP data.'}
@@ -1387,7 +1429,7 @@ export default function GeminiWatermarkRemoverPage() {
                 </div>
 
                 <p className="text-[11px] leading-relaxed text-text-sec">
-                  MP4 container privacy metadata removed by StripMeta.{' '}
+                  MP4 container privacy metadata removed by CleanShot.{' '}
                   {activeItem.videoResult.unverifiedMetadataRemoval
                     ? 'Unknown or mixed metadata structures were retained to avoid altering potential provenance data; complete metadata removal could not be verified.'
                     : 'Processed 100% locally via WebCodecs.'}

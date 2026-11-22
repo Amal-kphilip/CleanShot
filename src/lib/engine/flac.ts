@@ -1,3 +1,8 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
 import { concatBytes } from './binary';
 
 const BLOCK_STREAMINFO = 0;
@@ -17,16 +22,17 @@ const BLOCK_NAMES: Record<number, string> = {
  * block type (kept conservatively). Drops PADDING, APPLICATION, VORBIS_COMMENT and PICTURE.
  * Audio frames after the metadata block chain are copied verbatim.
  */
-export function stripFlac(bytes: Uint8Array): {
-  cleanedBuffer: Uint8Array;
-  removedSegments: string[];
-  bytesSaved: number;
-} {
-  if (bytes.length < 4 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'fLaC') {
-    throw new Error('Invalid FLAC stream: missing fLaC signature');
+export function stripFlacBlocks(
+  bytes: Uint8Array,
+  removedSegments?: string[],
+): Uint8Array | null {
+  if (
+    bytes.length < 4 ||
+    String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'fLaC'
+  ) {
+    return null;
   }
 
-  const removedSegments: string[] = [];
   const kept: Uint8Array[] = [bytes.subarray(0, 4)];
   const keptHeaderOffsets: number[] = [];
   let outputLength = 4;
@@ -35,27 +41,20 @@ export function stripFlac(bytes: Uint8Array): {
   let isFirstBlock = true;
 
   while (true) {
-    if (offset + 4 > bytes.length) {
-      throw new Error('Malformed FLAC stream: truncated metadata block header');
-    }
+    if (offset + 4 > bytes.length) return null;
     const headerByte = bytes[offset];
     const isLast = (headerByte & 0x80) !== 0;
     const blockType = headerByte & 0x7f;
-    const length = (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+    const length =
+      (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
     const blockEnd = offset + 4 + length;
-    if (blockEnd > bytes.length) {
-      throw new Error('Malformed FLAC stream: metadata block exceeds file length');
-    }
+    if (blockEnd > bytes.length) return null;
 
     if (isFirstBlock) {
-      if (blockType !== BLOCK_STREAMINFO) {
-        throw new Error('Malformed FLAC stream: STREAMINFO must be the first metadata block');
-      }
+      if (blockType !== BLOCK_STREAMINFO) return null;
       isFirstBlock = false;
     }
-    if (blockType === 127) {
-      throw new Error('Malformed FLAC stream: invalid block type 127');
-    }
+    if (blockType === 127) return null;
 
     const keep =
       blockType === BLOCK_STREAMINFO ||
@@ -68,14 +67,16 @@ export function stripFlac(bytes: Uint8Array): {
       kept.push(bytes.subarray(offset, blockEnd));
       outputLength += blockEnd - offset;
     } else {
-      removedSegments.push(`FLAC ${BLOCK_NAMES[blockType] || `Block ${blockType}`}`);
+      removedSegments?.push(
+        `FLAC ${BLOCK_NAMES[blockType] || `Block ${blockType}`}`,
+      );
     }
 
     offset = blockEnd;
     if (isLast) break;
   }
 
-  kept.push(bytes.subarray(offset)); // audio frames
+  kept.push(bytes.subarray(offset));
 
   const result = concatBytes(kept);
 
@@ -88,6 +89,19 @@ export function stripFlac(bytes: Uint8Array): {
     }
   }
 
+  return result;
+}
+
+export function stripFlac(bytes: Uint8Array): {
+  cleanedBuffer: Uint8Array;
+  removedSegments: string[];
+  bytesSaved: number;
+} {
+  const removedSegments: string[] = [];
+  const result = stripFlacBlocks(bytes, removedSegments);
+  if (!result) {
+    throw new Error('Malformed or invalid FLAC stream');
+  }
   return {
     cleanedBuffer: result,
     removedSegments,

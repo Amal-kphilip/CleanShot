@@ -1,0 +1,16 @@
+{
+  "requiredBefore": [
+    "RIFF:Artist",
+    "RIFF:Comment",
+    "RIFF:Software"
+  ],
+  "sentinels": [
+    "CLEANSHOT_TEST_AUTHOR",
+    "CLEANSHOT_TEST_TITLE",
+    "CLEANSHOT_TEST_COMMENT",
+    "CLEANSHOT_TEST_SOFTWARE",
+    "CLEANSHOT_TEST_LOCATION",
+    "CLEANSHOT_TEST_COMPANY"
+  ],
+  "notes": "Seeded WAVE RIFF INFO regression fixture."
+}

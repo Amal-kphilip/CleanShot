@@ -1,208 +1,150 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
+import { matchesAscii, readUint32LE, writeUint32LE } from './binary';
+import { inspectWebpAnimation, reencodeStaticRasterInBrowser } from './imageAnimation';
 import { StripOptions } from './types';
-import { createOrientationOnlyExifPayload } from './orientation';
-import { containsProvenanceMarkers } from './provenance';
 
 /**
- * Lossless WebP RIFF container stripper.
- * Removes EXIF, XMP, ICC and unknown optional chunks by default, adjusts VP8X feature flags,
- * and updates RIFF payload length without decoding/re-encoding VP8/VP8L/ALPH raster bitstreams.
+ * Removes metadata chunks that Chromium may add while encoding WebP. If the
+ * extended header has no remaining alpha/animation features, it is redundant
+ * and is removed too, yielding a normal simple WebP container.
  */
-export function stripWebp(buffer: Uint8Array, options: StripOptions = {}): {
+export function stripWebpMetadataChunks(
+  bytes: Uint8Array,
+  removedSegments?: string[],
+): Uint8Array | null {
+  if (
+    bytes.length < 12 ||
+    !matchesAscii(bytes, 0, 'RIFF') ||
+    !matchesAscii(bytes, 8, 'WEBP')
+  ) {
+    return null;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const size = readUint32LE(bytes, offset + 4);
+    const paddedSize = size + (size & 1);
+    const end = offset + 8 + paddedSize;
+    if (end > bytes.length) return null;
+
+    const fourCC = String.fromCharCode(
+      bytes[offset],
+      bytes[offset + 1],
+      bytes[offset + 2],
+      bytes[offset + 3],
+    );
+    const isMetadata =
+      matchesAscii(bytes, offset, 'ICCP') ||
+      matchesAscii(bytes, offset, 'EXIF') ||
+      matchesAscii(bytes, offset, 'XMP ');
+    const isKnownBitstream =
+      matchesAscii(bytes, offset, 'VP8X') ||
+      matchesAscii(bytes, offset, 'VP8 ') ||
+      matchesAscii(bytes, offset, 'VP8L') ||
+      matchesAscii(bytes, offset, 'ALPH') ||
+      matchesAscii(bytes, offset, 'ANIM') ||
+      matchesAscii(bytes, offset, 'ANMF');
+
+    if (isMetadata) {
+      removedSegments?.push(`${fourCC.trim()} Metadata chunk`);
+    } else if (!isKnownBitstream) {
+      removedSegments?.push(`Unrecognized WebP chunk (${fourCC}) removed`);
+    } else if (matchesAscii(bytes, offset, 'VP8X') && size >= 10) {
+      const chunk = bytes.slice(offset, end);
+      // ICC, EXIF and XMP flags respectively. Leave alpha and animation.
+      chunk[8] &= ~(0x20 | 0x08 | 0x04);
+      if ((chunk[8] & (0x10 | 0x02)) !== 0) chunks.push(chunk);
+    } else {
+      chunks.push(bytes.slice(offset, end));
+    }
+    offset = end;
+  }
+  if (offset !== bytes.length) return null;
+
+  const totalSize = 12 + chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const output = new Uint8Array(totalSize);
+  output.set(bytes.subarray(0, 12), 0);
+  writeUint32LE(output, 4, totalSize - 8);
+  let outputOffset = 12;
+  for (const chunk of chunks) {
+    output.set(chunk, outputOffset);
+    outputOffset += chunk.length;
+  }
+  return output;
+}
+
+export function stripWebp(
+  buffer: Uint8Array,
+  options: StripOptions = {},
+): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
-  provenancePreserved?: boolean;
-  unverifiedMetadataRemoval?: boolean;
 } {
-  const keepIcc = options.keepIccProfile === true; // Strict removal by default.
-  const preserveProvenance = options.preserveProvenance === true;
-  let provenancePreserved = false;
-  let unverifiedMetadataRemoval = false;
+  void options;
+  const animationStatus = inspectWebpAnimation(buffer);
+  if (animationStatus === 'animated') {
+    throw new Error('Animated PNG/WebP files are rejected to avoid flattening their frames.');
+  }
+  if (animationStatus === 'invalid') {
+    throw new Error('Invalid PNG/WebP container rejected.');
+  }
+
   const removedSegments: string[] = [];
-
-  // Check RIFF header: "RIFF" (0-3) and "WEBP" (8-11)
-  if (
-    buffer.length < 12 ||
-    buffer[0] !== 0x52 || buffer[1] !== 0x49 || buffer[2] !== 0x46 || buffer[3] !== 0x46 ||
-    buffer[8] !== 0x57 || buffer[9] !== 0x45 || buffer[10] !== 0x42 || buffer[11] !== 0x50
-  ) {
-    throw new Error('Invalid WebP file: Missing RIFF/WEBP signature');
+  const cleaned = stripWebpMetadataChunks(buffer, removedSegments);
+  if (!cleaned) {
+    throw new Error('Invalid PNG/WebP container rejected.');
   }
-
-  interface WebpChunk {
-    fourCC: string;
-    rawHeaderAndData: Uint8Array;
-    isVp8x?: boolean;
-    vp8xFlags?: number;
-  }
-
-  const keptChunks: WebpChunk[] = [];
-  let vp8xIndex = -1;
-  const declaredRiffSize = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getUint32(4, true);
-  const riffEnd = declaredRiffSize + 8;
-  if (riffEnd < 12 || riffEnd > buffer.length) throw new Error('Malformed WebP: RIFF size exceeds the available file data');
-  let offset = 12;
-  const len = riffEnd;
-
-
-  while (offset < len) {
-    if (offset + 8 > len) throw new Error('Malformed WebP: truncated chunk header');
-
-    const fourCC = String.fromCharCode(
-      buffer[offset],
-      buffer[offset + 1],
-      buffer[offset + 2],
-      buffer[offset + 3]
-    );
-
-    const chunkSize = new DataView(buffer.buffer, buffer.byteOffset + offset + 4, 4).getUint32(0, true);
-
-    const paddedSize = chunkSize + (chunkSize % 2); // RIFF 2-byte chunk padding
-    const totalChunkBytes = 8 + paddedSize;
-
-    if (offset + totalChunkBytes > len) throw new Error(`Malformed WebP: truncated ${fourCC} chunk`);
-
-    const chunkDataStart = offset + 8;
-
-    if (fourCC === 'VP8X') {
-      // VP8X must be the first chunk and has a 10-byte payload.
-      if (offset !== 12 || chunkSize !== 10 || vp8xIndex !== -1) throw new Error('Malformed WebP: invalid VP8X header position or size');
-      const flags = buffer[chunkDataStart];
-      vp8xIndex = keptChunks.length;
-      keptChunks.push({
-        fourCC: 'VP8X',
-        rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
-        isVp8x: true,
-        vp8xFlags: flags,
-      });
-    } else if (fourCC === 'EXIF') {
-      const orientationPayload = options.keepOrientation === true
-        ? createOrientationOnlyExifPayload(buffer.slice(chunkDataStart, chunkDataStart + chunkSize))
-        : undefined;
-      if (orientationPayload) {
-        const paddedSize = orientationPayload.length + (orientationPayload.length % 2);
-        const orientationChunk = new Uint8Array(8 + paddedSize);
-        orientationChunk.set([0x45, 0x58, 0x49, 0x46], 0);
-        new DataView(orientationChunk.buffer).setUint32(4, orientationPayload.length, true);
-        orientationChunk.set(orientationPayload, 8);
-        keptChunks.push({ fourCC: 'EXIF', rawHeaderAndData: orientationChunk });
-        removedSegments.push('EXIF metadata removed; orientation tag preserved');
-      } else {
-        removedSegments.push('EXIF Metadata chunk');
-      }
-    } else if (fourCC === 'XMP ') {
-      if (
-        preserveProvenance &&
-        containsProvenanceMarkers(buffer.subarray(chunkDataStart, chunkDataStart + chunkSize))
-      ) {
-        keptChunks.push({
-          fourCC,
-          rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
-        });
-        provenancePreserved = true;
-        unverifiedMetadataRemoval = true;
-      } else {
-        removedSegments.push('XMP Metadata chunk');
-      }
-    } else if (fourCC === 'ICCP') {
-      if (!keepIcc) {
-        removedSegments.push('ICCP (ICC Color Profile chunk)');
-      } else {
-        keptChunks.push({
-          fourCC,
-          rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
-        });
-      }
-    } else if (['VP8 ', 'VP8L', 'ALPH', 'ANIM', 'ANMF'].includes(fourCC)) {
-      keptChunks.push({
-        fourCC,
-        rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
-      });
-    } else if (preserveProvenance) {
-      keptChunks.push({
-        fourCC,
-        rawHeaderAndData: buffer.slice(offset, offset + totalChunkBytes),
-      });
-      if (
-        fourCC === 'C2PA' ||
-        fourCC === 'JUMB' ||
-        containsProvenanceMarkers(buffer.subarray(chunkDataStart, chunkDataStart + chunkSize))
-      ) {
-        provenancePreserved = true;
-      } else {
-        unverifiedMetadataRemoval = true;
-      }
-    } else {
-      // Per the RIFF/WebP container model, unknown chunks are optional extensions.
-      // Drop them instead of failing open or leaving custom metadata behind.
-      removedSegments.push(`Unrecognized WebP chunk (${fourCC}) removed`);
-    }
-
-    offset += totalChunkBytes;
-  }
-
-  if (offset !== len) throw new Error('Malformed WebP: chunks do not match the RIFF container size');
-
-  // If we had a VP8X chunk and removed EXIF/XMP/ICCP, update VP8X flags
-  if (vp8xIndex !== -1 && keptChunks[vp8xIndex]) {
-    const vp8x = keptChunks[vp8xIndex];
-    let flags = vp8x.vp8xFlags ?? 0;
-
-    // Derive metadata feature bits from the chunks that actually remain.
-    // This also repairs stale input flags when the corresponding chunk was absent.
-    // Bitmask: ICCP(0x20), Alpha(0x10), EXIF(0x08), XMP(0x04), ANIM(0x02)
-    const hasKeptIcc = keptChunks.some((chunk) => chunk.fourCC === 'ICCP');
-    const hasKeptExif = keptChunks.some((chunk) => chunk.fourCC === 'EXIF');
-    const hasKeptXmp = keptChunks.some((chunk) => chunk.fourCC === 'XMP ');
-    flags = hasKeptIcc ? (flags | 0x20) : (flags & ~0x20);
-    flags = hasKeptExif ? (flags | 0x08) : (flags & ~0x08);
-    flags = hasKeptXmp ? (flags | 0x04) : (flags & ~0x04);
-
-    // Clone header and update byte at offset 8 (flags)
-    const updated = new Uint8Array(vp8x.rawHeaderAndData);
-    updated[8] = flags;
-    vp8x.rawHeaderAndData = updated;
-  }
-
-  // Calculate total payload size (RIFF header 12 bytes + sum of chunks)
-  let totalChunksLength = 0;
-  for (const c of keptChunks) {
-    totalChunksLength += c.rawHeaderAndData.length;
-  }
-
-  const finalFileSize = 12 + totalChunksLength;
-  const cleaned = new Uint8Array(finalFileSize);
-
-  // Write "RIFF"
-  cleaned[0] = 0x52; // 'R'
-  cleaned[1] = 0x49; // 'I'
-  cleaned[2] = 0x46; // 'F'
-  cleaned[3] = 0x46; // 'F'
-
-  // Write RIFF size (finalFileSize - 8) in 32-bit Little Endian
-  const riffSize = finalFileSize - 8;
-  cleaned[4] = riffSize & 0xFF;
-  cleaned[5] = (riffSize >> 8) & 0xFF;
-  cleaned[6] = (riffSize >> 16) & 0xFF;
-  cleaned[7] = (riffSize >> 24) & 0xFF;
-
-  // Write "WEBP"
-  cleaned[8] = 0x57;  // 'W'
-  cleaned[9] = 0x45;  // 'E'
-  cleaned[10] = 0x42; // 'B'
-  cleaned[11] = 0x50; // 'P'
-
-  let writeOffset = 12;
-  for (const c of keptChunks) {
-    cleaned.set(c.rawHeaderAndData, writeOffset);
-    writeOffset += c.rawHeaderAndData.length;
-  }
-
   return {
     cleanedBuffer: cleaned,
     removedSegments,
     bytesSaved: buffer.length - cleaned.length,
-    ...(provenancePreserved ? { provenancePreserved: true } : {}),
-    ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
   };
+}
+
+/**
+ * CleanShot two-stage WebP cleaning process:
+ * 1. Inspects RIFF/WebP structure via `inspectWebpAnimation(bytes)` and rejects invalid or animated WebP files.
+ * 2. Decodes static WebP onto a fresh canvas and encodes a new WebP image.
+ * 3. Runs `stripWebpMetadataChunks()` on the encoded WebP to remove ICCP, EXIF, and XMP chunks and update VP8X flags.
+ */
+export async function stripWebpAsync(
+  buffer: Uint8Array,
+  options: StripOptions = {},
+): Promise<{
+  cleanedBuffer: Uint8Array;
+  removedSegments: string[];
+  bytesSaved: number;
+}> {
+  void options;
+  const animationStatus = inspectWebpAnimation(buffer);
+  if (animationStatus === 'animated') {
+    throw new Error('Animated PNG/WebP files are rejected to avoid flattening their frames.');
+  }
+  if (animationStatus === 'invalid') {
+    throw new Error('Invalid PNG/WebP container rejected.');
+  }
+
+  const removedSegments: string[] = [];
+  const reencoded = await reencodeStaticRasterInBrowser(buffer, 'image/webp');
+  if (reencoded) {
+    removedSegments.push('WebP raster re-encoded via canvas');
+    const stripped = stripWebpMetadataChunks(reencoded, removedSegments);
+    if (!stripped) {
+      throw new Error('Failed to strip metadata chunks from re-encoded WebP.');
+    }
+    return {
+      cleanedBuffer: stripped,
+      removedSegments,
+      bytesSaved: buffer.length - stripped.length,
+    };
+  }
+
+  // Fallback for headless Node.js unit test environments where browser Canvas APIs are absent
+  return stripWebp(buffer, options);
 }

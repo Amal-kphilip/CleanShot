@@ -1,3 +1,8 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
 import { readEbmlVint, isEbmlUnknownSize } from './binary';
 
 const ID_SEGMENT = 0x18538067;
@@ -175,20 +180,29 @@ function walkAndNeutralize(
   return true;
 }
 
+export function stripEbmlElements(
+  bytes: Uint8Array,
+  removedSegments?: string[],
+): Uint8Array | null {
+  const header = readEbmlVint(bytes, 0, true);
+  if (!header || header.value !== ID_EBML_HEADER) return null;
+
+  const result = bytes.slice();
+  if (!walkAndNeutralize(result, 0, result.length, true, removedSegments ?? [])) {
+    return null;
+  }
+  return result;
+}
+
 export function stripMatroska(bytes: Uint8Array): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
 } {
-  const header = readEbmlVint(bytes, 0, true);
-  if (!header || header.value !== ID_EBML_HEADER) {
-    throw new Error('Malformed Matroska/WebM container: missing EBML header');
-  }
-
   const removedSegments: string[] = [];
-  const result = bytes.slice();
-  if (!walkAndNeutralize(result, 0, result.length, true, removedSegments)) {
-    throw new Error('Malformed or unsupported Matroska/WebM element structure');
+  const result = stripEbmlElements(bytes, removedSegments);
+  if (!result) {
+    throw new Error('Malformed or unsupported Matroska/WebM container structure');
   }
 
   return {

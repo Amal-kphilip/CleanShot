@@ -234,6 +234,18 @@ export function DropZone({
     }
   };
 
+  const handleDropZoneBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isProcessing || disabled) return;
+    const target = e.target as HTMLElement | null;
+    if (target && target !== e.currentTarget) {
+      const interactiveAncestor = target.closest('button, input, a, label, ul');
+      if (interactiveAncestor && interactiveAncestor !== e.currentTarget) {
+        return;
+      }
+    }
+    photoVideoInputRef.current?.click();
+  };
+
   const queuedSizeMb =
     files.reduce((sum, item) => sum + item.file.size, 0) / (1024 * 1024);
 
@@ -300,6 +312,47 @@ export function DropZone({
         </div>
       )}
 
+      {/* Primary hidden input: Photos & Videos only (native mobile gallery picker) */}
+      <input
+        id="cleanshot-upload-photos-videos"
+        ref={photoVideoInputRef}
+        type="file"
+        multiple
+        accept={PHOTO_VIDEO_ACCEPT}
+        onClick={(e) => e.stopPropagation()}
+        onChange={handleFileInputChange}
+        disabled={isProcessing || disabled}
+        className="hidden"
+      />
+
+      {/* Secondary hidden input: ZIP archives, Documents (PDF/DOCX) & Audio */}
+      <input
+        id="cleanshot-upload-zip-docs-audio"
+        ref={secondaryInputRef}
+        type="file"
+        multiple
+        accept={SECONDARY_ACCEPT}
+        onClick={(e) => e.stopPropagation()}
+        onChange={handleFileInputChange}
+        disabled={isProcessing || disabled}
+        className="hidden"
+      />
+
+      {/* Folder hidden input */}
+      <input
+        id="cleanshot-upload-folder"
+        ref={folderInputRef}
+        type="file"
+        // @ts-expect-error webkitdirectory is supported in Chromium/WebKit
+        webkitdirectory=""
+        directory=""
+        multiple
+        onClick={(e) => e.stopPropagation()}
+        onChange={handleFileInputChange}
+        disabled={isProcessing || disabled}
+        className="hidden"
+      />
+
       <div
         role="button"
         tabIndex={isProcessing || disabled ? -1 : 0}
@@ -308,9 +361,7 @@ export function DropZone({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() =>
-          !isProcessing && !disabled && photoVideoInputRef.current?.click()
-        }
+        onClick={handleDropZoneBackgroundClick}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;
           if ((e.key === 'Enter' || e.key === ' ') && !isProcessing && !disabled) {
@@ -337,45 +388,12 @@ export function DropZone({
           className="absolute inset-0 bg-white/55 dark:bg-[#141720]/75 sm:backdrop-blur-[2px] transition-opacity group-hover:bg-white/35 dark:group-hover:bg-[#141720]/60"
         />
 
-        {/* Primary hidden input: Photos & Videos only (native mobile gallery picker) */}
-        <input
-          ref={photoVideoInputRef}
-          type="file"
-          multiple
-          accept={PHOTO_VIDEO_ACCEPT}
-          onChange={handleFileInputChange}
-          disabled={isProcessing || disabled}
-          className="hidden"
-        />
-
-        {/* Secondary hidden input: ZIP archives, Documents (PDF/DOCX) & Audio */}
-        <input
-          ref={secondaryInputRef}
-          type="file"
-          multiple
-          accept={SECONDARY_ACCEPT}
-          onChange={handleFileInputChange}
-          disabled={isProcessing || disabled}
-          className="hidden"
-        />
-
-        {/* Folder hidden input */}
-        <input
-          ref={folderInputRef}
-          type="file"
-          // @ts-expect-error webkitdirectory is supported in Chromium/WebKit
-          webkitdirectory=""
-          directory=""
-          multiple
-          onChange={handleFileInputChange}
-          disabled={isProcessing || disabled}
-          className="hidden"
-        />
-
         <div className="relative z-10 flex flex-col items-center gap-3 sm:gap-4 pt-2">
           <button
             type="button"
             disabled={isProcessing || disabled}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               if (!isProcessing && !disabled) {
@@ -391,6 +409,8 @@ export function DropZone({
           <button
             type="button"
             disabled={isProcessing || disabled}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               if (!isProcessing && !disabled) {
@@ -413,9 +433,13 @@ export function DropZone({
             <button
               type="button"
               disabled={isProcessing || disabled}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!isProcessing && !disabled) folderInputRef.current?.click();
+                if (!isProcessing && !disabled) {
+                  folderInputRef.current?.click();
+                }
               }}
               className="text-[12px] font-semibold text-text-sec hover:text-[#145BF5] underline underline-offset-4"
             >

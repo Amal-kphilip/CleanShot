@@ -1,180 +1,125 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
+import { concatBytes } from './binary';
+import { reencodeStaticRasterInBrowser } from './imageAnimation';
 import { StripOptions } from './types';
-import { createOrientationOnlyJpegSegment } from './orientation';
-import { containsProvenanceMarkers } from './provenance';
+
+// JPEG markers whose segments carry metadata rather than image data:
+// APP1 (0xE1) = EXIF and XMP, APP13 (0xED) = IPTC/Photoshop IRB, COM (0xFE) = comments.
+// APP0 (JFIF), APP2 (ICC color profile) and APP14 (Adobe color transform) are kept
+// because removing them can change how the image is decoded or displayed.
+const STRIPPED_JPEG_MARKERS = new Set([0xe1, 0xed, 0xfe]);
 
 /**
- * Robust Lossless JPEG metadata stripper.
- * Strips all APPn segments (APP1 EXIF/XMP/C2PA, APP2 FlashPix/MPF, APP3-APP12, APP13 Photoshop 8BIM/IPTC,
- * APP14 non-essential tags, APP15), COM (comments), and any trailing data/watermarks appended after EOI (0xFFD9).
- * Preserves 100% untouched DCT entropy bitstream (SOF, DQT, DHT, DRI, SOS -> EOI).
+ * Removes metadata segments from a JPEG by walking its segment structure and
+ * dropping EXIF/XMP/IPTC/comment segments, copying everything else verbatim.
+ * Lossless - the compressed image data is untouched. Returns null if the bytes
+ * don't parse as a JPEG (caller falls back to a canvas re-encode).
  */
-export function stripJpeg(buffer: Uint8Array, options: StripOptions = {}): {
+export function stripJpegSegments(
+  bytes: Uint8Array,
+  removedSegments?: string[],
+): Uint8Array | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  const kept: Uint8Array[] = [bytes.subarray(0, 2)]; // SOI
+  let offset = 2;
+
+  while (offset + 2 <= bytes.length) {
+    if (bytes[offset] !== 0xff) return null;
+    const marker = bytes[offset + 1];
+
+    // Padding: fill bytes of 0xFF may precede a marker
+    if (marker === 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    // SOS: entropy-coded image data follows - copy the remainder verbatim
+    if (marker === 0xda) {
+      kept.push(bytes.subarray(offset));
+      return concatBytes(kept);
+    }
+
+    // Standalone markers without a length field (TEM, RST0-RST7)
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      kept.push(bytes.subarray(offset, offset + 2));
+      offset += 2;
+      continue;
+    }
+
+    if (offset + 4 > bytes.length) return null;
+    const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
+    if (length < 2 || offset + 2 + length > bytes.length) return null;
+
+    if (!STRIPPED_JPEG_MARKERS.has(marker)) {
+      kept.push(bytes.subarray(offset, offset + 2 + length));
+    } else if (removedSegments) {
+      if (marker === 0xe1) removedSegments.push('APP1 (EXIF / XMP metadata)');
+      else if (marker === 0xed) removedSegments.push('APP13 (IPTC / Photoshop IRB metadata)');
+      else if (marker === 0xfe) removedSegments.push('JPEG Comment (COM)');
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+
+export function stripJpeg(
+  buffer: Uint8Array,
+  options: StripOptions = {},
+): {
   cleanedBuffer: Uint8Array;
   removedSegments: string[];
   bytesSaved: number;
-  provenancePreserved?: boolean;
-  unverifiedMetadataRemoval?: boolean;
 } {
-  const keepIcc = options.keepIccProfile === true;
-  const preserveProvenance = options.preserveProvenance === true;
-  let provenancePreserved = false;
-  let unverifiedMetadataRemoval = false;
+  void options;
   const removedSegments: string[] = [];
-  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) {
-    throw new Error('Invalid JPEG stream: Missing Start of Image (SOI) marker');
-  }
-
-  const chunks: Uint8Array[] = [new Uint8Array([0xff, 0xd8])];
-  const len = buffer.length;
-  let offset = 2;
-  let seenScan = false;
-  let seenEoi = false;
-
-  while (offset < len) {
-    const markerStart = offset;
-    if (buffer[offset] !== 0xff) {
-      throw new Error('Malformed JPEG: expected a marker outside scan data');
-    }
-    while (offset < len && buffer[offset] === 0xff) offset++;
-    if (offset >= len) throw new Error('Malformed JPEG: truncated marker');
-    const marker = buffer[offset++];
-    const markerBytes = buffer.slice(markerStart, offset);
-
-    if (marker === 0xd9) {
-      chunks.push(markerBytes);
-      seenEoi = true;
-      if (offset < len) removedSegments.push(`Trailing payload (${len - offset} bytes) after EOI`);
-      break;
-    }
-    if (marker === 0xd8) throw new Error('Malformed JPEG: unexpected nested SOI marker');
-    if ((marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
-      chunks.push(markerBytes);
-      continue;
-    }
-    if (offset + 2 > len) throw new Error('Malformed JPEG: truncated segment length');
-    const segmentLength = (buffer[offset] << 8) | buffer[offset + 1];
-    if (segmentLength < 2 || offset + segmentLength > len) {
-      throw new Error('Malformed JPEG: invalid or truncated segment');
-    }
-
-    const segmentDataStart = offset + 2;
-    const segmentDataLength = segmentLength - 2;
-    const segmentEnd = offset + segmentLength;
-    let shouldKeep = true;
-
-    if (marker === 0xda) {
-      // SOS starts a compressed scan. Walk entropy data carefully so marker segments
-      // between progressive scans are parsed too; otherwise an APP1/APP13 inserted
-      // between scans could survive cleaning.
-      chunks.push(buffer.slice(markerStart, segmentEnd));
-      seenScan = true;
-      let scanOffset = segmentEnd;
-      let nextMarkerFound = false;
-      while (scanOffset < len) {
-        if (buffer[scanOffset] !== 0xff) {
-          scanOffset++;
-          continue;
-        }
-        let codeOffset = scanOffset + 1;
-        while (codeOffset < len && buffer[codeOffset] === 0xff) codeOffset++;
-        if (codeOffset >= len) throw new Error('Malformed JPEG: truncated marker in scan data');
-        const code = buffer[codeOffset];
-        // 0xFF00 is a stuffed data byte; restart markers may also appear in a scan.
-        if (code === 0x00 || (code >= 0xd0 && code <= 0xd7)) {
-          scanOffset = codeOffset + 1;
-          continue;
-        }
-        // A structural marker ends this scan. Let the outer loop process it normally.
-        chunks.push(buffer.slice(segmentEnd, scanOffset));
-        offset = scanOffset;
-        nextMarkerFound = true;
-        break;
-      }
-      if (!nextMarkerFound) throw new Error('Malformed JPEG: scan ended without an EOI marker');
-      continue;
-    }
-
-    let segmentLabel = `JPEG marker 0x${marker.toString(16).toUpperCase()}`;
-    if (marker === 0xfe) {
-      shouldKeep = false;
-      segmentLabel = 'JPEG Comment (COM)';
-    } else if (marker === 0xe1) {
-      const segSlice = buffer.subarray(segmentDataStart, segmentDataStart + segmentDataLength);
-      if (preserveProvenance && containsProvenanceMarkers(segSlice)) {
-        shouldKeep = true;
-        provenancePreserved = true;
-        unverifiedMetadataRemoval = true;
-      } else {
-        shouldKeep = false;
-        const orientationOnly = options.keepOrientation === true
-          ? createOrientationOnlyJpegSegment(buffer.slice(segmentDataStart, segmentDataStart + segmentDataLength))
-          : undefined;
-        if (orientationOnly) chunks.push(orientationOnly);
-        segmentLabel = orientationOnly
-          ? 'APP1 (EXIF removed; orientation tag preserved)'
-          : 'APP1 (EXIF / XMP / C2PA metadata)';
-      }
-    } else if (marker === 0xe2) {
-      const isIcc = segmentDataLength >= 12 &&
-        buffer[segmentDataStart] === 0x49 && buffer[segmentDataStart + 1] === 0x43 &&
-        buffer[segmentDataStart + 2] === 0x43 && buffer[segmentDataStart + 3] === 0x5f &&
-        buffer[segmentDataStart + 4] === 0x50 && buffer[segmentDataStart + 5] === 0x52 &&
-        buffer[segmentDataStart + 6] === 0x4f && buffer[segmentDataStart + 7] === 0x46 &&
-        buffer[segmentDataStart + 8] === 0x49 && buffer[segmentDataStart + 9] === 0x4c &&
-        buffer[segmentDataStart + 10] === 0x45 && buffer[segmentDataStart + 11] === 0x00;
-      if (!isIcc || !keepIcc) {
-        shouldKeep = false;
-        segmentLabel = isIcc ? 'APP2 (ICC Color Profile)' : 'APP2 (FlashPix/MPF preview or vendor metadata)';
-      }
-    } else if (marker === 0xee) {
-      const isAdobe = segmentDataLength >= 5 &&
-        buffer[segmentDataStart] === 0x41 && buffer[segmentDataStart + 1] === 0x64 &&
-        buffer[segmentDataStart + 2] === 0x6f && buffer[segmentDataStart + 3] === 0x62 &&
-        buffer[segmentDataStart + 4] === 0x65;
-      // Adobe APP14 may carry a color-transform marker for CMYK/YCCK JPEGs.
-      // Retain it only when the user explicitly opts to preserve color metadata.
-      shouldKeep = isAdobe && keepIcc;
-      if (!shouldKeep) segmentLabel = 'APP14 (Adobe/vendor color-transform metadata)';
-    } else if (marker === 0xe0) {
-      // JFIF/JFXX density data and embedded thumbnails are metadata, so strip APP0.
-      shouldKeep = false;
-      segmentLabel = 'APP0 (JFIF/JFXX density or thumbnail metadata)';
-    } else if (marker === 0xed) {
-      shouldKeep = false;
-      segmentLabel = 'APP13 (Photoshop 8BIM / IPTC metadata)';
-    } else if (marker >= 0xe0 && marker <= 0xef) {
-      if (preserveProvenance) {
-        shouldKeep = true;
-        if (containsProvenanceMarkers(buffer.subarray(segmentDataStart, segmentDataStart + segmentDataLength))) {
-          provenancePreserved = true;
-        } else {
-          unverifiedMetadataRemoval = true;
-        }
-      } else {
-        shouldKeep = false;
-        segmentLabel = `APP${marker - 0xe0} (vendor metadata)`;
-      }
-    }
-
-    if (shouldKeep) chunks.push(buffer.slice(markerStart, segmentEnd));
-    else removedSegments.push(segmentLabel);
-    offset = segmentEnd;
-  }
-
-  if (!seenScan || !seenEoi) throw new Error('Malformed JPEG: missing scan data or EOI marker');
-
-  const totalLength = chunks.reduce((total, chunk) => total + chunk.length, 0);
-  const cleaned = new Uint8Array(totalLength);
-  let writeOffset = 0;
-  for (const chunk of chunks) {
-    cleaned.set(chunk, writeOffset);
-    writeOffset += chunk.length;
+  const cleaned = stripJpegSegments(buffer, removedSegments);
+  if (!cleaned) {
+    throw new Error('Malformed JPEG: unable to parse JPEG segment structure');
   }
   return {
     cleanedBuffer: cleaned,
     removedSegments,
     bytesSaved: buffer.length - cleaned.length,
-    ...(provenancePreserved ? { provenancePreserved: true } : {}),
-    ...(unverifiedMetadataRemoval ? { unverifiedMetadataRemoval: true } : {}),
+  };
+}
+
+/**
+ * CleanShot JPEG metadata cleaner: attempts lossless `stripJpegSegments()`
+ * first, and falls back to browser raster decode + canvas re-encode if segment
+ * parsing returns null.
+ */
+export async function stripJpegAsync(
+  buffer: Uint8Array,
+  options: StripOptions = {},
+): Promise<{
+  cleanedBuffer: Uint8Array;
+  removedSegments: string[];
+  bytesSaved: number;
+}> {
+  void options;
+  const removedSegments: string[] = [];
+  const cleaned = stripJpegSegments(buffer, removedSegments);
+  if (cleaned) {
+    return {
+      cleanedBuffer: cleaned,
+      removedSegments,
+      bytesSaved: buffer.length - cleaned.length,
+    };
+  }
+
+  const reencoded = await reencodeStaticRasterInBrowser(buffer, 'image/jpeg');
+  if (!reencoded) {
+    throw new Error('Malformed JPEG: segment parsing failed and raster fallback is unavailable');
+  }
+  removedSegments.push('JPEG canvas re-encode fallback');
+  return {
+    cleanedBuffer: reencoded,
+    removedSegments,
+    bytesSaved: buffer.length - reencoded.length,
   };
 }

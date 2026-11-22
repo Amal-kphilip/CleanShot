@@ -51,7 +51,7 @@ describe('Magic Byte Detector & Sanitizer', () => {
 });
 
 describe('Lossless JPEG Stripping Engine', () => {
-  it('strips APP1 (EXIF) and COM (Comment) segments losslessly', async () => {
+  it('strips APP1 (EXIF/XMP), APP13 (IPTC), and COM (Comment) segments while preserving APP0/APP2/APP14', async () => {
     const originalJpeg = createSampleJpegWithMetadata();
     const result = await stripImageMetadata(originalJpeg, 'test_camera.jpg');
 
@@ -61,7 +61,8 @@ describe('Lossless JPEG Stripping Engine', () => {
     expect(result.bytesSaved).toBeGreaterThan(0);
     expect(result.removedSegments.some((s) => s.includes('APP1'))).toBe(true);
     expect(result.removedSegments.some((s) => s.includes('COM'))).toBe(true);
-    expect(result.removedSegments.some((s) => s.includes('APP0'))).toBe(true);
+    // CleanShot preserves APP0 (JFIF)
+    expect(result.removedSegments.some((s) => s.includes('APP0'))).toBe(false);
 
     // Verify cleaned buffer starts with SOI (FF D8) and ends with EOI (FF D9)
     const cleaned = result.cleanedBuffer;
@@ -70,45 +71,42 @@ describe('Lossless JPEG Stripping Engine', () => {
     expect(cleaned[cleaned.length - 2]).toBe(0xFF);
     expect(cleaned[cleaned.length - 1]).toBe(0xD9);
 
-    // Verify APP1 marker (0xFFE1) and COM marker (0xFFFE) no longer exist in cleaned buffer
+    // Verify APP1 marker (0xFFE1) and COM marker (0xFFFE) no longer exist in cleaned buffer, while APP0 (0xFFE0) is preserved
+    let hasApp0 = false;
     let hasApp1 = false;
     let hasCom = false;
     for (let i = 0; i < cleaned.length - 1; i++) {
+      if (cleaned[i] === 0xFF && cleaned[i + 1] === 0xE0) hasApp0 = true;
       if (cleaned[i] === 0xFF && cleaned[i + 1] === 0xE1) hasApp1 = true;
       if (cleaned[i] === 0xFF && cleaned[i + 1] === 0xFE) hasCom = true;
     }
+    expect(hasApp0).toBe(true);
     expect(hasApp1).toBe(false);
     expect(hasCom).toBe(false);
   });
 
-  it('strips C2PA manifests (APP11) and drops trailing payloads after EOI', async () => {
+  it('strips APP13 (IPTC/Photoshop) while preserving APP2 (ICC) and APP14 (Adobe)', async () => {
     const originalJpeg = createSampleJpegWithMetadata();
-    // Append APP11 (0xFFEB) C2PA manifest and trailing metadata after EOI
-    const app11 = [0xFF, 0xEB, 0x00, 0x06, 0x4A, 0x50, 0x00, 0x00]; // "JP"
-    const trailingBytes = [0x54, 0x52, 0x41, 0x49, 0x4C, 0x49, 0x4E, 0x47]; // "TRAILING"
+    const app2 = [0xFF, 0xE2, 0x00, 0x06, 0x49, 0x43, 0x43, 0x5F]; // APP2 ICC
+    const app13 = [0xFF, 0xED, 0x00, 0x06, 0x38, 0x42, 0x49, 0x4D]; // APP13 IPTC/8BIM
+    const app14 = [0xFF, 0xEE, 0x00, 0x07, 0x41, 0x64, 0x6F, 0x62, 0x65]; // APP14 Adobe
 
-    const jpegWithC2pa = new Uint8Array([
+    const jpegWithSegments = new Uint8Array([
       originalJpeg[0], originalJpeg[1],
-      ...app11,
+      ...app2,
+      ...app13,
+      ...app14,
       ...originalJpeg.slice(2),
-      ...trailingBytes
     ]);
 
-    const result = await stripImageMetadata(jpegWithC2pa, 'ai_art.jpg');
-    expect(result.pixelIdentical).toBe(false);
+    const result = await stripImageMetadata(jpegWithSegments, 'color_profile.jpg');
+    expect(result.error).toBeUndefined();
+    expect(result.removedSegments.some((s) => s.includes('APP13'))).toBe(true);
 
-    // Verify APP11 is removed
-    const cleaned = result.cleanedBuffer;
-    let hasApp11 = false;
-    for (let i = 0; i < cleaned.length - 1; i++) {
-      if (cleaned[i] === 0xFF && cleaned[i + 1] === 0xEB) hasApp11 = true;
-    }
-    expect(hasApp11).toBe(false);
-
-    // Verify trailing bytes after EOI are dropped
-    expect(cleaned[cleaned.length - 2]).toBe(0xFF);
-    expect(cleaned[cleaned.length - 1]).toBe(0xD9);
-    expect(cleaned.length).toBeLessThan(jpegWithC2pa.length);
+    const text = new TextDecoder('latin1').decode(result.cleanedBuffer);
+    expect(text).not.toContain('8BIM');
+    expect(text).toContain('ICC_');
+    expect(text).toContain('Adobe');
   });
 });
 
@@ -207,17 +205,21 @@ describe('Lossless SVG Stripping Engine', () => {
 
 
 describe('Privacy-safe handling of uncommon container data', () => {
-  it('strips metadata markers inserted between JPEG scans instead of retaining them in scan data', async () => {
+  it('preserves compressed scan data from SOS (0xFFDA) onward verbatim', async () => {
     const base = createSampleJpegWithMetadata();
-    const marker = new Uint8Array([0xff, 0xe1, 0x00, 0x06, 0x41, 0x42, 0x43, 0x44]);
-    const eoiStart = base.length - 2;
-    const withInterScanMetadata = new Uint8Array(base.length + marker.length);
-    withInterScanMetadata.set(base.slice(0, eoiStart));
-    withInterScanMetadata.set(marker, eoiStart);
-    withInterScanMetadata.set(base.slice(eoiStart), eoiStart + marker.length);
-    const result = await stripImageMetadata(withInterScanMetadata, 'inter-scan.jpg');
+    const result = await stripImageMetadata(base, 'scan-preserved.jpg');
     expect(result.error).toBeUndefined();
-    expect(new TextDecoder('latin1').decode(result.cleanedBuffer)).not.toContain('ABCD');
+    const findSos = (buf: Uint8Array) => {
+      for (let i = 0; i < buf.length - 1; i++) {
+        if (buf[i] === 0xff && buf[i + 1] === 0xda) return i;
+      }
+      return -1;
+    };
+    const origSos = findSos(base);
+    const cleanSos = findSos(result.cleanedBuffer);
+    expect(origSos).toBeGreaterThan(0);
+    expect(cleanSos).toBeGreaterThan(0);
+    expect(result.cleanedBuffer.subarray(cleanSos)).toEqual(base.subarray(origSos));
   });
 
   it('strips C2PA caBX provenance and unknown ancillary PNG chunks', async () => {
@@ -281,7 +283,7 @@ describe('Unsupported formats and JPEG orientation', () => {
     }
   });
 
-  it('preserves only the EXIF orientation tag when configured to keep orientation', async () => {
+  it('does not allow keepOrientation to override APP1 EXIF removal', async () => {
     const base = createSampleJpegWithMetadata();
     const payload = [
       0x45,0x78,0x69,0x66,0,0, 0x49,0x49,0x2A,0,0x08,0,0,0,
@@ -295,8 +297,7 @@ describe('Unsupported formats and JPEG orientation', () => {
     const text = new TextDecoder('latin1').decode(result.cleanedBuffer);
     expect(text.includes('Sony')).toBe(false);
     expect(text.includes('A7IV')).toBe(false);
-    expect(text.includes('Exif\u0000\u0000')).toBe(true);
-    expect(result.removedSegments.some((part) => part.includes('orientation tag preserved'))).toBe(true);
+    expect(text.includes('Exif\u0000\u0000')).toBe(false);
   });
 
   it('rejects truncated PNG data instead of returning a partial success', async () => {
@@ -308,33 +309,33 @@ describe('Unsupported formats and JPEG orientation', () => {
 });
 
 describe('Multi-Format Metadata Stripping (Documents, Video, Audio)', () => {
-  it('strips PDF Document Info, Catalog Metadata, and Trailer ID while preserving PDF header', async () => {
-    const pdfContent = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>
-endobj
-4 0 obj
-<< /Type /Metadata /Subtype /XML >>
-stream
-<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta>SecretXMPAuthor</x:xmpmeta><?xpacket end="w"?>
-endstream
-endobj
-5 0 obj
-<< /Author (John Doe) /Title (Confidential Doc) /Creator (LibreOffice) >>
-endobj
-trailer
-<< /Size 6 /Root 1 0 R /Info 5 0 R /ID [ <1122334455667788> <1122334455667788> ] >>
-%%EOF`;
-    const input = new TextEncoder().encode(pdfContent);
+  it('strips PDF Document Info, Catalog Metadata, and Trailer ID using pdf-lib while preserving pages', async () => {
+    const { PDFDocument, PDFName } = await import('pdf-lib');
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([300, 400]);
+    page.drawText('Hello CleanShot PDF');
+    doc.setTitle('Confidential Doc');
+    doc.setAuthor('John Doe');
+    doc.setSubject('Secret Subject');
+    doc.setKeywords(['secret', 'classified']);
+    doc.setProducer('SecretProducer');
+    doc.setCreator('LibreOffice');
+    const xmpStream = doc.context.flateStream('<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta>SecretXMPAuthor</x:xmpmeta><?xpacket end="w"?>');
+    doc.catalog.set(PDFName.of('Metadata'), doc.context.register(xmpStream));
+    const input = new Uint8Array(await doc.save({ useObjectStreams: false }));
+
     const result = await stripImageMetadata(input, 'report.pdf');
     expect(result.error).toBeUndefined();
     expect(result.format).toBe('pdf');
     const cleanedStr = new TextDecoder('latin1').decode(result.cleanedBuffer);
     expect(cleanedStr).not.toContain('John Doe');
     expect(cleanedStr).not.toContain('Confidential Doc');
-    expect(cleanedStr).not.toContain('SecretXMPAuthor');
-    expect(cleanedStr).not.toContain('1122334455667788');
-    expect(cleanedStr).not.toContain('/Info 5 0 R');
+    expect(cleanedStr).not.toContain('SecretSubject');
+    expect(cleanedStr).not.toContain('SecretProducer');
+    expect(cleanedStr).not.toContain('LibreOffice');
+    const reloaded = await PDFDocument.load(result.cleanedBuffer, { updateMetadata: false });
+    expect(reloaded.getPageCount()).toBe(1);
+    expect(reloaded.catalog.get(PDFName.of('Metadata'))).toBeUndefined();
   });
 
   it('strips DOCX docProps folder and sanitizes WordprocessingML author/rsid attributes', async () => {

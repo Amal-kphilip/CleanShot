@@ -1,3 +1,8 @@
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ */
+
 import { concatBytes, matchesAscii, readSynchsafeUint32, readUint32LE } from './binary';
 
 const EMPTY_ID3V24_HEADER = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);

@@ -1,0 +1,16 @@
+{
+  "requiredBefore": [
+    "*:Title",
+    "*:Artist",
+    "*:Comment"
+  ],
+  "sentinels": [
+    "CLEANSHOT_TEST_AUTHOR",
+    "CLEANSHOT_TEST_TITLE",
+    "CLEANSHOT_TEST_COMMENT",
+    "CLEANSHOT_TEST_SOFTWARE",
+    "CLEANSHOT_TEST_LOCATION",
+    "CLEANSHOT_TEST_COMPANY"
+  ],
+  "notes": "Seeded M4A privacy regression fixture."
+}

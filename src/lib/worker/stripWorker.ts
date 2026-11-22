@@ -7,9 +7,13 @@ import {
   extractSupportedFilesFromZipBuffer,
   ZipExtractionLimits,
 } from '../zip/zipExtractor';
+import {
+  isGifImage,
+  processGeminiGifBuffer,
+} from '../tools/geminiGifWatermark';
 
 type GeminiAdaptiveMode = 'auto' | 'always' | 'off';
-type GeminiTargetMime = 'image/png' | 'image/jpeg' | 'image/webp';
+type GeminiTargetMime = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
 
 type WorkerRequest =
   | { id: string; action: 'inspect'; buffer: ArrayBuffer; filename?: string }
@@ -156,6 +160,62 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     }
 
     if (message.action === 'gemini-image') {
+      if (
+        isGifImage(message.sourceMimeType, message.outputName) ||
+        message.targetMimeType === 'image/gif'
+      ) {
+        const { engine } = await getWatermarkEngineAndModule();
+        let lastProgressPost = 0;
+        const gifProcessed = await processGeminiGifBuffer(
+          new Uint8Array(message.buffer),
+          message.outputName,
+          {
+            adaptiveMode: message.adaptiveMode,
+            engine: engine as Awaited<
+              ReturnType<
+                typeof import('@pilio/gemini-watermark-remover/image-data')['createWatermarkEngine']
+              >
+            >,
+            onProgress: (gifProgress) => {
+              const now = Date.now();
+              if (
+                gifProgress.currentFrame === gifProgress.totalFrames ||
+                now - lastProgressPost >= 80
+              ) {
+                lastProgressPost = now;
+                workerScope.postMessage({
+                  id: message.id,
+                  type: 'progress',
+                  gifProgress,
+                });
+              }
+            },
+          },
+        );
+        const transferBuffer =
+          gifProcessed.result.cleanedBuffer.byteOffset === 0 &&
+          gifProcessed.result.cleanedBuffer.byteLength ===
+            gifProcessed.result.cleanedBuffer.buffer.byteLength
+            ? (gifProcessed.result.cleanedBuffer.buffer as ArrayBuffer)
+            : (gifProcessed.result.cleanedBuffer.slice().buffer as ArrayBuffer);
+
+        workerScope.postMessage(
+          {
+            id: message.id,
+            result: gifProcessed.result,
+            geminiMeta: {
+              width: gifProcessed.width,
+              height: gifProcessed.height,
+              meta: gifProcessed.meta,
+              frameCount: gifProcessed.frameCount,
+              animated: gifProcessed.animated,
+            },
+          },
+          [transferBuffer],
+        );
+        return;
+      }
+
       if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas === 'undefined') {
         throw new Error('OffscreenCanvas image processing is unavailable in this worker.');
       }
@@ -195,11 +255,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         quality: message.targetMimeType === 'image/png' ? undefined : 0.95,
       });
       const encodedBytes = new Uint8Array(await encodedBlob.arrayBuffer());
-      const result = await stripImageMetadata(encodedBytes, message.outputName, {
-        stripAll: true,
-        keepIccProfile: true,
-        preserveProvenance: true,
-      });
+      const result = await stripImageMetadata(encodedBytes, message.outputName);
       if (result.error) {
         throw new Error(result.error);
       }

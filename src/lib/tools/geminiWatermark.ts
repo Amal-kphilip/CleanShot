@@ -10,10 +10,19 @@ import {
   processGeminiImageInWorker,
   stripBlobMetadataInWorker,
 } from '@/lib/worker/workerRunner';
+import {
+  GifWatermarkProgress,
+  isGifImage,
+  processGeminiGifBuffer,
+} from './geminiGifWatermark';
 
 export type AdaptiveMode = 'auto' | 'always' | 'off';
-export type OutputFormat = 'auto' | 'png' | 'jpeg' | 'webp';
-export type ResolvedImageMime = 'image/png' | 'image/jpeg' | 'image/webp';
+export type OutputFormat = 'auto' | 'png' | 'jpeg' | 'webp' | 'gif';
+export type ResolvedImageMime =
+  | 'image/png'
+  | 'image/jpeg'
+  | 'image/webp'
+  | 'image/gif';
 
 export interface ProcessedWatermarkResult {
   blob: Blob;
@@ -25,18 +34,25 @@ export interface ProcessedWatermarkResult {
   elapsedMs: number;
   outputName: string;
   mimeType: ResolvedImageMime;
+  frameCount?: number;
+  animated?: boolean;
   provenancePreserved?: boolean;
   unverifiedMetadataRemoval?: boolean;
 }
 
 /**
  * Resolves the target output MIME type and file extension from the source file
- * type and user-selected format preference.
+ * type and user-selected format preference. GIF inputs are always preserved as
+ * `image/gif` so animated and static GIFs are never routed through static-only encoders.
  */
 export function resolveOutputMimeType(
   sourceMimeType: string,
-  format: OutputFormat
+  format: OutputFormat,
+  sourceFilename = ''
 ): { mimeType: ResolvedImageMime; extension: string } {
+  if (isGifImage(sourceMimeType, sourceFilename) || format === 'gif') {
+    return { mimeType: 'image/gif', extension: 'gif' };
+  }
   if (format === 'png') return { mimeType: 'image/png', extension: 'png' };
   if (format === 'jpeg') return { mimeType: 'image/jpeg', extension: 'jpg' };
   if (format === 'webp') return { mimeType: 'image/webp', extension: 'webp' };
@@ -149,11 +165,7 @@ export async function cleanProcessedImageBlobWithAudit(
   const stripResult = await stripBlobMetadataInWorker(
     blob,
     filename,
-    {
-      stripAll: true,
-      keepIccProfile: true,
-      preserveProvenance: true,
-    },
+    {},
     signal
   );
 
@@ -203,6 +215,7 @@ export async function removeGeminiWatermarkFromFile(
     outputFormat?: OutputFormat;
     engine?: WatermarkEngine;
     signal?: AbortSignal;
+    onProgress?: (progress: GifWatermarkProgress) => void;
   } = {}
 ): Promise<ProcessedWatermarkResult> {
   const adaptiveMode = options.adaptiveMode ?? 'auto';
@@ -211,8 +224,13 @@ export async function removeGeminiWatermarkFromFile(
 
   try {
     const startedAt = performance.now();
-    const { mimeType, extension } = resolveOutputMimeType(file.type, outputFormat);
+    const { mimeType, extension } = resolveOutputMimeType(
+      file.type,
+      outputFormat,
+      file.name
+    );
     const outputName = buildCleanFilename(file.name, extension);
+    const isGif = isGifImage(file.type, file.name) || mimeType === 'image/gif';
 
     if (!options.engine) {
       const workerResult = await processGeminiImageInWorker(
@@ -220,7 +238,8 @@ export async function removeGeminiWatermarkFromFile(
         outputName,
         mimeType,
         adaptiveMode,
-        options.signal
+        options.signal,
+        options.onProgress
       );
       if (workerResult) {
         const cleanedCopy = new Uint8Array(workerResult.result.cleanedBuffer.byteLength);
@@ -243,6 +262,12 @@ export async function removeGeminiWatermarkFromFile(
           elapsedMs,
           outputName,
           mimeType,
+          ...(workerResult.frameCount !== undefined
+            ? { frameCount: workerResult.frameCount }
+            : {}),
+          ...(workerResult.animated !== undefined
+            ? { animated: workerResult.animated }
+            : {}),
           ...(workerResult.result.provenancePreserved ? { provenancePreserved: true } : {}),
           ...(workerResult.result.unverifiedMetadataRemoval
             ? { unverifiedMetadataRemoval: true }
@@ -255,6 +280,43 @@ export async function removeGeminiWatermarkFromFile(
           'Background OffscreenCanvas worker is unavailable on this browser. Images larger than 10 MB cannot be processed on the main thread.'
         );
       }
+    }
+
+    if (isGif) {
+      const gifBytes = new Uint8Array(await file.arrayBuffer());
+      const gifProcessed = await processGeminiGifBuffer(gifBytes, outputName, {
+        adaptiveMode,
+        engine: options.engine,
+        signal: options.signal,
+        onProgress: options.onProgress,
+      });
+      const cleanedCopy = new Uint8Array(gifProcessed.result.cleanedBuffer.byteLength);
+      cleanedCopy.set(gifProcessed.result.cleanedBuffer);
+      const blob = new Blob([cleanedCopy.buffer], {
+        type: gifProcessed.result.mimeType || 'image/gif',
+      });
+      if (blob.size === 0) {
+        throw new Error('Metadata cleaning produced an empty GIF file.');
+      }
+      const previewUrl = URL.createObjectURL(blob);
+      const elapsedMs = Math.round(performance.now() - startedAt);
+      return {
+        blob,
+        previewUrl,
+        originalUrl,
+        width: gifProcessed.width,
+        height: gifProcessed.height,
+        meta: gifProcessed.meta,
+        elapsedMs,
+        outputName,
+        mimeType: 'image/gif',
+        frameCount: gifProcessed.frameCount,
+        animated: gifProcessed.animated,
+        ...(gifProcessed.result.provenancePreserved ? { provenancePreserved: true } : {}),
+        ...(gifProcessed.result.unverifiedMetadataRemoval
+          ? { unverifiedMetadataRemoval: true }
+          : {}),
+      };
     }
 
     const image = await loadHtmlImage(originalUrl);

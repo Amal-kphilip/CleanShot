@@ -1,4 +1,9 @@
-/** Low-level byte-reading/writing primitives shared by the container-format metadata strippers. */
+/**
+ * Portions Copyright (c) 2026 DScaife (MIT License)
+ * See THIRD_PARTY_NOTICES.md for full license text.
+ *
+ * Low-level byte-reading/writing primitives shared by the container-format metadata strippers.
+ */
 
 export function concatBytes(chunks: Uint8Array[]): Uint8Array {
   const out = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0));

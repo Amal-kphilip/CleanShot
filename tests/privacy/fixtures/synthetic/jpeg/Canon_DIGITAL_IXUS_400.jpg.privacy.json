@@ -1,0 +1,16 @@
+{
+  "requiredBefore": [
+    "*:Artist",
+    "*:UserComment",
+    "*GPS*"
+  ],
+  "sentinels": [
+    "CLEANSHOT_TEST_AUTHOR",
+    "CLEANSHOT_TEST_TITLE",
+    "CLEANSHOT_TEST_COMMENT",
+    "CLEANSHOT_TEST_SOFTWARE",
+    "CLEANSHOT_TEST_LOCATION",
+    "CLEANSHOT_TEST_COMPANY"
+  ],
+  "notes": "Seeded JPEG privacy regression fixture."
+}

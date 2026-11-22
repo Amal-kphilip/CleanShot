@@ -204,6 +204,12 @@ describe('Worker Fallback Policy & UI Upgrades', () => {
     expect(dropzoneCode).toContain("const PHOTO_VIDEO_ACCEPT = 'image/*,video/*'");
     expect(dropzoneCode).toContain('Extracting files from ZIP...');
     expect(dropzoneCode).not.toMatch(/\bcapture=/);
+    expect(dropzoneCode).toContain('id="cleanshot-upload-photos-videos"');
+    expect(dropzoneCode).toContain('id="cleanshot-upload-zip-docs-audio"');
+    expect(dropzoneCode).toContain('id="cleanshot-upload-folder"');
+    expect(
+      dropzoneCode.indexOf('id="cleanshot-upload-folder"'),
+    ).toBeLessThan(dropzoneCode.indexOf('role="button"'));
 
     const gwrPageCode = fs.readFileSync(
       path.join(ROOT, 'src/app/gemini-watermark-remover/page.tsx'),

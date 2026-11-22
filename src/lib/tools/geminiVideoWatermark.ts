@@ -144,10 +144,7 @@ export async function cleanProcessedVideoBlobWithAudit(
   const stripResult = await stripBlobMetadataInWorker(
     blob,
     filename,
-    {
-      stripAll: true,
-      preserveProvenance: true,
-    },
+    {},
     signal
   );
 
