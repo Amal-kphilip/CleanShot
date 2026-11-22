@@ -1,6 +1,7 @@
 import { stripImageMetadata } from '../engine/stripper';
 import { inspectMetadata } from '../engine/inspector';
 import { StripOptions, StripResult, ParsedMetadata } from '../engine/types';
+import { createZipArchive, ZipFileInput } from '../zip/clientZip';
 
 export interface ProcessTask {
   id: string;
@@ -23,6 +24,8 @@ interface WorkerResponse {
   result?: StripResult;
   metadata?: ParsedMetadata;
   cleanedMetadata?: ParsedMetadata;
+  zipBuffer?: ArrayBuffer;
+  geminiMeta?: { width: number; height: number; meta: unknown };
   error?: string;
 }
 
@@ -422,4 +425,106 @@ export async function processBatchWithConcurrency(
   const poolSize = Math.max(1, Math.min(Math.floor(concurrency) || 1, tasks.length || 1));
   await Promise.all(Array.from({ length: poolSize }, () => workerLoop()));
   return results;
+}
+
+export interface GeminiWorkerImageResult {
+  width: number;
+  height: number;
+  meta: unknown;
+  result: StripResult;
+}
+
+/**
+ * Runs Gemini watermark removal + canvas encoding + StripMeta cleaning inside the shared
+ * Web Worker pool so the main thread and CSS animations remain completely unblocked.
+ */
+export async function processGeminiImageInWorker(
+  file: File,
+  outputName: string,
+  targetMimeType: 'image/png' | 'image/jpeg' | 'image/webp',
+  adaptiveMode: 'auto' | 'always' | 'off',
+  signal?: AbortSignal,
+): Promise<GeminiWorkerImageResult | null> {
+  if (
+    typeof Worker === 'undefined' ||
+    typeof OffscreenCanvas === 'undefined' ||
+    typeof createImageBitmap !== 'function'
+  ) {
+    return null;
+  }
+
+  signal?.throwIfAborted();
+  const buffer = await file.arrayBuffer();
+  signal?.throwIfAborted();
+
+  const id = crypto.randomUUID();
+  try {
+    const data = await runInWorkerPool(
+      id,
+      {
+        id,
+        action: 'gemini-image',
+        buffer,
+        sourceMimeType: file.type || 'image/png',
+        outputName,
+        targetMimeType,
+        adaptiveMode,
+      },
+      [buffer],
+      signal,
+    );
+    if (data.error || !data.result || !data.geminiMeta) {
+      throw new Error(data.error || 'Worker failed to process Gemini image.');
+    }
+    return {
+      width: data.geminiMeta.width,
+      height: data.geminiMeta.height,
+      meta: data.geminiMeta.meta,
+      result: data.result,
+    };
+  } catch (error) {
+    if (error instanceof WorkerUnavailableError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Builds a ZIP archive inside the shared Web Worker pool so large batches do not freeze the UI.
+ * Falls back to synchronous `createZipArchive` if Web Workers are unavailable.
+ */
+export async function createZipArchiveInWorker(
+  files: ZipFileInput[],
+  preserveFolders: boolean = false,
+): Promise<Blob> {
+  if (typeof Worker === 'undefined') {
+    return createZipArchive(files, preserveFolders);
+  }
+
+  const id = crypto.randomUUID();
+  const transferList: ArrayBuffer[] = [];
+  const payloadFiles = files.map((file) => {
+    const copy = new Uint8Array(file.data.byteLength);
+    copy.set(file.data);
+    transferList.push(copy.buffer);
+    return { name: file.name, data: copy.buffer, path: file.path };
+  });
+
+  try {
+    const data = await runInWorkerPool(
+      id,
+      { id, action: 'zip', files: payloadFiles, preserveFolders },
+      transferList,
+    );
+    if (data.error || !data.zipBuffer) {
+      throw new Error(data.error || 'Failed to build ZIP archive.');
+    }
+    return new Blob([data.zipBuffer], { type: 'application/zip' });
+  } catch (error) {
+    if (error instanceof WorkerUnavailableError) {
+      return createZipArchive(files, preserveFolders);
+    }
+    throw error;
+  }
 }

@@ -11,8 +11,9 @@ import {
   processBatchWithConcurrency,
   createThumbnail,
   inspectFileInWorker,
+  createZipArchiveInWorker,
 } from '@/lib/worker/workerRunner';
-import { createZipArchive, triggerDownload } from '@/lib/zip/clientZip';
+import { triggerDownload } from '@/lib/zip/clientZip';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
 import { Loader2, Copy, Check, Bookmark, Download, ShieldCheck, Sparkles } from 'lucide-react';
 
@@ -207,7 +208,7 @@ export default function HomePage() {
   }, []);
 
   const downloadReadyItems = useCallback(
-    (readyFiles: FileItemState[]) => {
+    async (readyFiles: FileItemState[]) => {
       if (!readyFiles.length) return;
       try {
         if (readyFiles.length === 1) {
@@ -228,10 +229,11 @@ export default function HomePage() {
               : undefined,
           };
         });
-        triggerDownload(
-          createZipArchive(zipInputs, options.preserveFolderStructure),
-          `cleanshot_cleaned_${Date.now()}.zip`
+        const zipBlob = await createZipArchiveInWorker(
+          zipInputs,
+          options.preserveFolderStructure
         );
+        triggerDownload(zipBlob, `cleanshot_cleaned_${Date.now()}.zip`);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Could not create the download.';
@@ -320,7 +322,7 @@ export default function HomePage() {
 
       flushFilePatches();
       if (newlyCompleted.length > 0) {
-        downloadReadyItems(newlyCompleted);
+        await downloadReadyItems(newlyCompleted);
       }
     } catch (error) {
       flushFilePatches();

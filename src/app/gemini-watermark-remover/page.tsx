@@ -152,6 +152,7 @@ export default function GeminiWatermarkRemoverPage() {
         const result = await removeGeminiWatermarkFromFile(file, {
           adaptiveMode: mode,
           outputFormat: format,
+          signal: controller.signal,
         });
         if (controller.signal.aborted) {
           URL.revokeObjectURL(result.originalUrl);

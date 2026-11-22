@@ -5,7 +5,10 @@ import {
   type WatermarkEngine,
   type WatermarkMeta,
 } from '@pilio/gemini-watermark-remover/browser';
-import { stripBlobMetadataInWorker } from '@/lib/worker/workerRunner';
+import {
+  processGeminiImageInWorker,
+  stripBlobMetadataInWorker,
+} from '@/lib/worker/workerRunner';
 
 export type AdaptiveMode = 'auto' | 'always' | 'off';
 export type OutputFormat = 'auto' | 'png' | 'jpeg' | 'webp';
@@ -207,6 +210,46 @@ export async function removeGeminiWatermarkFromFile(
 
   try {
     const startedAt = performance.now();
+    const { mimeType, extension } = resolveOutputMimeType(file.type, outputFormat);
+    const outputName = buildCleanFilename(file.name, extension);
+
+    if (!options.engine) {
+      const workerResult = await processGeminiImageInWorker(
+        file,
+        outputName,
+        mimeType,
+        adaptiveMode,
+        options.signal
+      );
+      if (workerResult) {
+        const cleanedCopy = new Uint8Array(workerResult.result.cleanedBuffer.byteLength);
+        cleanedCopy.set(workerResult.result.cleanedBuffer);
+        const blob = new Blob([cleanedCopy.buffer], {
+          type: workerResult.result.mimeType || mimeType,
+        });
+        if (blob.size === 0) {
+          throw new Error('Metadata cleaning produced an empty image file.');
+        }
+        const previewUrl = URL.createObjectURL(blob);
+        const elapsedMs = Math.round(performance.now() - startedAt);
+        return {
+          blob,
+          previewUrl,
+          originalUrl,
+          width: workerResult.width,
+          height: workerResult.height,
+          meta: (workerResult.meta as WatermarkMeta | null) ?? null,
+          elapsedMs,
+          outputName,
+          mimeType,
+          ...(workerResult.result.provenancePreserved ? { provenancePreserved: true } : {}),
+          ...(workerResult.result.unverifiedMetadataRemoval
+            ? { unverifiedMetadataRemoval: true }
+            : {}),
+        };
+      }
+    }
+
     const image = await loadHtmlImage(originalUrl);
     const engine = options.engine ?? (await getSharedWatermarkEngine());
     const { canvas, meta } = await removeWatermarkFromImage(image, {
@@ -214,8 +257,6 @@ export async function removeGeminiWatermarkFromFile(
       adaptiveMode,
     });
 
-    const { mimeType, extension } = resolveOutputMimeType(file.type, outputFormat);
-    const outputName = buildCleanFilename(file.name, extension);
     const canvasBlob = await canvasToImageBlob(canvas, mimeType);
     const {
       blob,

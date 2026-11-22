@@ -49,6 +49,90 @@ const ACCEPTED_EXTENSIONS_LABEL = ACCEPTED_EXTENSIONS.map((ext) =>
   ext.replace(/^\./, '').toUpperCase()
 ).join(' · ');
 
+const DropZoneFileRow = React.memo(function DropZoneFileRow({
+  item,
+  isProcessing,
+  onInspectFile,
+  onDownloadFile,
+  onRemoveFile,
+}: {
+  item: FileItemState;
+  isProcessing: boolean;
+  onInspectFile?: (file: FileItemState) => void;
+  onDownloadFile?: (file: FileItemState) => void;
+  onRemoveFile?: (id: string) => void;
+}) {
+  const isProcessingItem =
+    item.status === 'processing' || item.status === 'inspecting';
+  const isDone = item.status === 'completed';
+  const isFailed = item.status === 'error';
+
+  return (
+    <li className="flex items-center gap-3 py-2 px-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card shadow-sm transition-colors">
+      <FileIcon className="shrink-0 text-text-sec" size={18} strokeWidth={2} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] sm:text-[14px] font-medium text-foreground truncate">
+          {item.result ? item.result.cleanedFilename : item.file.name}
+        </p>
+        {isFailed && item.error && (
+          <p className="text-[11px] text-red-500 truncate">{item.error}</p>
+        )}
+      </div>
+
+      {onInspectFile && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInspectFile(item);
+          }}
+          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-1 transition-colors"
+          title="Inspect metadata"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Inspect</span>
+        </button>
+      )}
+
+      {isDone && item.result && onDownloadFile && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDownloadFile(item);
+          }}
+          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
+          title="Download cleaned file"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Save</span>
+        </button>
+      )}
+
+      {isProcessingItem && (
+        <Loader2 className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
+      )}
+      {isDone && <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />}
+      {isFailed && <XCircle className="shrink-0 w-4 h-4 text-red-500" />}
+
+      {onRemoveFile && (
+        <button
+          type="button"
+          disabled={isProcessing}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemoveFile(item.id);
+          }}
+          aria-label={`Remove ${item.file.name}`}
+          className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </li>
+  );
+});
+
 export function DropZone({
   onFilesSelected,
   isProcessing,
@@ -207,90 +291,16 @@ export function DropZone({
             className="relative z-10 w-full max-w-2xl flex flex-col gap-1.5 text-left"
             onClick={(e) => e.stopPropagation()}
           >
-            {files.map((item) => {
-              const isProcessingItem =
-                item.status === 'processing' || item.status === 'inspecting';
-              const isDone = item.status === 'completed';
-              const isFailed = item.status === 'error';
-
-              return (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 py-2 px-3 rounded-xl border border-[var(--border-subtle)] bg-glass-card/95 shadow-sm transition-colors"
-                >
-                  <FileIcon
-                    className="shrink-0 text-text-sec"
-                    size={18}
-                    strokeWidth={2}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] sm:text-[14px] font-medium text-foreground truncate">
-                      {item.result ? item.result.cleanedFilename : item.file.name}
-                    </p>
-                    {isFailed && item.error && (
-                      <p className="text-[11px] text-red-500 truncate">
-                        {item.error}
-                      </p>
-                    )}
-                  </div>
-
-                  {onInspectFile && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onInspectFile(item);
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 inline-flex items-center gap-1 transition-colors"
-                      title="Inspect metadata"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Inspect</span>
-                    </button>
-                  )}
-
-                  {isDone && item.result && onDownloadFile && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDownloadFile(item);
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#145BF5] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1"
-                      title="Download cleaned file"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Save</span>
-                    </button>
-                  )}
-
-                  {isProcessingItem && (
-                    <Loader2 className="shrink-0 w-4 h-4 animate-spin text-[#145BF5]" />
-                  )}
-                  {isDone && (
-                    <CheckCircle2 className="shrink-0 w-4 h-4 text-[#145BF5]" />
-                  )}
-                  {isFailed && (
-                    <XCircle className="shrink-0 w-4 h-4 text-red-500" />
-                  )}
-
-                  {onRemoveFile && (
-                    <button
-                      type="button"
-                      disabled={isProcessing}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveFile(item.id);
-                      }}
-                      aria-label={`Remove ${item.file.name}`}
-                      className="p-1 rounded-lg text-text-sec hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </li>
-              );
-            })}
+            {files.map((item) => (
+              <DropZoneFileRow
+                key={item.id}
+                item={item}
+                isProcessing={isProcessing}
+                onInspectFile={onInspectFile}
+                onDownloadFile={onDownloadFile}
+                onRemoveFile={onRemoveFile}
+              />
+            ))}
           </ul>
         )}
 
