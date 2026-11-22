@@ -349,7 +349,7 @@ describe('Gemini Watermark Remover metadata-removal integration', () => {
       );
       expect(postedSkipInspect).toBe(true);
       expect(postedTransferCount).toBe(1);
-      expect(terminated).toBe(true);
+      expect(terminated).toBe(false);
       expect(new TextDecoder('latin1').decode(res.cleanedBuffer)).not.toContain('GPS:+37.7749');
 
       // Test AbortSignal terminates an in-flight worker

@@ -47,16 +47,52 @@ export default function HomePage() {
   const [inspectItem, setInspectItem] = useState<FileItemState | null>(null);
   const objectUrls = useRef(new Set<string>());
   const clearDialogRef = useRef<HTMLDivElement>(null);
+  const pendingPatchesRef = useRef(new Map<string, Partial<FileItemState>>());
+  const flushTimerRef = useRef<number | null>(null);
+  const batchVersionRef = useRef(0);
   const closeClearConfirm = useCallback(() => setIsClearConfirmOpen(false), []);
   useDialogAccessibility(isClearConfirmOpen, closeClearConfirm, clearDialogRef);
 
-  useEffect(
-    () => () => {
-      objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
-      objectUrls.current.clear();
+  const flushFilePatches = useCallback(() => {
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    if (pendingPatchesRef.current.size === 0) return;
+    const patches = new Map(pendingPatchesRef.current);
+    pendingPatchesRef.current.clear();
+    setFiles((prev) =>
+      prev.map((file) => {
+        const patch = patches.get(file.id);
+        return patch ? { ...file, ...patch } : file;
+      })
+    );
+  }, []);
+
+  const scheduleFilePatch = useCallback(
+    (id: string, patch: Partial<FileItemState>) => {
+      const existing = pendingPatchesRef.current.get(id);
+      pendingPatchesRef.current.set(id, existing ? { ...existing, ...patch } : patch);
+      if (flushTimerRef.current === null) {
+        flushTimerRef.current = window.setTimeout(flushFilePatches, 80);
+      }
     },
-    []
+    [flushFilePatches]
   );
+
+  useEffect(() => {
+    const urls = objectUrls.current;
+    const pendingPatches = pendingPatchesRef.current;
+    return () => {
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      pendingPatches.clear();
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
 
   const revokeThumbnail = (item: FileItemState) => {
     if (item.thumbnailUrl && objectUrls.current.has(item.thumbnailUrl)) {
@@ -117,20 +153,30 @@ export default function HomePage() {
 
       setFiles((prev) => [...prev, ...initialItems]);
 
-      for (const item of initialItems) {
-        try {
-          const meta = await inspectFileInWorker(item.file, item.id);
-          setFiles((prev) =>
-            prev.map((file) =>
-              file.id === item.id ? { ...file, metadata: meta } : file
-            )
-          );
-        } catch {
-          // Unsupported or malformed files remain queued and receive an error on processing.
-        }
+      const versionAtStart = batchVersionRef.current;
+      let inspectCursor = 0;
+      const inspectConcurrency = Math.min(3, initialItems.length);
+      await Promise.all(
+        Array.from({ length: inspectConcurrency }, async () => {
+          while (inspectCursor < initialItems.length) {
+            if (batchVersionRef.current !== versionAtStart) return;
+            const item = initialItems[inspectCursor++];
+            if (!item) return;
+            try {
+              const meta = await inspectFileInWorker(item.file, item.id);
+              if (batchVersionRef.current !== versionAtStart) return;
+              scheduleFilePatch(item.id, { metadata: meta });
+            } catch {
+              // Unsupported or malformed files remain queued and receive an error on processing.
+            }
+          }
+        })
+      );
+      if (batchVersionRef.current === versionAtStart) {
+        flushFilePatches();
       }
     },
-    [files, isProcessing]
+    [files, flushFilePatches, isProcessing, scheduleFilePatch]
   );
 
   const handleDownloadSingle = useCallback((item: FileItemState) => {
@@ -240,13 +286,11 @@ export default function HomePage() {
           )
         ),
         (id) =>
-          setFiles((prev) =>
-            prev.map((file) =>
-              file.id === id
-                ? { ...file, status: 'processing', progress: 5, error: undefined }
-                : file
-            )
-          ),
+          scheduleFilePatch(id, {
+            status: 'processing',
+            progress: 5,
+            error: undefined,
+          }),
         (output) => {
           const target = queuedItems.find((f) => f.id === output.id);
           if (target && !output.result.error) {
@@ -258,44 +302,28 @@ export default function HomePage() {
               cleanedMetadata: output.cleanedMetadata,
             });
           }
-          setFiles((prev) =>
-            prev.map((file) =>
-              file.id === output.id
-                ? {
-                    ...file,
-                    status: output.result.error ? 'error' : 'completed',
-                    progress: output.result.error ? 0 : 100,
-                    result: output.result.error ? undefined : output.result,
-                    metadata: output.metadata || file.metadata,
-                    cleanedMetadata: output.result.error
-                      ? undefined
-                      : output.cleanedMetadata,
-                    error: output.result.error,
-                  }
-                : file
-            )
-          );
+          scheduleFilePatch(output.id, {
+            status: output.result.error ? 'error' : 'completed',
+            progress: output.result.error ? 0 : 100,
+            result: output.result.error ? undefined : output.result,
+            ...(output.metadata ? { metadata: output.metadata } : {}),
+            cleanedMetadata: output.result.error
+              ? undefined
+              : output.cleanedMetadata,
+            error: output.result.error,
+          });
         },
         (id, error) =>
-          setFiles((prev) =>
-            prev.map((file) =>
-              file.id === id
-                ? { ...file, status: 'error', error, progress: 0 }
-                : file
-            )
-          ),
-        (id, progress) =>
-          setFiles((prev) =>
-            prev.map((file) =>
-              file.id === id ? { ...file, progress } : file
-            )
-          )
+          scheduleFilePatch(id, { status: 'error', error, progress: 0 }),
+        (id, progress) => scheduleFilePatch(id, { progress })
       );
 
+      flushFilePatches();
       if (newlyCompleted.length > 0) {
         downloadReadyItems(newlyCompleted);
       }
     } catch (error) {
+      flushFilePatches();
       const message =
         error instanceof Error
           ? error.message
@@ -312,7 +340,7 @@ export default function HomePage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [downloadReadyItems, files, options, isProcessing]);
+  }, [downloadReadyItems, files, flushFilePatches, options, isProcessing, scheduleFilePatch]);
 
   const handleRemoveFile = (id: string) => {
     const item = files.find((file) => file.id === id);
@@ -323,6 +351,12 @@ export default function HomePage() {
 
   const handleClearAll = () => {
     if (isProcessing) return;
+    batchVersionRef.current += 1;
+    pendingPatchesRef.current.clear();
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
     files.forEach(revokeThumbnail);
     setFiles([]);
     setBatchError('');

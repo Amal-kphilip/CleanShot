@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { DropZone } from '@/components/DropZone';
 import { InspectorModal } from '@/components/InspectorModal';
-import { inspectMetadata } from '@/lib/engine/inspector';
-import { stripImageMetadata } from '@/lib/engine/stripper';
-import { createThumbnail } from '@/lib/worker/workerRunner';
+import {
+  createThumbnail,
+  processFileItem,
+} from '@/lib/worker/workerRunner';
 import { triggerDownload } from '@/lib/zip/clientZip';
 import { ParsedMetadata } from '@/lib/engine/types';
 import { Eye, Download, MapPin } from 'lucide-react';
@@ -29,13 +30,18 @@ export default function InspectorPage() {
     setIsInspecting(true);
 
     try {
-      const buffer = new Uint8Array(await selectedFile.arrayBuffer());
-      const meta = await inspectMetadata(buffer, selectedFile.name);
-      setMetadata(meta);
-
-      const stripRes = await stripImageMetadata(buffer, selectedFile.name);
-      setCleanedBuffer(stripRes.error ? null : stripRes.cleanedBuffer);
-      setCleanedMime(stripRes.mimeType || selectedFile.type || 'application/octet-stream');
+      const output = await processFileItem({
+        id: crypto.randomUUID(),
+        file: selectedFile,
+        options: { stripAll: true },
+      });
+      if (output.metadata) setMetadata(output.metadata);
+      setCleanedBuffer(
+        output.result.error ? null : output.result.cleanedBuffer
+      );
+      setCleanedMime(
+        output.result.mimeType || selectedFile.type || 'application/octet-stream'
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -75,6 +81,7 @@ export default function InspectorPage() {
                   <img
                     src={thumbnailUrl}
                     alt={file.name}
+                    decoding="async"
                     className="w-12 h-12 rounded-xl object-cover border border-foreground shrink-0"
                   />
                 )}

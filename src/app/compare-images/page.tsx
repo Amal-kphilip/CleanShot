@@ -192,34 +192,43 @@ export default function CompareImagesPage() {
       let changedPixels = 0;
       let totalDelta = 0;
 
-      for (let i = 0; i < pixelsA.data.length; i += 4) {
-        const delta =
-          (Math.abs(pixelsA.data[i] - pixelsB.data[i]) +
-            Math.abs(pixelsA.data[i + 1] - pixelsB.data[i + 1]) +
-            Math.abs(pixelsA.data[i + 2] - pixelsB.data[i + 2])) /
-          3;
+      const rowStride = width * 4;
+      for (let y = 0; y < height; y++) {
+        const rowOffset = y * rowStride;
+        for (let x = 0; x < rowStride; x += 4) {
+          const i = rowOffset + x;
+          const delta =
+            (Math.abs(pixelsA.data[i] - pixelsB.data[i]) +
+              Math.abs(pixelsA.data[i + 1] - pixelsB.data[i + 1]) +
+              Math.abs(pixelsA.data[i + 2] - pixelsB.data[i + 2])) /
+            3;
 
-        totalDelta += delta;
-        if (delta > CHANGED_PIXEL_THRESHOLD) changedPixels++;
+          totalDelta += delta;
+          if (delta > CHANGED_PIXEL_THRESHOLD) changedPixels++;
 
-        let red: number;
-        let green: number;
-        let blue: number;
-        if (delta <= 128) {
-          const t = delta / 128;
-          red = 35 + (245 - 35) * t;
-          green = 150 + (220 - 150) * t;
-          blue = 45 + (40 - 45) * t;
-        } else {
-          const t = (delta - 128) / 127;
-          red = 245 + (230 - 245) * t;
-          green = 220 + (55 - 220) * t;
-          blue = 40 + (35 - 40) * t;
+          let red: number;
+          let green: number;
+          let blue: number;
+          if (delta <= 128) {
+            const t = delta / 128;
+            red = 35 + (245 - 35) * t;
+            green = 150 + (220 - 150) * t;
+            blue = 45 + (40 - 45) * t;
+          } else {
+            const t = (delta - 128) / 127;
+            red = 245 + (230 - 245) * t;
+            green = 220 + (55 - 220) * t;
+            blue = 40 + (35 - 40) * t;
+          }
+          heat.data[i] = Math.round(red);
+          heat.data[i + 1] = Math.round(green);
+          heat.data[i + 2] = Math.round(blue);
+          heat.data[i + 3] = 255;
         }
-        heat.data[i] = Math.round(red);
-        heat.data[i + 1] = Math.round(green);
-        heat.data[i + 2] = Math.round(blue);
-        heat.data[i + 3] = 255;
+        // Yield periodically during large canvas comparisons so the browser stays responsive.
+        if (y > 0 && y % 256 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
 
       context.putImageData(heat, 0, 0);

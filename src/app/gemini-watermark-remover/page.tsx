@@ -130,12 +130,41 @@ export default function GeminiWatermarkRemoverPage() {
   }, []);
 
   const processImageItem = useCallback(
-    async (id: string, file: File, mode: AdaptiveMode, format: OutputFormat) => {
+    async (
+      id: string,
+      file: File,
+      mode: AdaptiveMode,
+      format: OutputFormat,
+      controller: AbortController
+    ) => {
+      if (controller.signal.aborted) {
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+              : item
+          )
+        );
+        return;
+      }
+
       try {
         const result = await removeGeminiWatermarkFromFile(file, {
           adaptiveMode: mode,
           outputFormat: format,
         });
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(result.originalUrl);
+          URL.revokeObjectURL(result.previewUrl);
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+                : item
+            )
+          );
+          return;
+        }
         trackUrl(result.originalUrl);
         trackUrl(result.previewUrl);
 
@@ -154,6 +183,8 @@ export default function GeminiWatermarkRemoverPage() {
             item.id === id ? { ...item, status: 'error', error: message } : item
           )
         );
+      } finally {
+        abortControllersRef.current.delete(id);
       }
     },
     []
@@ -164,10 +195,19 @@ export default function GeminiWatermarkRemoverPage() {
       id: string,
       file: File,
       denoiseMode: VideoDenoiseMode,
-      keepAudio: boolean
+      keepAudio: boolean,
+      controller: AbortController
     ) => {
-      const controller = new AbortController();
-      abortControllersRef.current.set(id, controller);
+      if (controller.signal.aborted) {
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? { ...item, status: 'canceled', progress: undefined, error: 'Processing canceled.' }
+              : item
+          )
+        );
+        return;
+      }
 
       try {
         const { removeGeminiWatermarkFromVideo } = await import(
@@ -228,6 +268,57 @@ export default function GeminiWatermarkRemoverPage() {
     []
   );
 
+  const runQueuedBatch = useCallback(
+    (
+      entries: Array<{ id: string; file: File; kind: MediaKind }>,
+      mode: AdaptiveMode,
+      format: OutputFormat,
+      denoiseMode: VideoDenoiseMode,
+      keepAudio: boolean
+    ) => {
+      const imageTasks: Array<{ id: string; file: File; controller: AbortController }> = [];
+      const videoTasks: Array<{ id: string; file: File; controller: AbortController }> = [];
+
+      for (const entry of entries) {
+        const controller = new AbortController();
+        abortControllersRef.current.set(entry.id, controller);
+        if (entry.kind === 'video') {
+          videoTasks.push({ id: entry.id, file: entry.file, controller });
+        } else {
+          imageTasks.push({ id: entry.id, file: entry.file, controller });
+        }
+      }
+
+      const runPool = async <T extends { id: string }>(
+        tasks: T[],
+        concurrency: number,
+        worker: (task: T) => Promise<void>
+      ) => {
+        if (tasks.length === 0) return;
+        let cursor = 0;
+        const poolSize = Math.min(concurrency, tasks.length);
+        await Promise.all(
+          Array.from({ length: poolSize }, async () => {
+            while (cursor < tasks.length) {
+              const task = tasks[cursor++];
+              if (!task) return;
+              await worker(task);
+              await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+          })
+        );
+      };
+
+      void runPool(imageTasks, 2, (task) =>
+        processImageItem(task.id, task.file, mode, format, task.controller)
+      );
+      void runPool(videoTasks, 1, (task) =>
+        processVideoItem(task.id, task.file, denoiseMode, keepAudio, task.controller)
+      );
+    },
+    [processImageItem, processVideoItem]
+  );
+
   const handleFiles = useCallback(
     (fileList: FileList | File[]) => {
       setGlobalError('');
@@ -285,15 +376,9 @@ export default function GeminiWatermarkRemoverPage() {
         }
       }
 
-      for (const entry of valid) {
-        if (entry.kind === 'video') {
-          void processVideoItem(entry.id, entry.file, videoDenoiseMode, preserveAudio);
-        } else {
-          void processImageItem(entry.id, entry.file, adaptiveMode, outputFormat);
-        }
-      }
+      runQueuedBatch(valid, adaptiveMode, outputFormat, videoDenoiseMode, preserveAudio);
     },
-    [adaptiveMode, items, mediaTab, outputFormat, preserveAudio, processImageItem, processVideoItem, videoDenoiseMode]
+    [adaptiveMode, items, mediaTab, outputFormat, preserveAudio, runQueuedBatch, videoDenoiseMode]
   );
 
   const visibleItems = items.filter((item) => item.kind === mediaTab);
@@ -353,13 +438,7 @@ export default function GeminiWatermarkRemoverPage() {
       })
     );
 
-    for (const item of snapshot) {
-      if (item.kind === 'video') {
-        void processVideoItem(item.id, item.file, videoDenoiseMode, preserveAudio);
-      } else {
-        void processImageItem(item.id, item.file, adaptiveMode, outputFormat);
-      }
-    }
+    runQueuedBatch(snapshot, adaptiveMode, outputFormat, videoDenoiseMode, preserveAudio);
   };
 
   const removeItem = (id: string) => {
@@ -874,6 +953,7 @@ export default function GeminiWatermarkRemoverPage() {
                   <img
                     src={activeItem.imageResult.previewUrl}
                     alt={`Cleaned ${activeItem.file.name}`}
+                    decoding="async"
                     className="block max-h-[380px] sm:max-h-[560px] w-full object-contain"
                   />
 
@@ -885,6 +965,7 @@ export default function GeminiWatermarkRemoverPage() {
                     <img
                       src={activeItem.imageResult.originalUrl}
                       alt={`Original ${activeItem.file.name}`}
+                      decoding="async"
                       className="block h-full w-full object-contain"
                     />
                   </div>

@@ -141,6 +141,8 @@ export function FileList({
                     <img
                       src={item.thumbnailUrl}
                       alt={item.file.name}
+                      decoding="async"
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   ) : (
