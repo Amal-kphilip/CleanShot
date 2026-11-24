@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability (Private)
+    url: https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/security/advisories/new
+    about: Please report security vulnerabilities privately instead of opening a public issue.
+  - name: Questions & Discussions
+    url: https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/discussions
+    about: Ask questions, share feedback, or discuss ideas with the community.
