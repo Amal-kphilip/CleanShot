@@ -1,15 +1,15 @@
 # CleanShot
 
-[![CI](https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/actions/workflows/ci.yml/badge.svg)](https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/actions/workflows/ci.yml)
+[![CI](https://github.com/Amal-kphilip/CleanShot/actions/workflows/ci.yml/badge.svg)](https://github.com/Amal-kphilip/CleanShot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Latest Release](https://img.shields.io/github/v/release/[YOUR_GITHUB_USERNAME]/[REPO_NAME])](https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/releases)
+[![Latest Release](https://img.shields.io/github/v/release/Amal-kphilip/CleanShot)](https://github.com/Amal-kphilip/CleanShot/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-16.4.6-black)](https://nextjs.org/)
 
 > A privacy-focused file metadata inspector, metadata remover, and Gemini watermark remover. All processing runs locally in your browser with zero server uploads.
 
 ## Live Demo
 
-- **Web App:** [DEMO_URL]
+- **Web App:** https://cleanshot-gules.vercel.app/
 
 ## Screenshots
 

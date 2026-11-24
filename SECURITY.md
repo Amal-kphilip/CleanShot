@@ -21,12 +21,10 @@ CleanShot is designed to run **100% client-side in your browser**:
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them privately using either of the following channels:
+Please report them privately through **GitHub Private Vulnerability Reporting**:  
+Open a private advisory at [https://github.com/Amal-kphilip/CleanShot/security/advisories/new](https://github.com/Amal-kphilip/CleanShot/security/advisories/new).
 
-1. **GitHub Private Vulnerability Reporting (Preferred):**  
-   Open a private advisory at `https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME]/security/advisories/new`.
-2. **Email:**  
-   Send details to **[YOUR_EMAIL]** with a description of the issue, reproduction steps, and any affected file format or browser version. Do not attach sensitive personal files.
+Please include a description of the issue, reproduction steps, and any affected file format or browser version. Do not attach files containing real personal or sensitive data.
 
 ### Response Timeline
 

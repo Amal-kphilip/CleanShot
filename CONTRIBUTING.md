@@ -13,8 +13,8 @@ Thank you for your interest in contributing to CleanShot! Every contribution hel
 
 1. Fork the repository and clone your fork:
    ```bash
-   git clone https://github.com/[YOUR_GITHUB_USERNAME]/[REPO_NAME].git
-   cd [REPO_NAME]
+   git clone https://github.com/Amal-kphilip/CleanShot.git
+   cd CleanShot
    ```
 2. Install dependencies (this also runs `postinstall` to copy local ExifTool WASM and Gemini video assets into `public/`):
    ```bash
