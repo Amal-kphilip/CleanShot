@@ -25,6 +25,8 @@ import {
 } from '../geminiVideoWatermark';
 import { getAutomaticVideoPresetConfig } from '@/lib/gwr-video/videoPresetPolicy.js';
 import { resolveAllenkFdncnnRuntimeProfile } from '@/lib/gwr-video/videoDenoiseRuntimePolicy.js';
+import { getVeoTextWatermarkTemplates } from '@/lib/gwr-video/veoTextWatermarkTemplates.js';
+import { resolveVeoTextSearchCandidates } from '@/lib/gwr-video/veoTextWatermarkDetector.js';
 import { stripImageMetadata } from '@/lib/engine/stripper';
 import { stripBlobMetadataInWorker } from '@/lib/worker/workerRunner';
 import { createZipArchive } from '@/lib/zip/clientZip';
@@ -1205,6 +1207,185 @@ describe('Gemini GIF Watermark Removal & Metadata Cleaning Pipeline', () => {
         built.watermarkPosition,
       );
       expect(Math.abs(lum - built.cleanCenterLum)).toBeLessThan(3.0);
+    }
+  });
+
+  it('removes scaled 16:9 diamond watermark via Stage 3 temporal fallback', async () => {
+    const width = 480;
+    const height = 270;
+    const baseColor: [number, number, number] = [34, 46, 66];
+    const cleanCenterLum = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
+    const engine = await createWatermarkEngine();
+    const srcAlpha = await engine.getAlphaMap(48);
+
+    // 480x270 is 1/4 of 1920x1080 -> 1080p standard (72px at margin 108) scales to 24x24 at margin 27
+    const wmSize = 24;
+    const margin = 27;
+    const wmX = width - wmSize - margin;
+    const wmY = height - wmSize - margin;
+    const wmPos = { x: wmX, y: wmY, width: wmSize, height: wmSize };
+
+    const palette = new Uint8Array(256 * 3);
+    palette[0] = baseColor[0];
+    palette[1] = baseColor[1];
+    palette[2] = baseColor[2];
+    palette[3] = 210;
+    palette[4] = 95;
+    palette[5] = 75;
+    for (let i = 2; i < 255; i++) {
+      const t = (i - 2) / 252;
+      palette[i * 3] = Math.round(baseColor[0] + t * (255 - baseColor[0]));
+      palette[i * 3 + 1] = Math.round(baseColor[1] + t * (255 - baseColor[1]));
+      palette[i * 3 + 2] = Math.round(baseColor[2] + t * (255 - baseColor[2]));
+    }
+
+    const frames: EncodedGifFrameInput[] = [];
+    for (let f = 0; f < 4; f++) {
+      const indices = new Uint8Array(width * height);
+      // Moving accent rectangle away from watermark
+      for (let ry = 20 + f * 20; ry < 60 + f * 20; ry++) {
+        for (let rx = 20 + f * 40; rx < 80 + f * 40; rx++) {
+          indices[ry * width + rx] = 1;
+        }
+      }
+      for (let row = 0; row < wmSize; row++) {
+        const sy = Math.min(47, Math.floor((row * 48) / wmSize));
+        for (let col = 0; col < wmSize; col++) {
+          const sx = Math.min(47, Math.floor((col * 48) / wmSize));
+          const alpha = Math.max(0, Math.min(1, srcAlpha[sy * 48 + sx]));
+          if (alpha < 0.002) continue;
+          indices[(wmY + row) * width + (wmX + col)] = Math.max(
+            2,
+            Math.min(254, 2 + Math.round(alpha * 252)),
+          );
+        }
+      }
+      frames.push({
+        left: 0,
+        top: 0,
+        width,
+        height,
+        delayCs: 10,
+        disposalMethod: 1,
+        transparentIndex: -1,
+        localColorTable: null,
+        indices,
+      });
+    }
+
+    const rawGif = encodeGif({
+      width,
+      height,
+      globalColorTable: palette,
+      loopCount: 0,
+      frames,
+    });
+    const beforeDecoded = decodeGif(rawGif);
+    const beforeMeanLum = measureWatermarkRegionMeanLuminance(beforeDecoded, 0, wmPos);
+    expect(beforeMeanLum).toBeGreaterThan(cleanCenterLum + 5);
+
+    const processed = await processGeminiGifBuffer(rawGif, 'scaled-16x9-diamond.gif');
+    expect(processed.meta?.applied).toBe(true);
+    expect(processed.meta?.source).toBe('gif-temporal-diamond');
+    expect(processed.unchanged).toBe(false);
+
+    const afterDecoded = decodeGif(processed.result.cleanedBuffer);
+    expect(afterDecoded.frames.length).toBe(4);
+    for (let f = 0; f < 4; f++) {
+      const afterLum = measureWatermarkRegionMeanLuminance(afterDecoded, f, wmPos);
+      expect(afterLum).toBeLessThan(beforeMeanLum - 5);
+      expect(Math.abs(afterLum - cleanCenterLum)).toBeLessThan(4.0);
+    }
+  });
+
+  it('removes Veo text watermark via Stage 3 temporal fallback', async () => {
+    const width = 640;
+    const height = 360;
+    const baseColor: [number, number, number] = [30, 40, 56];
+    const cleanCenterLum = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
+    const templates = getVeoTextWatermarkTemplates();
+    const candidates = resolveVeoTextSearchCandidates({ width, height, templates });
+    expect(candidates.length).toBeGreaterThan(0);
+    const target = candidates[0];
+    const wmPos = {
+      x: target.x,
+      y: target.y,
+      width: target.width,
+      height: target.height,
+    };
+    const alphaMap = target.template.alphaMap as Float32Array;
+    const seedScale = target.template.observedSeedScale ?? 1;
+
+    const palette = new Uint8Array(256 * 3);
+    palette[0] = baseColor[0];
+    palette[1] = baseColor[1];
+    palette[2] = baseColor[2];
+    palette[3] = 200;
+    palette[4] = 120;
+    palette[5] = 60;
+    for (let i = 2; i < 255; i++) {
+      const t = (i - 2) / 252;
+      palette[i * 3] = Math.round(baseColor[0] + t * (255 - baseColor[0]));
+      palette[i * 3 + 1] = Math.round(baseColor[1] + t * (255 - baseColor[1]));
+      palette[i * 3 + 2] = Math.round(baseColor[2] + t * (255 - baseColor[2]));
+    }
+
+    const frames: EncodedGifFrameInput[] = [];
+    for (let f = 0; f < 4; f++) {
+      const indices = new Uint8Array(width * height);
+      for (let ry = 30 + f * 25; ry < 80 + f * 25; ry++) {
+        for (let rx = 30 + f * 40; rx < 90 + f * 40; rx++) {
+          indices[ry * width + rx] = 1;
+        }
+      }
+      for (let row = 0; row < wmPos.height; row++) {
+        for (let col = 0; col < wmPos.width; col++) {
+          const alpha = Math.max(
+            0,
+            Math.min(1, alphaMap[row * wmPos.width + col] * seedScale),
+          );
+          if (alpha < 0.002) continue;
+          indices[(wmPos.y + row) * width + (wmPos.x + col)] = Math.max(
+            2,
+            Math.min(254, 2 + Math.round(alpha * 252)),
+          );
+        }
+      }
+      frames.push({
+        left: 0,
+        top: 0,
+        width,
+        height,
+        delayCs: 10,
+        disposalMethod: 1,
+        transparentIndex: -1,
+        localColorTable: null,
+        indices,
+      });
+    }
+
+    const rawGif = encodeGif({
+      width,
+      height,
+      globalColorTable: palette,
+      loopCount: 0,
+      frames,
+    });
+    const beforeDecoded = decodeGif(rawGif);
+    const beforeMeanLum = measureWatermarkRegionMeanLuminance(beforeDecoded, 0, wmPos);
+    expect(beforeMeanLum).toBeGreaterThan(cleanCenterLum + 2);
+
+    const processed = await processGeminiGifBuffer(rawGif, 'veo-text-animated.gif');
+    expect(processed.meta?.applied).toBe(true);
+    expect(processed.meta?.source).toBe('gif-temporal-veo-text');
+    expect(processed.unchanged).toBe(false);
+
+    const afterDecoded = decodeGif(processed.result.cleanedBuffer);
+    expect(afterDecoded.frames.length).toBe(4);
+    for (let f = 0; f < 4; f++) {
+      const afterLum = measureWatermarkRegionMeanLuminance(afterDecoded, f, wmPos);
+      expect(afterLum).toBeLessThan(beforeMeanLum);
+      expect(Math.abs(afterLum - cleanCenterLum)).toBeLessThan(4.0);
     }
   });
 });
