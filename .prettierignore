@@ -1,0 +1,8 @@
+.next
+build
+out
+coverage
+node_modules
+public/gemini-video
+public/zeroperl.wasm
+package-lock.json

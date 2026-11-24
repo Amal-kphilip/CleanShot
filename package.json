@@ -10,6 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "postinstall": "node scripts/copy-exiftool-wasm.mjs && node scripts/copy-gwr-video-assets.mjs"
   },
   "dependencies": {

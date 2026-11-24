@@ -15,7 +15,7 @@
 ## Documentation & Notices
 
 - [Privacy Model and Metadata Coverage](docs/PRIVACY_AND_FORMAT_COVERAGE.md)
-- [Implementation Notes](IMPLEMENTATION_NOTES.md)
+- [Implementation Notes](docs/IMPLEMENTATION_NOTES.md)
 - [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 
 ## Quick Start
