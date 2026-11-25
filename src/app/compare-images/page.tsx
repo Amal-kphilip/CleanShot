@@ -13,6 +13,7 @@ import {
   getComparisonCanvasSize,
   getContainedRect,
 } from '@/lib/tools/imageComparison';
+import { toSafeImageSrc } from '@/lib/ui/safeUrl';
 
 type Picked = { file: File; url: string; width: number; height: number };
 type DiffResult = {
@@ -329,8 +330,8 @@ export default function CompareImagesPage() {
 
             <div className="relative mx-auto aspect-[4/3] max-h-[620px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-black sm:aspect-video">
               <img
-                src={right.url}
-                alt={`Image B on right: ${right.file.name}`}
+                src={toSafeImageSrc(right.url)}
+                alt="Image B on right"
                 className="absolute inset-0 h-full w-full select-none object-contain"
                 draggable={false}
               />
@@ -339,8 +340,8 @@ export default function CompareImagesPage() {
                 style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
               >
                 <img
-                  src={left.url}
-                  alt={`Image A on left: ${left.file.name}`}
+                  src={toSafeImageSrc(left.url)}
+                  alt="Image A on left"
                   className="absolute inset-0 h-full w-full select-none object-contain"
                   draggable={false}
                 />

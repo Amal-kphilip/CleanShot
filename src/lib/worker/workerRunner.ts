@@ -287,12 +287,14 @@ function runInWorkerPool(
   });
 }
 
-/** Creates an object URL for an image thumbnail; returns empty string for non-image files. */
+/** Creates an object URL for an image thumbnail; returns empty string for non-image or vector SVG files. */
 export function createThumbnail(file: File): string {
   try {
     const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase() : '';
-    const isImage = file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'avif', 'heic'].includes(ext);
-    if (!isImage) return '';
+    const isRasterImage =
+      (file.type.startsWith('image/') && file.type !== 'image/svg+xml') ||
+      ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'avif', 'heic'].includes(ext);
+    if (!isRasterImage || ext === 'svg') return '';
     return URL.createObjectURL(file);
   } catch {
     return '';

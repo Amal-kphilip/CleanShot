@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
 import { updateJpegXmp } from '@/lib/tools/jpegXmp';
+import { decodeXmlEntities } from '@/lib/engine/sanitizer';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 type Fields = {
@@ -89,13 +90,24 @@ export default function EditMetadataPage() {
       const xmpMatch = text.match(/<x:xmpmeta[\s\S]*?<\/x:xmpmeta>/);
       if (xmpMatch) {
         const xmp = xmpMatch[0];
-        const extract = (tag: string) =>
-          xmp
-            .match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1]
-            ?.replace(/<[^>]*>/g, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>') || '';
+        const extract = (tag: string): string => {
+          if (typeof DOMParser !== 'undefined') {
+            try {
+              const doc = new DOMParser().parseFromString(xmp, 'application/xml');
+              const el = doc.getElementsByTagName(tag)[0] || doc.querySelector(tag);
+              if (el) {
+                return (el.textContent || '').trim();
+              }
+            } catch {
+              // Fallback to single-pass extraction
+            }
+          }
+          const match = xmp.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
+          if (!match) return '';
+          // Decode XML entities in a single pass without cascading/double-unescaping
+          const textOnly = match[1].replace(/<[^>]+>/g, '').trim();
+          return decodeXmlEntities(textOnly);
+        };
         setFields({
           title: extract('dc:title'),
           description: extract('dc:description'),

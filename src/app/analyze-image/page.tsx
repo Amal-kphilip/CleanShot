@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
+import { toSafeImageSrc } from '@/lib/ui/safeUrl';
 
 type ImageReport = {
   name: string;
@@ -168,9 +169,9 @@ export default function AnalyzeImagePage() {
       <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
         <section className="rounded-xl border border-[var(--border-subtle)] bg-background p-5 sm:p-6">
           <label className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-foreground px-4 py-8 text-center transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-            {previewUrl ? (
+            {toSafeImageSrc(previewUrl) ? (
               <img
-                src={previewUrl}
+                src={toSafeImageSrc(previewUrl)}
                 alt="Selected image preview"
                 className="mb-4 max-h-56 max-w-full object-contain"
               />

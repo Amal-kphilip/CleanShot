@@ -20,6 +20,7 @@ import {
 import { ParsedMetadata } from '@/lib/engine/types';
 import { ExifToolFullScan } from '@/components/ExifToolFullScan';
 import { useDialogAccessibility } from '@/lib/ui/useDialogAccessibility';
+import { toSafeImageSrc } from '@/lib/ui/safeUrl';
 
 interface InspectorModalProps {
   isOpen: boolean;
@@ -144,9 +145,9 @@ export function InspectorModal({
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-[var(--border-subtle)]">
-          {thumbnailUrl && (
+          {toSafeImageSrc(thumbnailUrl) && (
             <img
-              src={thumbnailUrl}
+              src={toSafeImageSrc(thumbnailUrl)}
               alt=""
               className="w-10 h-10 rounded-xl object-cover border border-[var(--border-subtle)] shrink-0"
             />
