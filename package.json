@@ -22,7 +22,7 @@
     "fflate": "^0.8.2",
     "framer-motion": "^11.11.9",
     "jszip": "^3.10.2",
-    "lucide-react": "^0.453.0",
+    "lucide-react": "^1.77.0",
     "next": "16.4.6",
     "onnxruntime-web": "^1.31.1",
     "pdf-lib": "^1.17.1",
