@@ -1,0 +1,71 @@
+name: Bug Report
+description: Report a bug in CleanShot (metadata removal, inspection, watermark removal, or UI).
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **Privacy Warning:** Please **DO NOT** attach files containing private, personal, or sensitive data (e.g. personal photos with GPS/EXIF data, private documents, or confidential media). GitHub issues are public. Use minimal, synthetic, or redacted sample files if needed.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser and version are you using?
+      placeholder: e.g. Chrome 131, Firefox 133, Safari 18
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      placeholder: e.g. Windows 11, macOS 15, Ubuntu 24.04, iOS 18
+    validations:
+      required: true
+
+  - type: input
+    id: file-type
+    attributes:
+      label: File Type Affected
+      description: Which file format(s) triggered the issue?
+      placeholder: e.g. JPEG, PNG, PDF, MP4, DOCX, ZIP
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open CleanShot at '...'
+        2. Select a '...' file
+        3. Click '...'
+        4. Observe error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console / Error Output
+      description: Paste any relevant browser console errors (remove any personal file paths or names).
+      render: text
