@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/Amal-kphilip/CleanShot/compare/cleanshot-v1.1.0...cleanshot-v1.1.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **security:** resolve CodeQL scanning alerts and upgrade vulnerable dev dependencies ([#28](https://github.com/Amal-kphilip/CleanShot/issues/28)) ([ac31bba](https://github.com/Amal-kphilip/CleanShot/commit/ac31bbae3ba713d3b2ab342ce5029c175d6f48d5))
+
 ## [1.1.0](https://github.com/Amal-kphilip/CleanShot/compare/cleanshot-v1.0.0...cleanshot-v1.1.0) (2026-11-25)
 
 
