@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { updateJpegXmp, type JpegXmpFields } from '../jpegXmp';
-import { escapeHtml, decodeXmlEntities } from '@/lib/engine/sanitizer';
+import { escapeHtml, decodeXmlEntities, extractXmpTagText } from '@/lib/engine/sanitizer';
 
 const xmpSignature = new TextEncoder().encode('http://ns.adobe.com/xap/1.0/\0');
 const fields: JpegXmpFields = {
@@ -124,5 +124,22 @@ expect(text).toContain('Test Creator');
     // Single-pass decoding decodes valid entities properly
     const normalEntities = '&lt;title&gt; &amp; &quot;rights&quot;';
     expect(decodeXmlEntities(normalEntities)).toBe('<title> & "rights"');
+  });
+
+  it('extracts XMP tag text safely for nested tags, double-encoded entities, and nested comments', () => {
+    const nestedTagXmp = '<x:xmpmeta><dc:title><scr<script>ipt>Safe Title</script></dc:title></x:xmpmeta>';
+    const extractedNested = extractXmpTagText(nestedTagXmp, 'dc:title');
+    expect(extractedNested).not.toContain('<script');
+    expect(extractedNested).toContain('Safe Title');
+
+    const doubleEncodedXmp = '<x:xmpmeta><dc:title>&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;</dc:title></x:xmpmeta>';
+    const extractedDouble = extractXmpTagText(doubleEncodedXmp, 'dc:title');
+    expect(extractedDouble).toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(extractedDouble).not.toContain('<script>');
+
+    const nestedCommentXmp = '<x:xmpmeta><dc:description><!-- outer <!-- inner --> <script>alert(1)</script> -->Clean Desc</dc:description></x:xmpmeta>';
+    const extractedComment = extractXmpTagText(nestedCommentXmp, 'dc:description');
+    expect(extractedComment).not.toContain('<script');
+    expect(extractedComment).toContain('Clean Desc');
   });
 });

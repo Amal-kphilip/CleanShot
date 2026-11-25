@@ -227,6 +227,46 @@ describe('Lossless SVG Stripping Engine', () => {
     expect(result.error).toBeDefined();
     expect(result.error).toMatch(/parser error|malformed/i);
   });
+
+  it('rejects SVGs with internal DOCTYPE/ENTITY declarations (billion laughs)', async () => {
+    const billionLaughsSvg = new TextEncoder().encode(
+      '<?xml version="1.0"?>' +
+        '<!DOCTYPE lolz [' +
+        '<!ENTITY lol "lol">' +
+        '<!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">' +
+        ']>' +
+        '<svg xmlns="http://www.w3.org/2000/svg"><text>&lol2;</text></svg>'
+    );
+    const result = await stripImageMetadata(billionLaughsSvg, 'entity-expansion.svg');
+    expect(result.format).toBe('svg');
+    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/DTD and entity declarations/i);
+  });
+
+  it('cleans normal SVG with comments, <metadata>, and onload= even when DOMParser is unavailable (worker fallback)', async () => {
+    const originalDomParser = globalThis.DOMParser;
+    // Simulate a Web Worker environment where DOMParser is undefined
+    // @ts-expect-error intentional test override
+    globalThis.DOMParser = undefined;
+    try {
+      const svg = new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">' +
+          '<!-- secret generator comment -->' +
+          '<metadata><rdf:RDF>secret</rdf:RDF></metadata>' +
+          '<rect width="50" height="50" onload="alert(1)" fill="blue"/>' +
+        '</svg>'
+      );
+      const result = await stripImageMetadata(svg, 'worker-fallback.svg');
+      expect(result.error).toBeUndefined();
+      const cleaned = new TextDecoder('utf-8').decode(result.cleanedBuffer);
+      expect(cleaned).not.toContain('secret generator comment');
+      expect(cleaned).not.toContain('<metadata');
+      expect(cleaned).not.toContain('onload');
+      expect(cleaned).toContain('<rect');
+    } finally {
+      globalThis.DOMParser = originalDomParser;
+    }
+  });
 });
 
 

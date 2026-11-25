@@ -381,6 +381,12 @@ export function stripSvg(
   const removedSegments: string[] = [];
   const text = new TextDecoder('utf-8').decode(buffer);
 
+  // Reject DTD/entity declarations to prevent billion-laughs / XXE attacks.
+  // This check applies to both the DOMParser browser path and the fallback parser.
+  if (/<!DOCTYPE[\s>]/i.test(text) || /<!ENTITY[\s>]/i.test(text)) {
+    throw new Error('Unsupported SVG: DTD and entity declarations are not allowed');
+  }
+
   const useBrowserDom =
     typeof DOMParser !== 'undefined' && typeof XMLSerializer !== 'undefined';
 
