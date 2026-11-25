@@ -2,6 +2,7 @@ import * as exifr from 'exifr';
 import { unzipSync } from 'fflate';
 import { ParsedMetadata, MetadataField, GpsLocation } from './types';
 import { detectImageFormat } from './magic';
+import { escapeHtml } from './sanitizer';
 
 /**
  * Metadata Inspector parser.
@@ -376,11 +377,13 @@ function extractSvgMetadata(
   if (commentMatch) {
     for (const c of commentMatch) {
       categoriesCount.software++;
+      const commentRaw =
+        c.startsWith('<!--') && c.endsWith('-->') ? c.slice(4, -3) : c;
       fields.push({
         id: `svg-comment-${fields.length}`,
         name: 'SVG Comment / Generator',
         category: 'software',
-        value: c.replace(/<!--|-->/g, '').trim(),
+        value: escapeHtml(commentRaw.trim()),
         riskLevel: 'medium',
         description: 'Embedded XML comment in vector file',
       });

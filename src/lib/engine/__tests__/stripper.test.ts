@@ -199,6 +199,74 @@ describe('Lossless SVG Stripping Engine', () => {
     expect(cleanedStr.includes('xmlns:inkscape')).toBe(false);
     expect(cleanedStr.includes('<rect')).toBe(true);
   });
+
+  it('strips malicious <script> tags, onload attributes, and comment scripts', async () => {
+    const maliciousSvg = new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">' +
+        '<!-- <script>alert("in comment")</script> -->' +
+        '<script>alert("direct script")</script>' +
+        '<rect x="0" y="0" width="10" height="10" onload="alert(\'on-load\')" onclick="alert(\'on-click\')" fill="red"/>' +
+      '</svg>'
+    );
+    const result = await stripImageMetadata(maliciousSvg, 'malicious.svg');
+    expect(result.format).toBe('svg');
+    const cleaned = new TextDecoder('utf-8').decode(result.cleanedBuffer);
+    expect(cleaned).not.toContain('<script');
+    expect(cleaned).not.toContain('in comment');
+    expect(cleaned).not.toContain('onload');
+    expect(cleaned).not.toContain('onclick');
+    expect(cleaned).toContain('<rect');
+  });
+
+  it('safely handles nested malicious tags like <scr<script>ipt> and unclosed markup', async () => {
+    const nestedSvg = new TextEncoder().encode(
+      '<svg width="100"><scr<script>ipt>alert(1)</script></svg>'
+    );
+    const result = await stripImageMetadata(nestedSvg, 'nested.svg');
+    expect(result.format).toBe('svg');
+    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/parser error|malformed/i);
+  });
+
+  it('rejects SVGs with internal DOCTYPE/ENTITY declarations (billion laughs)', async () => {
+    const billionLaughsSvg = new TextEncoder().encode(
+      '<?xml version="1.0"?>' +
+        '<!DOCTYPE lolz [' +
+        '<!ENTITY lol "lol">' +
+        '<!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">' +
+        ']>' +
+        '<svg xmlns="http://www.w3.org/2000/svg"><text>&lol2;</text></svg>'
+    );
+    const result = await stripImageMetadata(billionLaughsSvg, 'entity-expansion.svg');
+    expect(result.format).toBe('svg');
+    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/DTD and entity declarations/i);
+  });
+
+  it('cleans normal SVG with comments, <metadata>, and onload= even when DOMParser is unavailable (worker fallback)', async () => {
+    const originalDomParser = globalThis.DOMParser;
+    // Simulate a Web Worker environment where DOMParser is undefined
+    // @ts-expect-error intentional test override
+    globalThis.DOMParser = undefined;
+    try {
+      const svg = new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">' +
+          '<!-- secret generator comment -->' +
+          '<metadata><rdf:RDF>secret</rdf:RDF></metadata>' +
+          '<rect width="50" height="50" onload="alert(1)" fill="blue"/>' +
+        '</svg>'
+      );
+      const result = await stripImageMetadata(svg, 'worker-fallback.svg');
+      expect(result.error).toBeUndefined();
+      const cleaned = new TextDecoder('utf-8').decode(result.cleanedBuffer);
+      expect(cleaned).not.toContain('secret generator comment');
+      expect(cleaned).not.toContain('<metadata');
+      expect(cleaned).not.toContain('onload');
+      expect(cleaned).toContain('<rect');
+    } finally {
+      globalThis.DOMParser = originalDomParser;
+    }
+  });
 });
 
 

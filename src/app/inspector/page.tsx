@@ -12,6 +12,7 @@ import {
 import { triggerDownload } from '@/lib/zip/clientZip';
 import { ParsedMetadata } from '@/lib/engine/types';
 import { Eye, Download, MapPin } from 'lucide-react';
+import { toSafeImageSrc } from '@/lib/ui/safeUrl';
 
 export default function InspectorPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -77,10 +78,10 @@ export default function InspectorPage() {
           <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-background space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
               <div className="flex items-center gap-3.5">
-                {thumbnailUrl && (
+                {toSafeImageSrc(thumbnailUrl) && (
                   <img
-                    src={thumbnailUrl}
-                    alt={file.name}
+                    src={toSafeImageSrc(thumbnailUrl)}
+                    alt=""
                     decoding="async"
                     className="w-12 h-12 rounded-xl object-cover border border-foreground shrink-0"
                   />

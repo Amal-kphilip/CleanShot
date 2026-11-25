@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ToolShell } from '@/components/tools/ToolShell';
 import { updateJpegXmp } from '@/lib/tools/jpegXmp';
+import { extractXmpTagText } from '@/lib/engine/sanitizer';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 type Fields = {
@@ -89,20 +90,13 @@ export default function EditMetadataPage() {
       const xmpMatch = text.match(/<x:xmpmeta[\s\S]*?<\/x:xmpmeta>/);
       if (xmpMatch) {
         const xmp = xmpMatch[0];
-        const extract = (tag: string) =>
-          xmp
-            .match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1]
-            ?.replace(/<[^>]*>/g, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>') || '';
         setFields({
-          title: extract('dc:title'),
-          description: extract('dc:description'),
-          author: extract('dc:creator'),
-          rights: extract('dc:rights'),
-          creatorTool: extract('xmp:CreatorTool'),
-          createDate: extract('xmp:CreateDate'),
+          title: extractXmpTagText(xmp, 'dc:title'),
+          description: extractXmpTagText(xmp, 'dc:description'),
+          author: extractXmpTagText(xmp, 'dc:creator'),
+          rights: extractXmpTagText(xmp, 'dc:rights'),
+          creatorTool: extractXmpTagText(xmp, 'xmp:CreatorTool'),
+          createDate: extractXmpTagText(xmp, 'xmp:CreateDate'),
         });
       }
     } catch {
