@@ -13,11 +13,9 @@
 
 ## Screenshots
 
-> Add screenshots to `docs/images/` before publishing.
-
 | Metadata Cleaner & Inspector | Gemini Watermark Remover |
 | --- | --- |
-| ![Metadata Cleaner](docs/images/screenshot-cleaner.png) | ![Gemini Watermark Remover](docs/images/screenshot-watermark.png) |
+| ![Metadata Cleaner](docs/images/screenshot-cleaner.jpg) | ![Gemini Watermark Remover](docs/images/screenshot-watermark.jpg) |
 
 ## Features
 
